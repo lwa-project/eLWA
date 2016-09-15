@@ -126,6 +126,15 @@ def main(args):
 	
 	dataDict.close()
 	
+	# Make sure the reference antenna is in there
+	found = False
+	for ant in antennas:
+		if ant.stand.id == config['refAnt']:
+			found = True
+			break
+	if not found:
+		raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
+		
 	bls = []
 	l = 0
 	cross = []

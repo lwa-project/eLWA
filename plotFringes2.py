@@ -35,6 +35,8 @@ plotFringes2.py [OPTIONS] npz [npz [...]]
 
 Options:
 -h, --help                  Display this help information
+-r, --ref-ant               Limit plots to baselines containing the reference 
+                            antenna (default = plot everything)
 -x, --xx                    Plot XX data (default)
 -z, --xy                    Plot XY data
 -w, --yx                    Plot YX data
@@ -53,6 +55,7 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
+	config['refAnt'] = None
 	config['polToPlot'] = 'XX'
 	config['lastFile'] = -1
 	config['freqDecimation'] = 1
@@ -60,7 +63,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hxzwyl:d:", ["help", "xx", "xy", "yx", "yy", "limit=", "decimate="])
+		opts, args = getopt.getopt(args, "hr:xzwyl:d:", ["help", "ref-ant=", "xx", "xy", "yx", "yy", "limit=", "decimate="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -70,6 +73,8 @@ def parseConfig(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-r', '--ref-ant'):
+			config['refAnt'] = int(value, 10)
 		elif opt in ('-x', '--xx'):
 			config['polToPlot'] = 'XX'
 		elif opt in ('-z', '--xy'):
@@ -125,6 +130,16 @@ def main(args):
 	
 	dataDict.close()
 	
+	# Make sure the reference antenna is in there
+	if config['refAnt'] is not None:
+		found = False
+		for ant in antennas:
+			if ant.stand.id == config['refAnt']:
+				found = True
+				break
+		if not found:
+			raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
+			
 	bls = []
 	l = 0
 	cross = []
@@ -133,8 +148,13 @@ def main(args):
 		for j in xrange(i, len(antennas), 2):
 			ant2 = antennas[j].stand.id
 			if ant1 != ant2:
-				bls.append( (ant1,ant2) )
-				cross.append( l )
+				if config['refAnt'] is None:
+					bls.append( (ant1,ant2) )
+					cross.append( l )
+				else:
+					if ant1 == config['refAnt'] or ant2 == config['refAnt']:
+						bls.append( (ant1,ant2) )
+						cross.append( l )
 			l += 1
 	nBL = len(cross)
 	
@@ -187,31 +207,33 @@ def main(args):
 	fig4 = plt.figure()
 	
 	k = 0
+	nRow = int(numpy.sqrt( len(bls) ))
+	nCol = int(numpy.ceil(len(bls)*1.0/nRow))
 	for b in xrange(len(bls)):
 		i,j = bls[b]
 		vis = visToPlot[:,b,:]
 		
-		ax = fig1.add_subplot(5, 5, k+1)
+		ax = fig1.add_subplot(nRow, nCol, k+1)
 		ax.imshow(numpy.angle(vis), extent=(freq[0], freq[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Elapsed Time [s]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
 		
-		ax = fig2.add_subplot(5, 5, k+1)
+		ax = fig2.add_subplot(nRow, nCol, k+1)
 		ax.imshow( numpy.log10(numpy.abs(vis))*10, extent=(freq[0], freq[-1], dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest')
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Elapsed Time [s]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
 		
-		ax = fig3.add_subplot(5, 5, k+1)
+		ax = fig3.add_subplot(nRow, nCol, k+1)
 		ax.plot(freq/1e6, numpy.log10(numpy.abs(vis).mean(axis=0))*10)
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Mean Vis. Amp. [dB]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
 		
-		ax = fig4.add_subplot(5, 5, k+1)
+		ax = fig4.add_subplot(nRow, nCol, k+1)
 		ax.plot(dTimes, numpy.angle(vis[:,good].mean(axis=1)))
 		ax.set_ylim((-numpy.pi,numpy.pi))
 		ax.set_xlabel('Elapsed Time [s]')

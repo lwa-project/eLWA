@@ -51,6 +51,8 @@ Options:
                             (seconds; default = 1 s)
 -d, --duration              Duration of the file to correlate (seconds; 
                             default = 0 -> everything)
+-g, --tag                   Tag to use for the output file (default = first eight
+                            characters of the first input file)
 """
 	
 	if exitCode is not None:
@@ -69,11 +71,12 @@ def parseConfig(args):
 	config['LFFT'] = 512
 	config['skip'] = 0.0
 	config['duration'] = 0.0
+	config['tag'] = None
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hql:u:t:s:d:", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration="])
+		opts, args = getopt.getopt(args, "hql:u:t:s:d:g:", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration=", "tag="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -97,6 +100,8 @@ def parseConfig(args):
 			config['skip'] = float(value)
 		elif opt in ('-d', '--duration'):
 			config['duration'] = float(value)
+		elif opt in ('-g', '--tag'):
+			config['tag'] = value
 		else:
 			assert False
 			
@@ -292,6 +297,13 @@ def main(args):
 		fh[i].seek(-readers[i].FrameSize, 1)
 		
 		beginDates.append( datetime.utcfromtimestamp(junkFrame.getTime()) )
+		
+	# Set the output base filename
+	if config['tag'] is None:
+		outbase = os.path.basename(filenames[0])
+		outbase = os.path.splitext(outbase)[0][:8]
+	else:
+		outbase = config['tag']
 		
 	# Report
 	for i in xrange(len(filenames)):
@@ -587,13 +599,9 @@ def main(args):
 				fileCount += 1
 				
 				if nChunks != 1:
-					outfile = os.path.split(filename)[-1]
-					outfile = os.path.splitext(outfile)[0][:8]
-					outfile = "%s-vis2-%05i.npz" % (outfile, fileCount)
+					outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
 				else:
-					outfile = os.path.split(filename)[-1]
-					outfile = os.path.splitext(outfile)[0][:8]
-					outfile = "%s-vis2.npz" % outfile
+					outfile = "%s-vis2.npz" % outbase
 				print '->', fileCount, j, numpy.mean(subIntTimes), fileCount*nDump*tSub
 				numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
 							vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
