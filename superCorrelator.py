@@ -532,7 +532,7 @@ def main(args):
 						
 			fMin, fMax = -1e12, 1e12
 			if nVDIFInputs > 0:
-				fMin, fMax = max([fMin, freqV.min()]), min([fMax, freqV.max()])
+				fMin, fMax = max([fMin, freqV[vdifLFFT/2:].min()]), min([fMax, freqV[vdifLFFT/2:].max()])
 			if nDRXInputs > 0:
 				fMin, fMax = max([fMin, freqD.min()]), min([fMax, freqD.max()])
 			if nVDIFInputs > 0:
