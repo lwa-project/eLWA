@@ -34,6 +34,7 @@ fringeSearchFine.py [OPTIONS] npz [npz [...]]
 
 Options:
 -h, --help                  Display this help information
+-r, --ref-ant               Reference antenna (default = 1)
 -d, --decimate              Frequency decimation factor (default = 1)
 -l, --limit                 Limit the data loaded to the first N files
                             (default = -1 = load all)
@@ -50,6 +51,7 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
+	config['refAnt'] = 1
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['yOnlyVLALWA'] = False
@@ -57,7 +59,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hd:l:y", ["help", "decimate=", "limit=", "y-only"])
+		opts, args = getopt.getopt(args, "hr:d:l:y", ["help", "ref-ant=", "decimate=", "limit=", "y-only"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -67,6 +69,8 @@ def parseConfig(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-r', '--ref-ant'):
+			config['refAnt'] = int(value, 10)
 		elif opt in ('-d', '--decimate'):
 			config['freqDecimation'] = int(value, 10)
 		elif opt in ('-l', '--limit'):
@@ -203,12 +207,25 @@ def main(args):
 	dirName = os.path.basename( os.path.dirname(filenames[0]) )
 	print "%3s  %9s  %2s  %6s  %8s  %10s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate')
 	for b in xrange(len(bls)):
-		if bls[b][1] not in (51, 52):
+		## Skip over baselines that don't include the reference antenna
+		if bls[b][0] != config['refAnt'] and bls[b][1] != config['refAnt']:
+			continue
+			
+		## Check and see if we need to conjugate the visibility, i.e., switch from
+		## baseline (*,ref) to baseline (ref,*)
+		doConj = False
+		if bls[b][1] == config['refAnt']:
+			doConj = True
+			
+		## Figure out which polarizations to process
+		if bls[b][0] not in (51, 52) and bls[b][1] not in (51, 52):
+			### Standard VLA-VLA baseline
 			if bls[b][0] != bls[0][0]:
 				continue
 			polToUse = ('XX', 'YY')
 			visToUse = (visXX, visYY)
 		else:
+			### LWA-LWA or LWA-VLA baseline
 			if config['yOnlyVLALWA']:
 				polToUse = ('YX', 'YY')
 				visToUse = (visYX, visYY)
@@ -223,6 +240,8 @@ def main(args):
 			bv = 1e6
 			for i,d in enumerate(delay):
 				subData = vis[:,b,:]*1.0
+				if doConj:
+					subData = subData.conj()
 				subData *= numpy.exp(-2j*numpy.pi*freq*d)
 				subData = numpy.mean(subData[:,good], axis=1)
 				
@@ -230,14 +249,18 @@ def main(args):
 					subAmp = subData * numpy.exp(-2j*numpy.pi*dTimes*r)
 					amp[i,j] = numpy.abs( subAmp.mean() )
 					
+			blName = str(bls[b])
+			if doConj:
+				blName = str((bls[b][1],bls[b][0]))
+				
 			best = numpy.where( amp == amp.max() )
 			if amp.max() > 0:
 				bsnr = (amp[best]-amp.mean())[0]/amp.std()
 				bdly = delay[best[0][0]]*1e6
 				brat = drate[best[1][0]]*1e3
-				print "%3i  %9s  %2s  %6.2f  %5.1f us  %6.1f mHz" % (b, bls[b], pol, bsnr, bdly, brat)
+				print "%3i  %9s  %2s  %6.2f  %5.1f us  %6.1f mHz" % (b, blName, pol, bsnr, bdly, brat)
 			else:
-				print "%3i  %9s  %2s  %6s  %8s  %10s" % (b, bls[b], pol, '----', '----', '----')
+				print "%3i  %9s  %2s  %6s  %8s  %10s" % (b, blName, pol, '----', '----', '----')
 				
 			if pol == 'XX':
 				pylab.subplot(2, 2, 1)
