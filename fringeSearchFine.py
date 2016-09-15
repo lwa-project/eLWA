@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Given a collection of .npz files that are close to the right dealy, search for
+Given a collection of .npz files that are close to the right delay, search for
 better delays and rates.
 
 $Rev$
@@ -40,6 +40,7 @@ Options:
                             (default = -1 = load all)
 -y, --y-only                Limit the search on VLA-LWA baselines to the VLA
                             Y pol. only
+-p, --plot                  Show search plots at the end (default = no)
 """
 	
 	if exitCode is not None:
@@ -55,11 +56,12 @@ def parseConfig(args):
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['yOnlyVLALWA'] = False
+	config['plot'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hr:d:l:y", ["help", "ref-ant=", "decimate=", "limit=", "y-only"])
+		opts, args = getopt.getopt(args, "hr:d:l:yp", ["help", "ref-ant=", "decimate=", "limit=", "y-only", "plot"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -77,6 +79,8 @@ def parseConfig(args):
 			config['lastFile'] = int(value, 10)
 		elif opt in ('-y', '--y-only'):
 			config['yOnlyVLALWA'] = True
+		elif opt in ('-p', '--plot'):
+			config['plot'] = True
 		else:
 			assert False
 			
@@ -203,7 +207,9 @@ def main(args):
 	
 	good = numpy.where( (freq>72e6) & ((freq<77.26e6) | (freq>77.3e6)) & ((freq<76.3e6) | (freq>76.32e6)) & ((freq<76.82e6) | (freq>76.83e6)) & ((freq<78.8e6) | (freq>76.86e6)) & ((freq<79.85e6) | (freq>79.90e6)) )[0]
 	
-	import pylab
+	if config['plot']:
+		import pylab
+		
 	dirName = os.path.basename( os.path.dirname(filenames[0]) )
 	print "%3s  %9s  %2s  %6s  %8s  %10s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate')
 	for b in xrange(len(bls)):
@@ -233,7 +239,9 @@ def main(args):
 				polToUse = ('XX', 'XY', 'YX', 'YY')
 				visToUse = (visXX, visXY, visYX, visYY)
 				
-		pylab.figure()
+		if config['plot']:
+			pylab.figure()
+			
 		for pol,vis in zip(polToUse, visToUse):
 			amp = numpy.zeros((delay.size,drate.size))
 			
@@ -262,29 +270,33 @@ def main(args):
 			else:
 				print "%3i  %9s  %2s  %6s  %8s  %10s" % (b, blName, pol, '----', '----', '----')
 				
-			if pol == 'XX':
-				pylab.subplot(2, 2, 1)
-			elif pol == 'XY':
-				pylab.subplot(2, 2, 3)
-			elif pol == 'YX':
-				pylab.subplot(2, 2, 4)
-			else:
-				pylab.subplot(2, 2, 2)
-			pylab.imshow(amp, origin='lower', interpolation='nearest', 
-						extent=(drate[0]*1e3, drate[-1]*1e3, delay[0]*1e6, delay[-1]*1e6), 
-						cmap='gray_r')
-			pylab.plot(drate[best[1][0]]*1e3, delay[best[0][0]]*1e6, linestyle='', marker='x', color='r', ms=15, alpha=0.75)
-			pylab.axis('auto')
-			pylab.title(pol)
-			pylab.xlabel('Rate [mHz]')
-			pylab.ylabel('Delay [$\\mu$s]')
-			pylab.suptitle("%i,%i" % bls[b])
+			if config['plot']:
+				if pol == 'XX':
+					pylab.subplot(2, 2, 1)
+				elif pol == 'XY':
+					pylab.subplot(2, 2, 3)
+				elif pol == 'YX':
+					pylab.subplot(2, 2, 4)
+				else:
+					pylab.subplot(2, 2, 2)
+				pylab.imshow(amp, origin='lower', interpolation='nearest', 
+							extent=(drate[0]*1e3, drate[-1]*1e3, delay[0]*1e6, delay[-1]*1e6), 
+							cmap='gray_r')
+				pylab.plot(drate[best[1][0]]*1e3, delay[best[0][0]]*1e6, linestyle='', marker='x', color='r', ms=15, alpha=0.75)
+				pylab.axis('auto')
+				pylab.title(pol)
+				pylab.xlabel('Rate [mHz]')
+				pylab.ylabel('Delay [$\\mu$s]')
+				pylab.suptitle("%i,%i" % bls[b])
+				
+		if config['plot']:
+			pylab.suptitle(dirName)
+			pylab.draw()
 			
-		pylab.suptitle(dirName)
-		pylab.draw()
-	#pylab.show()
+	if config['plot']:
+		pylab.show()
 
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
-
+	

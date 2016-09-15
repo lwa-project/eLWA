@@ -1,16 +1,33 @@
-import os
-import sys
+# -*- coding: utf-8 -*-
+
+"""
+Module that provide the multi-rate F-engine needed to correlate data at 
+different sample rates.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
+
 import ephem
 import numpy
 
 from lsl.common.constants import c as vLight
 from lsl.common import dp as dp_common
 from lsl.common.constants import *
-from lsl.correlator import _core, uvUtils
+from lsl.correlator import _core
 from lsl.correlator.fx import pol2pol, noWindow
+
+__version__ = '0.1'
+__revision__ = '$Rev$'
+__all__ = ['MRF', 'MRX', '__version__', '__revision__', '__all__']
 
 
 def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z'):
+	"""
+	Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
+	"""
+	
 	# Decode the polarization product into something that we can use to figure 
 	# out which antennas to use for the cross-correlation
 	pol1, pol2 = pol2pol(Pol)
@@ -90,5 +107,9 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 
 
 def MRX(signalsF1, validF1, signalsF2, validF2):
+	"""
+	X-engine for the outputs of MRF().
+	"""
+	
 	output = _core.XEngine2(signalsF1, signalsF2, validF1, validF2)
 	return output

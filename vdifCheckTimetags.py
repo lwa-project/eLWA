@@ -4,9 +4,9 @@
 """
 Check the time times in a VDIF file for flow.
 
-$Rev: 1658 $
-$LastChangedBy: jayce $
-$LastChangedDate: 2014-05-12 09:25:49 -0600 (Mon, 12 May 2014) $
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os

@@ -5,9 +5,9 @@
 Given a vdif file, plot the time averaged spectra for each beam output over some 
 period.
 
-$Rev: 1941 $
-$LastChangedBy: jdowell $
-$LastChangedDate: 2016-06-06 11:08:50 -0600 (Mon, 06 Jun 2016) $
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os

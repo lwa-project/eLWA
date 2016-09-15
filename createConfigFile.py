@@ -1,19 +1,77 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
 Simple script to take in a collection of observation files and build up a 
 superCorrelator.py configuration script.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
 """
 
 import os
 import sys
 import numpy
+import getopt
 from datetime import datetime
 
 from lsl.reader import drx, vdif, errors
 
 from utils import *
 from get_vla_ant_pos import database
+
+
+def usage(exitCode=None):
+	print """createConfigFile.py - Given a collection of LWA/VLA data files, or a directory
+containing LWA/VLA data files, generate a configuration file for 
+superCorrelator.py.
+
+Usage:
+createConfigFile.py [OPTIONS] file [file [...]]
+ or 
+createConfigFile.py [OPTIONS] directory
+
+Options:
+-h, --help                  Display this help information
+-o, --output                Write the configuration to the specified file
+                            (default = standard out)
+"""
+	
+	if exitCode is not None:
+		sys.exit(exitCode)
+	else:
+		return True
+
+
+def parseConfig(args):
+	config = {}
+	# Command line flags - default values
+	config['output'] = None
+	config['args'] = []
+	
+	# Read in and process the command line flags
+	try:
+		opts, args = getopt.getopt(args, "ho:", ["help", "output="])
+	except getopt.GetoptError, err:
+		# Print help information and exit:
+		print str(err) # will print something like "option -a not recognized"
+		usage(exitCode=2)
+		
+	# Work through opts
+	for opt, value in opts:
+		if opt in ('-h', '--help'):
+			usage(exitCode=0)
+		elif opt in ('-o','--output'):
+			config['output'] = value
+		else:
+			assert False
+			
+	# Add in arguments
+	config['args'] = args
+	
+	# Return configuration
+	return config
 
 
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9))
@@ -27,7 +85,9 @@ LWA_ROT = numpy.array([[ numpy.sin(LWA_LAT)*numpy.cos(LWA_LON), numpy.sin(LWA_LA
 
 
 def main(args):
-	filenames = args
+	# Parse the command line
+	config = parseConfig(args)
+	filenames = config['args']
 	
 	# Check if the first argument on the command line is a directory.  If so, 
 	# use what is in that directory
@@ -39,8 +99,8 @@ def main(args):
 	db = database('params')
 	
 	# Setup what we need to write out a configration file
-	config = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
-			'inputs': []}
+	corrConfig = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
+			    'inputs': []}
 	
 	for filename in filenames:
 		#print "%s:" % os.path.basename(filename)
@@ -66,12 +126,12 @@ def main(args):
 			tStart = datetime.utcfromtimestamp(frame0.getTime())
 			
 			## Save
-			config['inputs'].append( {'file': filename, 'type': 'DRX', 
-								 'antenna': 'LWA1', 'pols': 'X, Y', 
-								 'location': (0.0, 0.0, 0.0), 
-								 'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-								 'tstart': tStart, 'freq':(freq1,freq2)} )
-								 
+			corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
+									'antenna': 'LWA1', 'pols': 'X, Y', 
+									'location': (0.0, 0.0, 0.0), 
+									'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+									'tstart': tStart, 'freq':(freq1,freq2)} )
+									
 		elif ext == '.vdif':
 			## VDIF
 			## Read in the GUPPI header
@@ -106,15 +166,15 @@ def main(args):
 			enz[1] *= -1
 			
 			## Save
-			config['source']['name'] = header['SRC_NAME']
-			config['source']['ra2000'] = header['RA_STR']
-			config['source']['dec2000'] = header['DEC_STR']
-			config['inputs'].append( {'file': filename, 'type': 'VDIF', 
-								 'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-								 'location': (enz[0], enz[1], enz[2]),
-								 'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-								 'pad': pad, 'tstart': tStart, 'freq':header['OBSFREQ']} )
-		
+			corrConfig['source']['name'] = header['SRC_NAME']
+			corrConfig['source']['ra2000'] = header['RA_STR']
+			corrConfig['source']['dec2000'] = header['DEC_STR']
+			corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
+									'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
+									'location': (enz[0], enz[1], enz[2]),
+									'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+									'pad': pad, 'tstart': tStart, 'freq':header['OBSFREQ']} )
+									
 		# Done
 		fh.close()
 		
@@ -122,47 +182,54 @@ def main(args):
 	db.close()
 	
 	# Update the file offsets to get things lined up better
-	tMax = max([input['tstart'] for input in config['inputs']])
-	for input in config['inputs']:
+	tMax = max([input['tstart'] for input in corrConfig['inputs']])
+	for input in corrConfig['inputs']:
 		diff = tMax - input['tstart']
 		offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
 		input['fileoffset'] = max([0, offset])
 		
 	# Render the configuration
+	## Setup
+	if config['output'] is None:
+		fh = sys.stdout
+	else:
+		fh = open(config['output'], 'w')
 	## Preample
-	print "# Created"
-	print "#  on %s" % datetime.now()
-	print "#  using %s" % os.path.basename(__file__)
-	print ""
+	fh.write("# Created\n")
+	fh.write("#  on %s\n" % datetime.now())
+	fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
+	fh.write("\n")
 	## Source
-	print "Source"
-	print "  Name     %s" % config['source']['name']
-	print "  RA2000   %s" % config['source']['ra2000']
-	print "  Dec2000  %s" % config['source']['dec2000']
-	print "SourceDone"
-	print ""
+	fh.write("Source\n")
+	fh.write("  Name     %s\n" % corrConfig['source']['name'])
+	fh.write("  RA2000   %s\n" % corrConfig['source']['ra2000'])
+	fh.write("  Dec2000  %s\n" % corrConfig['source']['dec2000'])
+	fh.write("SourceDone\n")
+	fh.write("\n")
 	## Input files
-	for input in config['inputs']:
-		print "Input"
-		print "# Start time is %s" % input['tstart']
+	for input in corrConfig['inputs']:
+		fh.write("Input\n")
+		fh.write("# Start time is %s\n" % input['tstart'])
 		try:
-			print "# VLA pad is %s" % input['pad']
+			fh.write("# VLA pad is %s\n" % input['pad'])
 		except KeyError:
 			pass
 		try:
-			print "# Frequency tuning 1 is %.3f Hz" % input['freq'][0]
-			print "# Frequency tuning 2 is %.3f Hz" % input['freq'][1]
+			fh.write("# Frequency tuning 1 is %.3f Hz\n" % input['freq'][0])
+			fh.write("# Frequency tuning 2 is %.3f Hz\n" % input['freq'][1])
 		except TypeError:
-			print "# Frequency tuning is %.3f Hz" % input['freq']
-		print "  File         %s" % input['file']
-		print "  Type         %s" % input['type']
-		print "  Antenna      %s" % input['antenna']
-		print "  Pols         %s" % input['pols']
-		print "  Location     %.6f, %.6f, %.6f" % input['location']
-		print "  ClockOffset  %.3f, %.3f" % input['clockoffset']
-		print "  FileOffset   %.3f" % input['fileoffset']
-		print "InputDone"
-		print ""
+			fh.write("# Frequency tuning is %.3f Hz\n" % input['freq'])
+		fh.write("  File         %s\n" % input['file'])
+		fh.write("  Type         %s\n" % input['type'])
+		fh.write("  Antenna      %s\n" % input['antenna'])
+		fh.write("  Pols         %s\n" % input['pols'])
+		fh.write("  Location     %.6f, %.6f, %.6f\n" % input['location'])
+		fh.write("  ClockOffset  %.3f, %.3f\n" % input['clockoffset'])
+		fh.write("  FileOffset   %.3f\n" % input['fileoffset'])
+		fh.write("InputDone\n")
+		fh.write("\n")
+	if fh != sys.stdout:
+		fh.close()
 
 
 if __name__ == "__main__":

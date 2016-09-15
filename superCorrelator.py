@@ -1,4 +1,13 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Correlator for LWA and/or VLA data.
+
+$Rev$
+$LastChangedBy$
+$LastChangedDate$
+"""
 
 import os
 import re
@@ -32,11 +41,10 @@ superCorrelator.py [OPTIONS] <config_file>
 
 Options:
 -h, --help                  Display this help information
+-q, --quiet                 Disable verbose time tag information
 -l, --fft-length            Set FFT length (default = 512)
 -s, --skip                  Amount of time in to skip into the files (seconds; 
                             default = 0 s)
--r, --read-time             Amount of data to read in as a chunk (seconds; 
-                            default = 1 s)
 -u, --subint-time           Sub-integration time for the data (seconds; 
                             default = 0.020 s)
 -t, --dump-time             Correlator dump time for saving the visibilties
@@ -54,6 +62,7 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
+	config['verbose'] = True
 	config['readTime'] = 1.0
 	config['subTime'] = 0.020
 	config['dumpTime'] = 1.0
@@ -64,7 +73,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hl:r:u:t:s:d:", ["help", "fft-length=", "read-time=", "subint-time=", "dump-time=", "skip=", "duration="])
+		opts, args = getopt.getopt(args, "hql:u:t:s:d:", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -74,6 +83,8 @@ def parseConfig(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-q', '--quiet'):
+			config['verbose'] = False
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
 		elif opt in ('-r', '--read-time'):
@@ -420,16 +431,18 @@ def main(args):
 					sel.append( l )
 		dataD = dataD[sel,:]
 		dataD /= 7.0
-			
-		print 'S', tStartB
+		
+		if config['verbose']:
+			print 'TT - Start', tStartB
 		tStartMin = min([sec for sec,frac in tStartB])
 		tStartRel = [(sec-tStartMin)+frac for sec,frac in tStartB]
 		
 		offsets = []
 		for j in xrange(nVDIFInputs+nDRXInputs):
 			offsets.append( int( round((max(tStartRel) - tStartRel[j])*srate[j]) ) )
-		print 'O', offsets
-		
+		if config['verbose']:
+			print 'TT - Offsets', offsets
+			
 		for j,offset in enumerate(offsets):
 			if j < nVDIFInputs:
 				if offset != 0:
@@ -459,12 +472,14 @@ def main(args):
 			if max(drxOffsets) != 0:
 				dataD = dataD[:,:-max(drxOffsets)]
 				
-		print 'F', tStartB
+		if config['verbose']:
+			print 'TT - Adjusted', tStartB
 		tStartMinSec  = min([sec  for sec,frac in tStartB])
 		tStartMinFrac = min([frac for sec,frac in tStartB])
 		tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
-		print 'R', ["%.1f ns" % (r*1e9,) for r in tStartRel]
-		
+		if config['verbose']:
+			print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
+			
 		nSub = int(tRead/tSub)
 		nSampV = int(srate[ 0]*tSub)
 		nSampD = int(srate[-1]*tSub)
@@ -579,9 +594,10 @@ def main(args):
 					outfile = os.path.split(filename)[-1]
 					outfile = os.path.splitext(outfile)[0][:8]
 					outfile = "%s-vis2.npz" % outfile
-				print '->', fileCount, j, numpy.mean(subIntTimes), nDump*tSub
-				numpy.savez(outfile, srate=srate[0]/2.0, freq1=freqXX, vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
-									tStart=numpy.mean(subIntTimes), tInt=nDump*tSub, config=rawConfig)
+				print '->', fileCount, j, numpy.mean(subIntTimes), fileCount*nDump*tSub
+				numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
+							vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
+							tStart=numpy.mean(subIntTimes), tInt=nDump*tSub)
 
 
 if __name__ == "__main__":
