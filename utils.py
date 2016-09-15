@@ -8,6 +8,7 @@ $LastChangedBy$
 $LastChangedDate$
 """
 
+import re
 import ephem
 from datetime import datetime
 
@@ -17,9 +18,10 @@ from lsl.reader import drx, vdif
 from lsl.common.mcs import datetime2mjdmpm
 
 
-__version__ = '0.1'
+__version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['multiColumnPrint', 'readCorrelatorConfiguration', 'getBetterTime', 'readGUPPIHeader', 'PolyCo', 
+__all__ = ['multiColumnPrint', 'parseTimeString', 'readCorrelatorConfiguration', 
+		 'getBetterTime', 'readGUPPIHeader', 'PolyCo', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -64,11 +66,46 @@ def multiColumnPrint(items, sep=';  ', width=86):
 	for r in xrange(nRow):
 		## Build up the line
 		out = sep.join([formatter % str(i) for i in items[r*nCol:(r+1)*nCol]])
-		## Add the seperator at the end if this isnt' the last line
+		## Add the separator at the end if this isn't the last line
 		if r != nRow-1:
 			out += sep
 		## Print
 		print out
+
+
+_timeRE = re.compile('(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>[mun]?s)?')
+def parseTimeString(value):
+	"""
+	Given a time in the format of "decimal_value unit", convert the string 
+	to a floating point time in seconds.  Valid units are:
+	 * ks - kiloseconds
+	 * s - seconds
+	 * ms - milliseconds
+	 * us - microseconds
+	 * ns - nanoseconds
+	 
+	If no units are provided, the value is assumed to be in seconds.
+	"""
+	
+	try:
+		value = float(value)
+	except ValueError:
+		mtch = _timeRE.match(value)
+		if mtch is None:
+			raise ValueError("Invalid literal for parseTimeString(): %s" % value)
+		value = float(mtch.group('value'))
+		unit = mtch.group('unit')
+		if unit is not None:
+			if unit == 'ks':
+				value *= 1e3
+			elif unit == 'ms':
+				value *= 1e-3
+			elif unit == 'us':
+				value *= 1e-6
+			elif unit == 'ns':
+				value *= 1e-9
+				
+	return value
 
 
 def readCorrelatorConfiguration(filename):
@@ -119,9 +156,9 @@ def readCorrelatorConfiguration(filename):
 		elif line[:8] == 'Location':
 			block['location'] = [float(v) for v in line.split(None, 1)[1].split(',')]
 		elif line[:11] == 'ClockOffset':
-			block['clockOffset'] = [float(v) for v in line.split(None, 1)[1].split(',')]
+			block['clockOffset'] = [parseTimeString(v) for v in line.split(None, 1)[1].split(',')]
 		elif line[:10] == 'FileOffset':
-			block['fileOffset'] = float(line.split(None, 1)[1])
+			block['fileOffset'] = parseTimeString(line.split(None, 1)[1])
 		elif line == 'InputDone':
 			blocks.append( block )
 	fh.close()
