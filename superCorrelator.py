@@ -35,8 +35,14 @@ Options:
 -l, --fft-length            Set FFT length (default = 512)
 -s, --skip                  Amount of time in to skip into the files (seconds; 
                             default = 0 s)
--t, --avg-time              Window to average visibilities in time (seconds; 
+-r, --read-time             Amount of data to read in as a chunk (seconds; 
                             default = 1 s)
+-u, --subint-time           Sub-integration time for the data (seconds; 
+                            default = 0.020 s)
+-t, --dump-time             Correlator dump time for saving the visibilties
+                            (seconds; default = 1 s)
+-d, --duration              Duration of the file to correlate (seconds; 
+                            default = 0 -> everything)
 """
 	
 	if exitCode is not None:
@@ -48,14 +54,17 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
-	config['avgTime'] = 1.0
+	config['readTime'] = 1.0
+	config['subTime'] = 0.020
+	config['dumpTime'] = 1.0
 	config['LFFT'] = 512
 	config['skip'] = 0.0
+	config['duration'] = 0.0
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
+		opts, args = getopt.getopt(args, "hl:r:u:t:s:d:", ["help", "fft-length=", "read-time=", "subint-time=", "dump-time=", "skip=", "duration="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -67,10 +76,16 @@ def parseConfig(args):
 			usage(exitCode=0)
 		elif opt in ('-l', '--fft-length'):
 			config['LFFT'] = int(value)
-		elif opt in ('-t', '--avg-time'):
-			config['avgTime'] = float(value)
+		elif opt in ('-r', '--read-time'):
+			config['readTime'] = float(value)
+		elif opt in ('-u', '--subint-time'):
+			config['subTime'] = float(value)
+		elif opt in ('-t', '--dump-time'):
+			config['dumpTime'] = float(value)
 		elif opt in ('-s', '--skip'):
 			config['skip'] = float(value)
+		elif opt in ('-d', '--duration'):
+			config['duration'] = float(value)
 		else:
 			assert False
 			
@@ -233,17 +248,17 @@ def main(args):
 		print "Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime)
 		
 	# Set integration time
-	tInt = config['avgTime']
-	nFrames = int(round(tInt*srate[-1]/readers[-1].DataLength))
-	tInt = nFrames*readers[-1].DataLength/srate[-1]
+	tRead = config['readTime']
+	nFrames = int(round(tRead*srate[-1]/readers[-1].DataLength))
+	tRead = nFrames*readers[-1].DataLength/srate[-1]
 	
-	nFramesV = tInt*srate[0]/readers[0].DataLength
+	nFramesV = tRead*srate[0]/readers[0].DataLength
 	nFramesD = nFrames
 	while nFramesV != int(nFramesV):
 		nFrames += 1
-		tInt = nFrames*readers[-1].DataLength/srate[-1]
+		tRead = nFrames*readers[-1].DataLength/srate[-1]
 		
-		nFramesV = tInt*srate[0]/readers[0].DataLength
+		nFramesV = tRead*srate[0]/readers[0].DataLength
 		nFramesD = nFrames
 	nFramesV = int(nFramesV)
 	
@@ -251,7 +266,11 @@ def main(args):
 	tFileV = nFramesFile[ 0] / beampols[ 0] * readers[ 0].DataLength / srate[ 0]
 	tFileD = nFramesFile[-1] / beampols[-1] * readers[-1].DataLength / srate[-1]
 	tFile = min([tFileV, tFileD])
-	
+	if config['duration'] > 0.0:
+		duration = config['duration']
+		duration = tRead * int(round(duration / tRead))
+		tFile = duration
+		
 	# Date
 	beginDates = []
 	for i in xrange(len(filenames)):
@@ -277,11 +296,11 @@ def main(args):
 	print "    RA: %s" % refSrc._ra
 	print "    Dec: %s" % refSrc._dec
 	print "  ==="
-	print "  Integration Time: %.3f s" % tInt
-	print "  Integrations in File: %i" % int(tFile/tInt)
+	print "  Data Read Time: %.3f s" % tRead
+	print "  Data Reads in File: %i" % int(tFile/tRead)
 	print " "
 	
-	nFramesV = int(round(tInt*srate[0]/readers[0].DataLength))
+	nFramesV = int(round(tRead*srate[0]/readers[0].DataLength))
 	framesPerSecondV = int(srate[0] / readers[0].DataLength)
 	nFramesB = nFrames
 	framesPerSecondB = srate[-1] / readers[-1].DataLength
@@ -309,11 +328,14 @@ def main(args):
 	print "VDIF appears to correspond to tuning #%i in DRX" % vdifPivot
 	print " "
 	
-	nChunks = int(tFile/tInt)
-	tSub = 0.020
-	nDump = int(0.04 / tSub)
-	#tInt = nDump * tSub
-	#print "Integration time is now %.3f s" % tInt
+	nChunks = int(tFile/tRead)
+	tSub = config['subTime']
+	tDump = config['dumpTime']
+	nDump = int(tDump / tSub)
+	tDump = nDump * tSub
+	print "Sub-integration time is: %.3f s" % tSub
+	print "Integration (dump) time is: %.3f s" % tDump
+	print " "
 	
 	nVDIFInputs = sum([1 for reader in readers if reader is vdif])
 	nDRXInputs = sum([1 for reader in readers if reader is drx])
@@ -443,12 +465,12 @@ def main(args):
 		tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
 		print 'R', ["%.1f ns" % (r*1e9,) for r in tStartRel]
 		
-		nSub = int(tInt/tSub)
+		nSub = int(tRead/tSub)
 		nSampV = int(srate[ 0]*tSub)
 		nSampD = int(srate[-1]*tSub)
 		
-		tV = i*tInt + numpy.arange(dataV.shape[1], dtype=numpy.float64)/srate[ 0]
-		tD = i*tInt + numpy.arange(dataD.shape[1], dtype=numpy.float64)/srate[-1]
+		tV = i*tRead + numpy.arange(dataV.shape[1], dtype=numpy.float64)/srate[ 0]
+		tD = i*tRead + numpy.arange(dataD.shape[1], dtype=numpy.float64)/srate[-1]
 		
 		for j in xrange(nSub):
 			tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/srate[0]
