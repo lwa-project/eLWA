@@ -33,7 +33,7 @@ fringeSearchZero.py [OPTIONS] npz [npz [...]]
 
 Options:
 -h, --help                  Display this help information
--r, --ref-ant               Reference antenna (default = 1)
+-r, --ref-ant               Reference antenna (default = first antenna)
 -d, --decimate              Frequency decimation factor (default = 1)
 -l, --limit                 Limit the data loaded to the first N files
                             (default = -1 = load all)
@@ -51,7 +51,7 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
-	config['refAnt'] = 1
+	config['refAnt'] = None
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['yOnlyVLALWA'] = False
@@ -126,14 +126,17 @@ def main(args):
 	dataDict.close()
 	
 	# Make sure the reference antenna is in there
-	found = False
-	for ant in antennas:
-		if ant.stand.id == config['refAnt']:
-			found = True
-			break
-	if not found:
-		raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
-		
+	if config['refAnt'] is None:
+		config['refAnt'] = antennas[0].stand.id
+	else:
+		found = False
+		for ant in antennas:
+			if ant.stand.id == config['refAnt']:
+				found = True
+				break
+		if not found:
+			raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
+			
 	bls = []
 	l = 0
 	cross = []
@@ -214,11 +217,39 @@ def main(args):
 	delay = numpy.linspace(-dMax, dMax, 2*int(dMax*1e6)+1)		# s
 	drate = numpy.linspace(-rMax, rMax, 2*int(rMax*1e2)+1)		# Hz
 	
-	good = numpy.where( (freq>72e6) & ((freq<77.26e6) | (freq>77.3e6)) & ((freq<76.3e6) | (freq>76.32e6)) & ((freq<76.82e6) | (freq>76.83e6)) & ((freq<78.8e6) | (freq>76.86e6)) & ((freq<79.85e6) | (freq>79.90e6)) )[0]
-	
+	# Find RFI and trim it out.  This is done by computing average visibility 
+	# amplitudes (a "spectrum") and running a median filter in frequency to extract
+	# the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
+	# trimmed.  Additionally, area where the bandpass fall below 10% of its mean
+	# value are also masked.
+	spec  = numpy.median(numpy.abs(visXX.mean(axis=0)), axis=0)
+	spec += numpy.median(numpy.abs(visYY.mean(axis=0)), axis=0)
+	smth = spec*0.0
+	winSize = int(250e3/(freq[1]-freq[0]))
+	winSize += ((winSize+1)%2)
+	for i in xrange(smth.size):
+		mn = max([0, i-winSize/2])
+		mx = min([i+winSize, smth.size])
+		smth[i] = numpy.median(spec[mn:mx])
+	smth /= robust.mean(smth)
+	bp = spec / smth
+	good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+	nBad = nChan - len(good)
+	print "Masking %i of %i channels (%.1f%%)" % (nBad, nChan, 100.0*nBad/nChan)
 	if config['plot']:
 		import pylab
+		pylab.plot(freq/1e6, numpy.log10(spec)*10)
+		pylab.plot(freq[good]/1e6, numpy.log10(spec[good])*10)
+		pylab.title('Mean Visibility Amplitude')
+		pylab.xlabel('Frequency [MHz]')
+		pylab.ylabel('PSD [arb. dB]')
+		pylab.draw()
 		
+	freq2 = freq*1.0
+	freq2.shape += (1,)
+	dTimes2 = dTimes*1.0
+	dTimes2.shape += (1,)
+	
 	dirName = os.path.basename( os.path.dirname(filenames[0]) )
 	print "%3s  %9s  %2s  %6s  %8s  %10s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate')
 	for b in xrange(len(bls)):
@@ -235,8 +266,6 @@ def main(args):
 		## Figure out which polarizations to process
 		if bls[b][0] not in (51, 52) and bls[b][1] not in (51, 52):
 			### Standard VLA-VLA baseline
-			if bls[b][0] != bls[0][0]:
-				continue
 			polToUse = ('XX', 'YY')
 			visToUse = (visXX, visYY)
 		else:
@@ -252,20 +281,14 @@ def main(args):
 			pylab.figure()
 			
 		for pol,vis in zip(polToUse, visToUse):
-			amp = numpy.zeros((delay.size,drate.size))
+			subData = vis[:,b,good]*1.0
+			if doConj:
+				subData = subData.conj()
+			subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+			subData /= freq2[good,:].size
+			amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
+			amp = numpy.abs(amp / dTimes2.size)
 			
-			bv = 1e6
-			for i,d in enumerate(delay):
-				subData = vis[:,b,:]*1.0
-				if doConj:
-					subData = subData.conj()
-				subData *= numpy.exp(-2j*numpy.pi*freq*d)
-				subData = numpy.mean(subData[:,good], axis=1)
-				
-				for j,r in enumerate(drate):
-					subAmp = subData * numpy.exp(-2j*numpy.pi*dTimes*r)
-					amp[i,j] = numpy.abs( subAmp.mean() )
-					
 			blName = str(bls[b])
 			if doConj:
 				blName = str((bls[b][1],bls[b][0]))
