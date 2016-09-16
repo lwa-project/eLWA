@@ -30,10 +30,15 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 	
 	# Decode the polarization product into something that we can use to figure 
 	# out which antennas to use for the cross-correlation
-	pol1, pol2 = pol2pol(Pol)
-	
-	antennas1 = [a for a in antennas if a.pol == pol1]
-	signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]
+	if Pol == '*':
+		antennas1 = antennas
+		signalsIndex1 = [i for (i, a) in enumerate(antennas)]
+		
+	else:
+		pol1, pol2 = pol2pol(Pol)
+		
+		antennas1 = [a for a in antennas if a.pol == pol1]
+		signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]
 	
 	nStands = len(antennas1)
 	
@@ -93,7 +98,10 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 			FEngine = _core.FEngineC2
 		else:
 			FEngine = _core.FEngineR2
-		signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+		if len(signalsIndex1) != signals.shape[0]:
+			signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+		else:
+			signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
 		
 	else:
 		# Data with a window function provided
@@ -101,8 +109,11 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 			FEngine = _core.FEngineC3
 		else:
 			FEngine = _core.FEngineR3
-		signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, window=window)
-		
+		if len(signalsIndex1) != signals.shape[0]:
+			signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, window=window)
+		else:
+			signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, window=window)
+			
 	return freq, signalsF1/numpy.sqrt(LFFT), validF1, delays1
 
 
