@@ -4,6 +4,7 @@ import os
 import sys
 import numpy
 import getopt
+from datetime import datetime
 
 from lsl.reader import vdif, errors
 from lsl.correlator import fx as fxc
