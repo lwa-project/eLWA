@@ -298,7 +298,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
 		for j in xrange(framesWork):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
-				cFrame = vdif.readFrame(fh, Verbose=False)
+				cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0, Verbose=False)
 			except errors.eofError:
 				done = True
 				break
@@ -485,7 +485,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
 		for j in xrange(framesWork):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
-				cFrame = vdif.readFrame(fh, Verbose=False)
+				cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0, Verbose=False)
 			except errors.eofError:
 				done = True
 				break
