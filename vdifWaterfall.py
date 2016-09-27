@@ -258,7 +258,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
 		else:
 			pass
 	fh.seek(-4*vdif.FrameSize, 1)
-	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
+	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
 	if float(fxc.__version__) < 0.8:
 		freq = freq[1:]
 		
@@ -445,7 +445,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
 		else:
 			pass
 	fh.seek(-4*vdif.FrameSize, 1)
-	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=1/srate))
+	freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
 	if float(fxc.__version__) < 0.8:
 		freq = freq[1:]
 		
