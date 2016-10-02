@@ -73,7 +73,7 @@ def multiColumnPrint(items, sep=';  ', width=86):
 		print out
 
 
-_timeRE = re.compile('(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>[mun]?s)?')
+_timeRE = re.compile('[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>[mun]?s)?[ \t]*')
 def parseTimeString(value):
 	"""
 	Given a time in the format of "decimal_value unit", convert the string 
