@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
 Given a collection of .npz files create a FITS-IDI file that can be read in by
@@ -48,6 +49,7 @@ Options:
 -s, --split                 Maximum number of integrations in a FITS IDI file
                             (default = 3000)
 -t, --tag                   Optional tag to add to the filename
+-f, --force                  Force overwritting of existing FITS-IDI files
 """
 	
 	if exitCode is not None:
@@ -63,11 +65,12 @@ def parseConfig(args):
 	config['lastFile'] = -1
 	config['maxIntsInIDI'] = 3000
 	config['outnameTag'] = None
+	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hd:l:s:t:", ["help", "decimate=", "limit=", "split=", "tag="])
+		opts, args = getopt.getopt(args, "hd:l:s:t:f", ["help", "decimate=", "limit=", "split=", "tag=", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -85,6 +88,8 @@ def parseConfig(args):
 			config['maxIntsInIDI'] = int(value, 10)
 		elif opt in ('-t', '--tag'):
 			config['outnameTag'] = value
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 			
@@ -179,6 +184,7 @@ def main(args):
 			visYY = visYY.mean(axis=2)
 			
 		if i % config['maxIntsInIDI'] == 0:
+			## Clean up the previous file
 			try:
 				fits.write()
 				fits.close()
@@ -186,10 +192,25 @@ def main(args):
 				pass
 				
 			## Create the FITS-IDI file as needed
+			### What to call it
 			if config['outnameTag'] is None:
 				outname = 'buildIDI_%s.FITS_%i' % (refSrc.name, i/config['maxIntsInIDI']+1,)
 			else:
 				outname = 'buildIDI_%s_%s.FITS_%i' % (refSrc.name, config['outnameTag'], i/config['maxIntsInIDI']+1,)
+				
+			### Does it already exist or not
+			if os.path.exists(outname):
+				if not config['force']:
+					yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+				else:
+					yn = 'y'
+					
+				if yn not in ('n', 'N'):
+					os.unlink(outname)
+				else:
+					raise RuntimeError("Output file '%s' already exists" % outname)
+					
+			### Create the file
 			fits = fitsidi.IDI(outname, refTime=tStart)
 			fits.setStokes(['XX', 'XY', 'YX', 'YY'])
 			fits.setFrequency(freq)
@@ -209,11 +230,12 @@ def main(args):
 		fits.addDataSet(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
 		fits.addDataSet(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
 		fits.addDataSet(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
+		
+	# Cleanup the last file
 	fits.write()
 	fits.close()
 
 
 if __name__ == "__main__":
 	main(sys.argv[1:])
-	
 	
