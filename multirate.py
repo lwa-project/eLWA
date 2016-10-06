@@ -88,9 +88,8 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 		delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + 40e-6
 	minDelay = delays1[:,dlyRef].min()
 	if minDelay < 0:
-		print 'II', antennas1[0].stand.id, antennas1[0].pol, minDelay*1e6, minDelay*SampleRate, signals.shape
-	#delays1 *= 0.0
-	
+		raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))
+		
 	# F - defaults to running parallel in C via OpenMP
 	if window is noWindow:
 		# Data without a window function provided
