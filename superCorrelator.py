@@ -12,6 +12,7 @@ $LastChangedDate$
 import os
 import re
 import sys
+import math
 import time
 import ephem
 import numpy
@@ -110,6 +111,41 @@ def parseConfig(args):
 	
 	# Return configuration
 	return config
+
+
+def bestFreqUnits(freq):
+	"""Given a numpy array of frequencies in Hz, return a new array with the
+	frequencies in the best units possible (kHz, MHz, etc.)."""
+	
+	# Figure out how large the data are
+	try:
+		scale = int(math.log10(max(freq)))
+	except TypeError:
+		scale = int(math.log10(freq))
+	if scale >= 9:
+		divis = 1e9
+		units = 'GHz'
+	elif scale >= 6:
+		divis = 1e6
+		units = 'MHz'
+	elif scale >= 3:
+		divis = 1e3
+		units = 'kHz'
+	elif scale >= 0:
+		divis = 1
+		units = 'Hz'
+	elif scale >= -3:
+		divis = 1e-3
+		units = 'mHz'
+	else:
+		divis = 1e-6
+		units = 'uHz'
+		
+	# Convert the frequency
+	newFreq = freq / divis
+	
+	# Return units and freq
+	return (newFreq, units)
 
 
 def main(args):
@@ -335,7 +371,7 @@ def main(args):
 	print "Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],)
 	print " "
 	
-	vdifLFFT = LFFT
+	vdifLFFT = LFFT * 2
 	drxLFFT = vdifLFFT * srate[-1] / srate[0]
 	while drxLFFT != int(drxLFFT):
 		vdifLFFT += 1
@@ -454,6 +490,7 @@ def main(args):
 		# Time tag alignment (sample based)
 		## Initial time tags for each stream and the relative start time for each stream
 		if config['verbose']:
+			### TT = time tag
 			print 'TT - Start', tStartB
 		tStartMin = min([sec for sec,frac in tStartB])
 		tStartRel = [(sec-tStartMin)+frac for sec,frac in tStartB]
@@ -535,13 +572,22 @@ def main(args):
 											
 			if nDRXInputs > 0:
 				freqD, feoD, veoD, deoD = multirate.MRF(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-											SampleRate=srate[-1], CentralFreq=cFreqs[0][0], 
+											SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
 											Pol='*', phaseCenter=refSrc)
 											
-				## Rotate the phase in time to deal with frequency offset between the VLA and LWA
+				
+			## Rotate the phase in time to deal with frequency offset between the VLA and LWA
+			if nDRXInputs*nVDIFInputs > 0:
+				subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
+				
+				if i == 0 and j == 0:
+					## FC = frequency correction
+					tv,tu = bestFreqUnits(subChanFreqOffset)
+					print "FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu)
+					
 				for s in xrange(feoD.shape[0]):
 					for w in xrange(feoD.shape[2]):
-						feoD[s,:,w] *= numpy.exp(-2j*numpy.pi*(cFreqs[0][0]-cFreqs[-1][vdifPivot-1])*tDSub[w*drxLFFT])
+						feoD[s,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
 						
 			## Sort out what goes where (channels and antennas) if we don't already know
 			try:
@@ -570,6 +616,44 @@ def main(args):
 					aXD = [i for (i,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
 					aYD = [i for (i,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
 					
+				### Validate the channel alignent and fix it if needed
+				if nVDIFInputs*nDRXInputs != 0:
+					pd = freqV[goodV[0]] - freqD[goodD[0]]
+					# Need to shift?
+					if abs(pd) >= 1.01*abs(subChanFreqOffset):
+						## Need to shift
+						if pd < 0.0:
+							goodV = goodV[1:]
+						else:
+							goodD = goodD[1:]
+							
+					# Need to trim?
+					if len(goodV) > len(goodD):
+						## Yes, goodV is too long
+						goodV = goodV[:len(goodD)]
+					elif len(goodD) > len(goodV):
+						## Yes, goodD is too long
+						goodD = goodD[:len(goodV)]
+					else:
+						## No, nothing needs to be done
+						pass
+						
+					# Validate
+					fd = freqV[goodV] - freqD[goodD]
+					try:
+						assert(fd.min() >= 0.99*subChanFreqOffset)
+						assert(fd.max() <= 1.01*subChanFreqOffset)
+						
+						## FS = frequency selection
+						tv,tu = bestFreqUnits(freqV[1]-freqV[0])
+						print "FS - Found %i, %.3f %s overalapping channels" % (len(goodV), tv, tu)
+						tv,tu = bestFreqUnits(freqV[goodV[-1]]-freqV[goodV[0]])
+						print "FS - Bandwidth is %.3f %s" % (tv, tu)
+						print "FS - Channels span %.3f MHz to %.3f MHz" % (freqV[goodV[0]]/1e6, freqV[goodV[-1]]/1e6)
+							
+					except AssertionError:
+						raise RuntimeError("Cannot find a common frequency set between the input data: offsets range between %.3f Hz and %.3f Hz, expected %.3f Hz" % (fd.min(), fd.max(), subChanFreqOffset))
+						
 				### Apply
 				if nVDIFInputs > 0:
 					freqV = freqV[goodV]
@@ -579,41 +663,27 @@ def main(args):
 					feoD = feoD[:,goodD,:]
 					
 			## Setup the intermediate F-engine products and trim the data
-			try:
-				feoX *= 0.0
-				feoY *= 0.0
-				veoX *= 0
-				veoY *= 0
+			### Figure out the minimum number of windows
+			nWin = 1e12
+			if nVDIFInputs > 0:
+				nWin = min([nWin, feoV.shape[2]])
+			if nDRXInputs > 0:
+				nWin = min([nWin, feoD.shape[2]])
 				
-				if nVDIFInputs > 0:
-					feoV = feoV[:,:,:nWin]
-					veoV = veoV[:,:nWin]
-				if nDRXInputs > 0:
-					feoD = feoD[:,:,:nWin]
-					veoD = veoD[:,:nWin]
-					
-			except NameError:
-				### Figure out the minimum number of windows
-				nWin = 1e12
-				if nVDIFInputs > 0:
-					nWin = min([nWin, feoV.shape[2]])
-				if nDRXInputs > 0:
-					nWin = min([nWin, feoD.shape[2]])
-					
-				### Initialize the intermediate arrays
-				feoX = numpy.zeros((nVDIFInputs+nDRXInputs, feoV.shape[1], nWin), dtype=feoV.dtype)
-				feoY = numpy.zeros((nVDIFInputs+nDRXInputs, feoV.shape[1], nWin), dtype=feoV.dtype)
-				veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=veoV.dtype)
-				veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=veoV.dtype)
+			### Initialize the intermediate arrays
+			feoX = numpy.zeros((nVDIFInputs+nDRXInputs, feoV.shape[1], nWin), dtype=feoV.dtype)
+			feoY = numpy.zeros((nVDIFInputs+nDRXInputs, feoV.shape[1], nWin), dtype=feoV.dtype)
+			veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=veoV.dtype)
+			veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=veoV.dtype)
+			
+			### Trim
+			if nVDIFInputs > 0:
+				feoV = feoV[:,:,:nWin]
+				veoV = veoV[:,:nWin]
+			if nDRXInputs > 0:
+				feoD = feoD[:,:,:nWin]
+				veoD = veoD[:,:nWin]
 				
-				### Trim
-				if nVDIFInputs > 0:
-					feoV = feoV[:,:,:nWin]
-					veoV = veoV[:,:nWin]
-				if nDRXInputs > 0:
-					feoD = feoD[:,:,:nWin]
-					veoD = veoD[:,:nWin]
-					
 			## Sort it all out by polarization
 			if nVDIFInputs > 0:
 				feoX[:nVDIFInputs,:,:] = feoV[aXV,:,:]
@@ -664,7 +734,10 @@ def main(args):
 				numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
 							vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
 							tStart=numpy.mean(subIntTimes), tInt=tDump)
-				print '->', fileCount, j, numpy.mean(subIntTimes), fileCount*tDump
+				### CD = correlator dump
+				print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
+				if fileCount == 1:
+					print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
 
 
 if __name__ == "__main__":

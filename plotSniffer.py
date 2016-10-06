@@ -40,6 +40,10 @@ Options:
                             (default = -1 = load all)
 -y, --y-only                Limit the search on VLA-LWA baselines to the VLA
                             Y pol. only
+-e, --delay-window          Delay search window in us (default = -inf,inf 
+                            = maximum allowed by spectral resolution)
+-a, --rate-window           Rate search window in mHz (default = -inf,inf
+                            = maximum allowed by temporal resolution)
 -i, --interval              Fringe search interveral in seconds (default = 30)
 """
 	
@@ -56,12 +60,14 @@ def parseConfig(args):
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['yOnlyVLALWA'] = False
+	config['delayWindow'] = [-numpy.inf, numpy.inf]
+	config['rateWindow'] = [-numpy.inf, numpy.inf]
 	config['interval'] = 30
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hr:d:l:yi:", ["help", "ref-ant=", "decimate=", "limit=", "y-only", "interval="])
+		opts, args = getopt.getopt(args, "hr:d:l:ya:e:i:", ["help", "ref-ant=", "decimate=", "limit=", "y-only", "delay-window=", "rate-window=", "interval="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -79,6 +85,10 @@ def parseConfig(args):
 			config['lastFile'] = int(value, 10)
 		elif opt in ('-y', '--y-only'):
 			config['yOnlyVLALWA'] = True
+		elif opt in ('-e', '--delay-window'):
+			config['delayWindow'] = [float(v) for v in value.split(',', 1)]
+		elif opt in ('-a', '--rate-window'):
+			config['rateWindow'] = [float(v) for v in value.split(',', 1)]
 		elif opt in ('-i', '--interval'):
 			config['interval'] = float(value)
 		else:
@@ -214,14 +224,43 @@ def main(args):
 	
 	dMax = 1.0/(freq[1]-freq[0])/4
 	dMax = int(dMax*1e6)*1e-6
+	if -dMax*1e6 > config['delayWindow'][0]:
+		config['delayWindow'][0] = -dMax*1e6
+	if dMax*1e6 < config['delayWindow'][1]:
+		config['delayWindow'][1] = dMax*1e6
 	rMax = 1.0/iTimes.mean()/4
 	rMax = int(rMax*1e2)*1e-2
-	print "Searching delays +/- %.1f us" % (dMax*1e6,)
-	print "           rates +/- %.1f mHz" % (rMax*1e3,)
+	if -rMax*1e3 > config['rateWindow'][0]:
+		config['rateWindow'][0] = -rMax*1e3
+	if rMax*1e3 < config['rateWindow'][1]:
+		config['rateWindow'][1] = rMax*1e3
+		
+	dres = 1.0
+	nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+	while nDelays < 50:
+		dres /= 10
+		nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+	while nDelays > 5000:
+		dres *= 10
+		nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+	nDelays += (nDelays + 1) % 2
+	
+	rres = 10.0
+	nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+	while nRates < 50:
+		rres /= 10
+		nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+	while nRates > 5000:
+		rres *= 10
+		nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+	nRates += (nRates + 1) % 2
+	
+	print "Searching delays %.1f to %.1f us in steps of %.1f us" % (config['delayWindow'][0], config['delayWindow'][1], dres)
+	print "           rates %.1f to %.1f mHz in steps of %.1f mHz" % (config['rateWindow'][0], config['rateWindow'][1], rres)
 	print " "
 	
-	delay = numpy.linspace(-dMax, dMax, 2*int(dMax*1e6)+1)		# s
-	drate = numpy.linspace(-rMax, rMax, 2*int(rMax*1e2)+1)		# Hz
+	delay = numpy.linspace(config['delayWindow'][0]*1e-6, config['delayWindow'][1]*1e-6, nDelays)		# s
+	drate = numpy.linspace(config['rateWindow'][0]*1e-3,  config['rateWindow'][1]*1e-3,  nRates )		# Hz
 	
 	# Find RFI and trim it out.  This is done by computing average visibility 
 	# amplitudes (a "spectrum") and running a median filter in frequency to extract
