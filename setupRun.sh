@@ -32,8 +32,7 @@ BASE=`readlink -f ${0} | xargs dirname `
 ## Script that need to be linked to
 FILES=( multirate.py  utils.py \
 createConfigFile.py superCorrelator.py plotConfig.py plotUVCoverage.py plotFringes2.py \
-fringeSearchZero.py fringeSearchFine.py \
-buildIDI.py )
+fringeSearch.py buildIDI.py )
 
 # Create the directory, if needed
 if [[ ! -x ${DIR} ]]; then
