@@ -61,6 +61,10 @@ vdifCheckTimetags.py
 Simple script to check the flow of time in a VDIF file.  This can be useful for checking
 for missing frames/polarizations.
 
+vdifFileCheck.py
+----------------
+Simple script to check the power levels in a VDIF file.
+
 vdifSpectra.py
 --------------
 Simple script to generate spectra for each thread in a VDIF file.

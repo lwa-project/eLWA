@@ -668,6 +668,7 @@ def main(args):
 	print "Beams: %i" % beams
 	print "Tune/Pols: %i" % tunepols
 	print "Sample Rate: %i Hz" % srate
+	print "Bit Depth: %i" % junkFrame.header.bitsPerSample
 	print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
 	print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * vdif.DataLength / srate)
 	print "---"

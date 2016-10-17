@@ -181,6 +181,7 @@ def main(args):
 	beampols = []
 	tStart = []
 	cFreqs = []
+	bitDepths = []
 	for i,(filename,foffset) in enumerate(zip(filenames, foffsets)):
 		fh.append( open(filename, "rb") )
 		
@@ -248,7 +249,11 @@ def main(args):
 					pass
 		fh[i].seek(-4*readers[i].FrameSize, 1)
 		cFreqs.append( [cFreq1,cFreq2] )
-		
+		try:
+			bitDepths.append( junkFrame.header.bitsPerSample )
+		except AttributeError:
+			bitDepths.append( 8 )
+			
 	for i in xrange(len(filenames)):
 		# Align the files as close as possible by the time tags
 		if readers[i] is vdif:
@@ -349,6 +354,7 @@ def main(args):
 		print "  Sample Rate: %i Hz" % srate[i]
 		print "  Tuning 1: %.1f Hz" % cFreqs[i][0]
 		print "  Tuning 2: %.1f Hz" % cFreqs[i][1]
+		print "  Bit Depth: %i" % bitDepths[i]
 	print "  ==="
 	print "  Phase Center:"
 	print "    Name: %s" % refSrc.name

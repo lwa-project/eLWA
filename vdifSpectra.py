@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import os
 import sys
@@ -131,6 +132,7 @@ def main(args):
 	print "  Date of First Frame: %s" % beginDate
 	print "  Sample Rate: %i Hz" % srate
 	print "  Tuning 1: %.1f Hz" % cFreq
+	print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
 	print "  Integration Time: %.3f s" % tInt
 	print "  Integrations in File: %i" % int(tFile/tInt)
 	print " "
