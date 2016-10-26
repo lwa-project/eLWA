@@ -178,14 +178,18 @@ def main(args):
 	
 	# Report on the file
 	print "Filename: %s" % os.path.basename(args[0])
-	print "Thread count: %i" % nThreads
-	print "Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-	print "Samples per frame: %i" % vdif.DataLength
-	print "Frames per second: %i" % nFramesSecond
-	print "Sample rate: %i Hz" % sampleRate
+	print "  Station: %i" % station
+	print "  Thread count: %i" % nThreads
+	print "  Date of first frame: %i -> %s" % (prevTime, str(prevDate))
+	print "  Samples per frame: %i" % vdif.DataLength
+	print "  Frames per second: %i" % nFramesSecond
+	print "  Sample rate: %i Hz" % sampleRate
+	print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
+	print " "
 	if skip != 0:
 		print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sampleRate/vdif.DataLength)*4, int(skip*sampleRate/vdif.DataLength)*vdif.DataLength/sampleRate)
-
+		print " "
+		
 	prevDate = ['' for i in xrange(nThreads)]
 	prevTime = [0 for i in xrange(nThreads)]
 	prevFrame = [0 for i in xrange(nThreads)]

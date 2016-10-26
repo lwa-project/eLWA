@@ -130,6 +130,7 @@ def main(args):
 	# Report
 	print "Filename: %s" % os.path.basename(filename)
 	print "  Date of First Frame: %s" % beginDate
+	print "  Station: %i" % beam
 	print "  Sample Rate: %i Hz" % srate
 	print "  Tuning 1: %.1f Hz" % cFreq
 	print "  Bit Depth: %i" % junkFrame.header.bitsPerSample

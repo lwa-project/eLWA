@@ -107,6 +107,7 @@ def main(args):
 	# Report
 	print "Filename: %s" % os.path.basename(filename)
 	print "  Date of First Frame: %s" % beginDate
+	print "  Station: %i" % beam
 	print "  Sample Rate: %i Hz" % srate
 	print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
 	print "  Tuning 1: %.1f Hz" % cFreq
@@ -138,17 +139,18 @@ def main(args):
 	# Output arrays
 	clipFraction = []
 	meanPower = []
+	meanRMS = []
 	
 	# Go!
 	i = 1
 	done = False
-	print "   |       Clipping  |     Power   |"
-	print "   |      1X      1Y |    1X    1Y |"
-	print "---+-----------------+-------------+"
+	print "    |      Clipping   |     Power     |      RMS      |"
+	print "    |      1X      1Y |     1X     1Y |     1X     1Y |"
+	print "----+-----------------+---------------+---------------+"
 	
 	while True:
 		count = {0:0, 1:0}
-		data = numpy.empty((2,chunkLength*vdif.DataLength/tunepols), dtype=numpy.complex64)
+		data = numpy.empty((2,chunkLength*vdif.DataLength/tunepols), dtype=numpy.float32)
 		for j in xrange(chunkLength):
 			# Read in the next frame and anticipate any problems that could occur
 			try:
@@ -174,29 +176,33 @@ def main(args):
 			break
 			
 		else:
+			rms = numpy.sqrt( (data**2).mean(axis=1) )
 			data = numpy.abs(data)**2
 			
 			clipFraction.append( numpy.zeros(2) )
 			meanPower.append( data.mean(axis=1) )
+			meanRMS.append( rms )
 			for j in xrange(2):
 				bad = numpy.nonzero(data[j,:] > config['trim'])[0]
 				clipFraction[-1][j] = 1.0*len(bad) / data.shape[1]
-			
+				
 			clip = clipFraction[-1]
 			power = meanPower[-1]
-			print "%2i | %6.2f%% %6.2f%% | %5.2f %5.2f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1])
+			print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
 		
 			i += 1
 			fh.seek(vdif.FrameSize*chunkSkip, 1)
 			
 	clipFraction = numpy.array(clipFraction)
 	meanPower = numpy.array(meanPower)
+	meanRMS = numpy.array(meanRMS)
 	
 	clip = clipFraction.mean(axis=0)
 	power = meanPower.mean(axis=0)
+	rms = meanRMS.mean(axis=0)
 	
-	print "---+-----------------+-------------+"
-	print "%2s | %6.2f%% %6.2f%% | %5.2f %5.2f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1])
+	print "----+-----------------+---------------+---------------+"
+	print "%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
 
 
 if __name__ == "__main__":
