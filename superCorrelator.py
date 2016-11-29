@@ -400,6 +400,7 @@ def main(args):
 	tDump = tSub * int(round(tDump/tSub))
 	nDump = int(tDump / tSub)
 	tDump = nDump * tSub
+	nInt = int((nChunks*tRead) / tDump)
 	print "Sub-integration time is: %.3f s" % tSub
 	print "Integration (dump) time is: %.3f s" % tDump
 	print " "
@@ -412,6 +413,7 @@ def main(args):
 	subIntTimes = []
 	subIntCount = 0
 	fileCount   = 0
+	wallStart = time.time()
 	for i in xrange(nChunks):
 		wallTime = time.time()
 		
@@ -638,12 +640,12 @@ def main(args):
 				### Channels and antennas (X vs. Y)
 				if nVDIFInputs > 0:
 					goodV = numpy.where( (freqV >= fMin) & (freqV <= fMax) )[0]
-					aXV = [i for (i,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
-					aYV = [i for (i,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
+					aXV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
+					aYV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
 				if nDRXInputs > 0:
 					goodD = numpy.where( (freqD >= fMin) & (freqD <= fMax) )[0]
-					aXD = [i for (i,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
-					aYD = [i for (i,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
+					aXD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
+					aYD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
 					
 				### Validate the channel alignent and fix it if needed
 				if nVDIFInputs*nDRXInputs != 0:
@@ -769,14 +771,19 @@ def main(args):
 					print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
 					print "CD - this integration took %.3f s to process" % (time.time() - wallTime,)
 				if (fileCount-1) % 25 == 0:
-					etc = (nChunks-i-1)*(time.time() - wallTime)
+					etc = (nInt - fileCount) * (time.time() - wallStart)/fileCount
 					eth = int(etc/60.0) / 60
 					etm = int(etc/60.0) % 60
 					ets = etc % 60
 					print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
 					
 	# Cleanup
-	print "Done"
+	etc = time.time() - wallStart
+	eth = int(etc/60.0) / 60
+	etm = int(etc/60.0) % 60
+	ets = etc % 60
+	print "Processing finished after %i:%02i:%04.1f" % (eth, etm, ets)
+	print "Average time per integration was %.3f s" % (etc/fileCount,)
 	for f in fh:
 		f.close()
 
