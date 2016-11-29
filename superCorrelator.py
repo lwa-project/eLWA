@@ -395,7 +395,9 @@ def main(args):
 	
 	nChunks = int(tFile/tRead)
 	tSub = config['subTime']
+	tSub = tRead / int(round(tRead/tSub))
 	tDump = config['dumpTime']
+	tDump = tSub * int(round(tDump/tSub))
 	nDump = int(tDump / tSub)
 	tDump = nDump * tSub
 	print "Sub-integration time is: %.3f s" % tSub
@@ -420,6 +422,7 @@ def main(args):
 		drxRef  = [0 for j in xrange(nDRXInputs*4) ]
 		
 		# Read in a frame to figure out what the current time is
+		done = False
 		for j,f in enumerate(fh):
 			if readers[j] is vdif:
 				## VDIF
@@ -429,6 +432,9 @@ def main(args):
 					print "Error @ %i, %i" % (i, j)
 					f.seek(vdif.FrameSize, 1)
 					junkFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+				except errors.eofError:
+					done = True
+					break
 					
 				std,pol = junkFrame.parseID()
 				for p in (0,1):
@@ -437,8 +443,12 @@ def main(args):
 					
 			elif readers[j] is drx:
 				## DRX
-				junkFrame = readers[j].readFrame(f)
-				
+				try:
+					junkFrame = readers[j].readFrame(f)
+				except errors.eofError:
+					done = True
+					break
+					
 				beam,tune,pol = junkFrame.parseID()
 				for t in (1,2):
 					for p in (0,1):
@@ -448,6 +458,8 @@ def main(args):
 			tStart.append( junkFrame.getTime() )
 			tStartB.append( getBetterTime(junkFrame) )
 			f.seek(-readers[j].FrameSize, 1)
+		if done:
+			break
 			
 		# Read in the data
 		dataV = numpy.zeros((len(vdifRef), readers[ 0].DataLength*nFramesV), dtype=numpy.complex64)
@@ -462,6 +474,10 @@ def main(args):
 						print "Error @ %i, %i" % (i, j)
 						f.seek(vdif.FrameSize, 1)
 						continue
+					except errors.eofError:
+						done = True
+						break
+						
 					std,pol = cFrame.parseID()
 					sid = 2*j + pol
 					
@@ -472,7 +488,12 @@ def main(args):
 			elif readers[j] is drx:
 				## DRX
 				for k in xrange(beampols[j]*nFramesD):
-					cFrame = readers[j].readFrame(f)
+					try:
+						cFrame = readers[j].readFrame(f)
+					except errors.eofError:
+						done = True
+						break
+						
 					beam,tune,pol = cFrame.parseID()
 					bid = 4*(j-nVDIFInputs) + 2*(tune-1) + pol
 					
@@ -480,7 +501,9 @@ def main(args):
 					count -= drxRef[bid]
 					count /= (4096*int(196e6/srate[-1]))
 					dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
-					
+		if done:
+			break
+			
 		# Figure out which DRX tuning corresponds to the VDIF data
 		sel = []
 		for j in xrange(nDRXInputs):
@@ -744,6 +767,18 @@ def main(args):
 				print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
 				if fileCount == 1:
 					print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
+					print "CD - this integration took %.3f s to process" % (time.time() - wallTime,)
+				if (fileCount-1) % 25 == 0:
+					etc = (nChunks-i-1)*(time.time() - wallTime)
+					eth = int(etc/60.0) / 60
+					etm = int(etc/60.0) % 60
+					ets = etc % 60
+					print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
+					
+	# Cleanup
+	print "Done"
+	for f in fh:
+		f.close()
 
 
 if __name__ == "__main__":

@@ -113,7 +113,7 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 		else:
 			signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, window=window)
 			
-	return freq, signalsF1/numpy.sqrt(LFFT), validF1, delays1
+	return freq, signalsF1, validF1, delays1
 
 
 def MRX(signalsF1, validF1, signalsF2, validF2):
