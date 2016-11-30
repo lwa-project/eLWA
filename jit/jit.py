@@ -237,7 +237,6 @@ class justInTimeOptimizer(object):
 		call = [self.cc, '-c']
 		call.extend(self.cflags)
 		call.extend(['-o', objName, srcName])
-		print call
 		
 		if verbose:
 			return subprocess.check_output(call, stderr=subprocess.STDOUT)

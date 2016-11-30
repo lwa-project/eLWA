@@ -1,3 +1,12 @@
+/*
+ * Version Control Information - cplx.tmpl
+ * 
+ * $Rev$
+ * $LastChangedBy$
+ * $LastChangedDate$
+ * 
+ */
+
 static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *signals, *signalsF;
 	PyArrayObject *data, *dataF;
@@ -476,8 +485,8 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	double cleanFactor;
 	
 	// Pre-compute the phase rotation and scaling factor
-	float complex *rot;
-	rot = (float complex *) malloc(sizeof(float complex *) * {{nStand}}*{{nChan}});
+	double complex *rot;
+	rot = (double complex *) malloc(sizeof(double complex *) * {{nStand}}*{{nChan}});
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i, j)
 	#endif

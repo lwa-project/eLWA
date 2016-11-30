@@ -53,7 +53,8 @@ Options:
                             default = 0 -> everything)
 -g, --tag                   Tag to use for the output file (default = first eight
                             characters of the first input file)
--j, --jit                   Enable just-in-time optimizations (default = no)
+-j, --jit                   Enable experimental just-in-time optimizations 
+                            (default = no and you should keep it that way)
 """
 	
 	if exitCode is not None:

@@ -1,4 +1,13 @@
 /*
+ * Version Control Information - post.tmpl
+ * 
+ * $Rev$
+ * $LastChangedBy$
+ * $LastChangedDate$
+ * 
+ */
+
+/*
   Cross-Multiplication And Accumulation Function ("X Engines")
     1. XEngine2 - XMAC two collections of signals
 */
@@ -69,7 +78,7 @@ static PyObject *XEngine2(PyObject *self, PyObject *args) {
 			
 			nActVis = 0;
 			for(f=0; f<{{nFFT}}; f++) {
-				nActVis += (*(u1 + {{nFFT}}*s1 + f) & *(u2 + {{nFFT}}*s2 + f));
+				nActVis += (long) (*(u1 + {{nFFT}}*s1 + f) & *(u2 + {{nFFT}}*s2 + f));
 			}
 			
 			for(c=0; c<{{nChan}}; c++) {
@@ -178,9 +187,9 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
 			nActVisPureY = 0;
 			nActVisCross = 0;
 			for(f=0; f<{{nFFT}}; f++) {
-				nActVisPureX += (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
-				nActVisPureY += (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
-				nActVisCross += (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+				nActVisPureX += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
+				nActVisPureY += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+				nActVisCross += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
 			}
 			
 			for(c=0; c<{{nChan}}; c++) {
