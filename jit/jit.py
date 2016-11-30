@@ -376,7 +376,7 @@ class justInTimeOptimizer(object):
 			window = noWindow
 			
 		# Get the optimized module
-		mod = jitopt.getModule(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
+		mod = self.getModule(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
 		
 		# Do we need to measure it?
 		try:
