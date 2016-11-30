@@ -1,0 +1,100 @@
+#include "Python.h"
+#include <math.h>
+#include <stdio.h>
+#include <complex.h>
+#include <cblas.h>
+#include <fftw3.h>
+#include <stdlib.h>
+
+#ifdef _OPENMP
+	#include <omp.h>
+#endif
+
+#include "numpy/arrayobject.h"
+
+#define PI 3.1415926535898
+#define TPI (2*3.1415926535898*_Complex_I)
+
+
+/*
+ Load in FFTW wisdom.  Based on the read_wisdom function in PRESTO.
+*/
+
+void read_wisdom(char *filename, PyObject *m) {
+	int status = 0;
+	FILE *wisdomfile;
+	
+	wisdomfile = fopen(filename, "r");
+	if( wisdomfile != NULL ) {
+		status = fftwf_import_wisdom_from_file(wisdomfile);
+		PyModule_AddObject(m, "useWisdom", PyBool_FromLong(status));
+		fclose(wisdomfile);
+	} else {
+		PyModule_AddObject(m, "useWisdom", PyBool_FromLong(status));
+	}
+}
+
+{%- if useWindow -%}
+/*
+  Holder for window function callback
+*/
+
+static PyObject *windowFunc = NULL;
+{%- endif %}
+
+
+/*
+  Complex magnitude squared functions
+*/
+
+double cabs2(double complex z) {
+	return creal(z)*creal(z) + cimag(z)*cimag(z);
+}
+
+float cabs2f(float complex z) {
+	return crealf(z)*crealf(z) + cimagf(z)*cimagf(z);
+}
+
+
+/*
+  Function to compute the interger and fractional delays for a set of inputs
+*/
+
+long computeDelayComponents(PyArrayObject *delays, double SampleRate, long *fifo, double *frac) {
+	long i, j;
+	long fifoMax;
+	double minDelay;
+	
+	// Set up a way to access the data
+	double *a;
+	a = (double *) delays->data;
+	
+	// Find the minimum delay
+	/*
+	minDelay = 1e9;
+	for(i=0; i<{{nStand}}; i++) {
+		for(j=0; j<{{nChan}}; j++) {
+			if( *(a + {{nChan}}*i + j) < minDelay ) {
+				minDelay = *(a + {{nChan}}*i + j);
+			}
+		}
+	}
+	*/
+	minDelay = 0.0;
+	
+	// Compute the FIFO and fractional delays
+	fifoMax = 0.0;
+	for(i=0; i<{{nStand}}; i++) {
+		*(fifo + i) = lround( (*(a + {{nChan}}*i + {{nChan}}/2) - minDelay) * SampleRate );
+		if( *(fifo + i) > fifoMax) {
+			fifoMax = *(fifo + i);
+		}
+		
+		for(j=0; j<{{nChan}}; j++) {
+			*(frac + {{nChan}}*i + j) = (*(a + {{nChan}}*i + j) - minDelay) - (double) *(fifo + i)/SampleRate;
+		}
+	}
+	
+	return fifoMax;
+}
+

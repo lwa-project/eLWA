@@ -31,7 +31,6 @@ from lsl.common.constants import c as vLight
 from lsl.reader import drx, vdif, errors
 
 from utils import *
-import multirate
 
 
 def usage(exitCode=None):
@@ -54,6 +53,7 @@ Options:
                             default = 0 -> everything)
 -g, --tag                   Tag to use for the output file (default = first eight
                             characters of the first input file)
+-j, --jit                   Enable just-in-time optimizations (default = no)
 """
 	
 	if exitCode is not None:
@@ -73,11 +73,12 @@ def parseConfig(args):
 	config['skip'] = 0.0
 	config['duration'] = 0.0
 	config['tag'] = None
+	config['withJIT'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hql:u:t:s:d:g:", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration=", "tag="])
+		opts, args = getopt.getopt(args, "hql:u:t:s:d:g:j", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration=", "tag=", "jit"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -103,6 +104,8 @@ def parseConfig(args):
 			config['duration'] = float(value)
 		elif opt in ('-g', '--tag'):
 			config['tag'] = value
+		elif opt in ('-j', '--jit'):
+			config['withJIT'] = True
 		else:
 			assert False
 			
@@ -152,6 +155,12 @@ def main(args):
 	# Parse the command line
 	config = parseConfig(args)
 	
+	# Select the multirate module to use
+	if config['withJIT']:
+		from jit import multirate
+	else:
+		import multirate
+		
 	# Length of the FFT
 	LFFT = config['LFFT']
 	

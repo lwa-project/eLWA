@@ -1,0 +1,581 @@
+static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
+	PyObject *signals, *signalsF;
+	PyArrayObject *data, *dataF;
+	
+	long i, j, k;
+	
+	static char *kwlist[] = {"signals", NULL};
+	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &signals)) {
+		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+		return NULL;
+	}
+	
+	// Bring the data into C and make it usable
+	data = (PyArrayObject *) PyArray_ContiguousFromObject(signals, NPY_{{dtypeN}}, 2, 2);
+	
+	// Find out how large the output array needs to be and initialize it
+	npy_intp dims[2];
+	dims[0] = (npy_intp) {{nStand}};
+	dims[1] = (npy_intp) {{nChan}};
+	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+	if(dataF == NULL) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+		Py_XDECREF(data);
+		return NULL;
+	}
+	PyArray_FILLWBYTE(dataF, 0);
+
+	// Create the FFTW plan
+	float complex *inP, *in;
+	inP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+	fftwf_plan p;
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	
+	// Data indexing and access
+	{{dtypeC}} *a;
+	double *b, *temp2;
+	a = ({{dtypeC}} *) data->data;
+	b = (double *) dataF->data;
+	
+	// Time-domain blanking control
+	double cleanFactor;
+	long nActFFT;
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT, temp2)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(i=0; i<{{nStand}}; i++) {
+			nActFFT = 0;
+			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+			
+			for(j=0; j<{{nFFT}}; j++) {
+				cleanFactor = 1.0;
+				
+				for(k=0; k<{{nChan}}; k++) {
+					in[k] = *(a + {{nSamps}} * i + {{nChan}}*j/{{nOverlap}} + k);
+					
+					{%- if ClipLevel != 0 -%}
+					if( cabsf(in[k]) >= {{ClipLevel}} ) {
+						cleanFactor = 0.0;
+					}
+					{%- endif %}
+				}
+				
+				fftwf_execute_dft(p, in, in);
+				
+				for(k=0; k<{{nChan}}; k++) {
+					*(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+				}
+				
+				nActFFT += (long) cleanFactor;
+			}
+			
+			// Shift FFTs
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
+			
+			// Scale FFTs
+			cblas_dscal({{nChan}}, 1.0/({{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
+			
+			fftwf_free(in);
+		}
+	}
+	fftwf_destroy_plan(p);
+	fftwf_free(inP);
+	
+	Py_XDECREF(data);
+	
+	signalsF = Py_BuildValue("O", PyArray_Return(dataF));
+	Py_XDECREF(dataF);
+
+	return signalsF;
+}
+
+PyDoc_STRVAR(cSpec_doc, \
+"Perform a series of Fourier transforms on complex-valued data to get the\n\
+PSD.\n\
+\n\
+Input arguments are:\n\
+ * signals: 2-D numpy.{{dtype}} (stands by samples) array of data to FFT\n\
+\n\
+Outputs:\n\
+ * psd: 2-D numpy.double (stands by channels) of PSD data\n\
+");
+
+
+static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
+	PyObject *signals, *signalsF;
+	PyArrayObject *data, *dataF;
+	
+	long i, j, k;
+	
+	static char *kwlist[] = {"signals", NULL};
+	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &signals)) {
+		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+		return NULL;
+	}
+	
+	// Bring the data into C and make it usable
+	data = (PyArrayObject *) PyArray_ContiguousFromObject(signals, NPY_{{dtypeN}}, 2, 2);
+	
+	// Find out how large the output array needs to be and initialize it
+	npy_intp dims[2];
+	dims[0] = (npy_intp) {{nStand}};
+	dims[1] = (npy_intp) {{nChan}};
+	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+	if(dataF == NULL) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+		Py_XDECREF(data);
+		return NULL;
+	}
+	PyArray_FILLWBYTE(dataF, 0);
+
+	// Create the FFTW plan
+	float complex *inP, *in;
+	inP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+	fftwf_plan p;
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	
+	// Data indexing and access
+	{{dtypeC}} *a;
+	double *b, *temp2;
+	a = ({{dtypeC}} *) data->data;
+	b = (double *) dataF->data;
+	
+	// Time-domain blanking control
+	double cleanFactor, value;
+	long *nActFFT;
+	nActFFT = (long *) malloc(sizeof(long)*{{nStand}});
+	memset(nActFFT, 0, sizeof(long)*{{nStand}});
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value, temp2)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(j=0; j<{{nFFT}}; j++) {
+			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+			
+			for(i=0; i<{{nStand}}; i++) {
+				cleanFactor = 1.0;
+				
+				for(k=0; k<{{nChan}}; k++) {
+					in[k] = *(a + {{nSamps}} * i + {{nChan}}*j/{{nOverlap}} + k);
+					
+					{%- if ClipLevel != 0 -%}
+					if( cabsf(in[k]) >= {{ClipLevel}} ) {
+						cleanFactor = 0.0;
+					}
+					{%- endif %}
+				}
+				
+				fftwf_execute_dft(p, in, in);
+				
+				
+				for(k=0; k<{{nChan}}; k++) {
+					value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+					#ifdef _OPENMP
+					#pragma omp atomic
+					#endif
+					*(b + {{nChan}}*i + k) += value;
+				}
+				
+				#ifdef _OPENMP
+				#pragma omp atomic
+				#endif
+				*(nActFFT + i) += (long) cleanFactor;
+			}
+			
+			fftwf_free(in);
+		}
+	}
+	fftwf_destroy_plan(p);
+	fftwf_free(inP);
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(i, temp2)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(i=0; i<{{nStand}}; i++) {
+			// Shift FFTs
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
+			
+			// Scale FFTs
+			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
+		}
+	}
+	free(nActFFT);
+	
+	Py_XDECREF(data);
+	
+	signalsF = Py_BuildValue("O", PyArray_Return(dataF));
+	Py_XDECREF(dataF);
+
+	return signalsF;
+}
+
+
+static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
+	PyObject *signals, *signalsF;
+	PyArrayObject *data, *dataF;
+	
+	long ij, i, j, k;
+	
+	static char *kwlist[] = {"signals", NULL};
+	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &signals)) {
+		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+		return NULL;
+	}
+	
+	// Bring the data into C and make it usable
+	data = (PyArrayObject *) PyArray_ContiguousFromObject(signals, NPY_{{dtypeN}}, 2, 2);
+	
+	// Find out how large the output array needs to be and initialize it
+	npy_intp dims[2];
+	dims[0] = (npy_intp) {{nStand}};
+	dims[1] = (npy_intp) {{nChan}};
+	dataF = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_DOUBLE);
+	if(dataF == NULL) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+		Py_XDECREF(data);
+		return NULL;
+	}
+	PyArray_FILLWBYTE(dataF, 0);
+
+	// Create the FFTW plan
+	float complex *inP, *in;
+	inP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+	fftwf_plan p;
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	
+	// Data indexing and access
+	{{dtypeC}} *a;
+	double *b, *temp2;
+	a = ({{dtypeC}} *) data->data;
+	b = (double *) dataF->data;
+	
+	// Time-domain blanking control
+	double cleanFactor;
+	long *nActFFT;
+	nActFFT = (long *) malloc(sizeof(long)*{{nStand}});
+	memset(nActFFT, 0, sizeof(long)*{{nStand}});
+	
+	// Thread locking
+	#ifdef _OPENMP
+	omp_lock_t locks[{{nStand}}];
+	for(i=0; i<{{nStand}}; i++) {
+		omp_init_lock(&locks[i]);
+	}
+	#endif
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
+			i = ij / {{nFFT}};
+			j = ij % {{nFFT}};
+			
+			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+			
+			cleanFactor = 1.0;
+			
+			for(k=0; k<{{nChan}}; k++) {
+				in[k] = *(a + {{nSamps}} * i + {{nChan}}*j/{{nOverlap}} + k);
+				
+				{%- if ClipLevel != 0 -%}
+				if( cabsf(in[k]) >= {{ClipLevel}} ) {
+					cleanFactor = 0.0;
+				}
+				{%- endif %}
+			}
+			
+			fftwf_execute_dft(p, in, in);
+			
+			#ifdef _OPENMP
+			omp_set_lock(&locks[i]);
+			#endif
+			
+			for(k=0; k<{{nChan}}; k++) {
+				*(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+			}
+			
+			*(nActFFT + i) += (long) cleanFactor;
+			
+			#ifdef _OPENMP
+			omp_unset_lock(&locks[i]);
+			#endif
+			
+			fftwf_free(in);
+		}
+	}
+	fftwf_destroy_plan(p);
+	fftwf_free(inP);
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(i, temp2)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(i=0; i<{{nStand}}; i++) {
+			// Shift FFTs
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
+			
+			// Scale FFTs
+			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
+			
+			#ifdef _OPENMP
+			// Destory locks
+			omp_destroy_lock(&locks[i]);
+			#endif
+		}
+	}
+	free(nActFFT);
+	
+	Py_XDECREF(data);
+	
+	signalsF = Py_BuildValue("O", PyArray_Return(dataF));
+	Py_XDECREF(dataF);
+
+	return signalsF;
+}
+
+
+static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
+	PyObject *signals, *freqs, *delays, *signalsF;
+	PyArrayObject *data, *freq, *delay, *dataF, *validF;
+	double SampleRate = 1.0e5;
+
+	long ij, i, j, k, nFFT;
+
+	static char *kwlist[] = {"signals", "freqs", "delays", "SampleRate", NULL};
+	if(!PyArg_ParseTupleAndKeywords(args, kwds, "OOO|d", kwlist, &signals, &freqs, &delays, &SampleRate)) {
+		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+		return NULL;
+	}
+
+	// Bring the data into C and make it usable
+	data = (PyArrayObject *) PyArray_ContiguousFromObject(signals, NPY_{{dtypeN}}, 2, 2);
+	freq = (PyArrayObject *) PyArray_ContiguousFromObject(freqs, NPY_DOUBLE, 1, 1);
+	delay = (PyArrayObject *) PyArray_ContiguousFromObject(delays, NPY_DOUBLE, 2, 2);
+	
+	// Check data dimensions
+	if(data->dimensions[0] != delay->dimensions[0]) {
+		PyErr_Format(PyExc_TypeError, "signals and delays have different stand counts");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		return NULL;
+	}
+	
+	if({{nChan}} != freq->dimensions[0]) {
+		PyErr_Format(PyExc_RuntimeError, "freqs has a different channel count than {{nChan}}");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		return NULL;
+	}
+	
+	if(freq->dimensions[0] != delay->dimensions[1]) {
+		PyErr_Format(PyExc_TypeError, "freqs and delays have different channel counts");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		return NULL;
+	}
+
+	// Compute the integer sample offset and the fractional sample delay for each stand
+	long *fifo, fifoMax;
+	double *frac;
+	fifo = (long *) malloc({{nStand}}*sizeof(long));
+	frac = (double *) malloc({{nStand}}*{{nChan}}*sizeof(double));
+	if( fifo == NULL || frac == NULL ) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create fifo/fractional delay arrays");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		return NULL;
+	}
+	fifoMax = computeDelayComponents(delay, SampleRate, fifo, frac);
+
+	// Find out how large the output array needs to be and initialize it
+	nFFT = ({{nSamps}} - fifoMax) / ({{nChan}}/{{nOverlap}}) - {{nChan}}/({{nChan}}/{{nOverlap}}) + 1;
+	npy_intp dims[3];
+	dims[0] = (npy_intp) {{nStand}};
+	dims[1] = (npy_intp) {{nChan}};
+	dims[2] = (npy_intp) {{nFFT}};
+	dataF = (PyArrayObject*) PyArray_SimpleNew(3, dims, NPY_COMPLEX64);
+	if(dataF == NULL) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		free(frac);
+		return NULL;
+	}
+	PyArray_FILLWBYTE(dataF, 0);
+	
+	// Create an array to store whether or not the FFT window is valid (1) or not (0)
+	npy_intp dimsV[2];
+	dimsV[0] = (npy_intp) {{nStand}};
+	dimsV[1] = (npy_intp) {{nFFT}};
+	validF = (PyArrayObject*) PyArray_SimpleNew(2, dimsV, NPY_UINT8);
+	if(validF == NULL) {
+		PyErr_Format(PyExc_MemoryError, "Cannot create valid index array");
+		Py_XDECREF(data);
+		Py_XDECREF(freq);
+		Py_XDECREF(delay);
+		Py_XDECREF(dataF);
+		free(frac);
+		return NULL;
+	}
+	PyArray_FILLWBYTE(validF, 0);
+	
+	// Create the FFTW plan
+	float complex *inP, *in;
+	inP = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}});
+	fftwf_plan p;
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	
+	// Data indexing and access
+	{{dtypeC}} *a;
+	float complex *b, *temp2;
+	double *c;
+	unsigned char *d;
+	a = ({{dtypeC}} *) data->data;
+	b = (float complex *) dataF->data;
+	c = (double *) freq->data;
+	d = (unsigned char *) validF->data;
+	
+	// Time-domain blanking control
+	double cleanFactor;
+	
+	// Pre-compute the phase rotation and scaling factor
+	float complex *rot;
+	rot = (float complex *) malloc(sizeof(float complex *) * {{nStand}}*{{nChan}});
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(i, j)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(ij=0; ij<{{nStand}}*{{nChan}}; ij++) {
+			i = ij / {{nChan}};
+			j = ij % {{nChan}};
+			*(rot + {{nChan}}*i + j)  = cexp(TPI * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j) /= sqrt({{nChan}});
+		}
+	}
+	
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, temp2)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
+			i = ij / {{nFFT}};
+			j = ij % {{nFFT}};
+			if(j >= nFFT) {
+				continue;
+			}
+			
+			in = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}});
+			
+			cleanFactor = 1.0;
+			
+			for(k=0; k<{{nChan}}; k++) {
+				in[k] = *(a + *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} + k);
+				
+				{%- if ClipLevel != 0 -%}
+				if( cabsf(in[k]) >= {{ClipLevel}} ) {
+					cleanFactor = 0.0;
+				}
+				{%- endif %}
+			}
+			
+			fftwf_execute_dft(p, in, in);
+			
+			// Shift FFTs
+			temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, in, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			memmove(in, (in+{{nChan}}/2), sizeof(float complex)*{{nChan}}/2);
+			memcpy((in+{{nChan}}/2), temp2, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			fftwf_free(temp2);
+			
+			// Phase rotate and scale
+			for(k=0; k<{{nChan}}; k++) {
+				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}in[k];
+				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
+			}
+			
+			*(d + {{nFFT}}*i + j) = (unsigned char) cleanFactor;
+			
+			fftwf_free(in);
+		}
+	}
+	free(rot);
+	
+	fftwf_destroy_plan(p);
+	fftwf_free(inP);
+	free(frac);
+	free(fifo);
+
+	Py_XDECREF(data);
+	Py_XDECREF(freq);
+	Py_XDECREF(delay);
+
+	signalsF = Py_BuildValue("(OO)", PyArray_Return(dataF), PyArray_Return(validF));
+	Py_XDECREF(dataF);
+	Py_XDECREF(validF);
+	
+	return signalsF;
+}
+
+PyDoc_STRVAR(cFEngine_doc, \
+"Perform a series of overlapped Fourier transforms on complex-valued data\n\
+using OpenMP.\n\
+\n\
+Input arguments are:\n\
+ * signals: 2-D numpy.{{dtype}} (stands by samples) array of data to FFT\n\
+ * frequency: 1-D numpy.double array of frequency values in Hz for the\n\
+   FFT channels\n\
+ * delays: 1-D numpy.double array of delays to apply to each stand\n\
+\n\
+Input keywords are:\n\
+ * SampleRate: sample rate of the data (default=100e3)\n\
+\n\
+Outputs:\n\
+ * fsignals: 3-D numpy.complex64 (stands by channels by FFT_set) of FFTd\n\
+   data\n\
+ * valid: 2-D numpy.uint8 (stands by FFT_set) of whether or not the FFT\n\
+   set is valid (1) or not (0)\n\
+");
+
