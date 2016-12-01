@@ -42,7 +42,7 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
-	double *b;
+	double *b, *temp2;
 	a = ({{dtypeC}} *) data->data;
 	b = (double *) dataF->data;
 	
@@ -51,7 +51,7 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	long nActFFT;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT)
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT, temp2)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -83,8 +83,12 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 				nActFFT += (long) cleanFactor;
 			}
 			
-			// Shift FFTs
-			fftshift((b + {{nChan}}*i));
+			// Shift FFTs - this is different than in cFEngine and I don't know why
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
@@ -150,7 +154,7 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
-	double *b;
+	double *b, *temp2;
 	a = ({{dtypeC}} *) data->data;
 	b = (double *) dataF->data;
 	
@@ -161,7 +165,7 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	memset(nActFFT, 0, sizeof(long)*{{nStand}});
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value)
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value, temp2)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -206,15 +210,19 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	fftwf_free(inP);
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i)
+		#pragma omp parallel default(shared) private(i, temp2)
 	#endif
 	{
 		#ifdef _OPENMP
 			#pragma omp for schedule(static)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
-			// Shift FFTs
-			fftshift((b + {{nChan}}*i));
+			// Shift FFTs - this is different than in cFEngine and I don't know why
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
@@ -266,7 +274,7 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
-	double *b;
+	double *b, *temp2;
 	a = ({{dtypeC}} *) data->data;
 	b = (double *) dataF->data;
 	
@@ -332,15 +340,19 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	fftwf_free(inP);
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(i)
+		#pragma omp parallel default(shared) private(i, temp2)
 	#endif
 	{
 		#ifdef _OPENMP
 			#pragma omp for schedule(static)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
-			// Shift FFTs
-			fftshift((b + {{nChan}}*i));
+			// Shift FFTs - this is different than in cFEngine and I don't know why
+			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
@@ -460,7 +472,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
-	float complex *b;
+	float complex *b, *temp2;
 	double *c;
 	unsigned char *d;
 	a = ({{dtypeC}} *) data->data;
@@ -490,7 +502,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	}
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
+		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, temp2)
 	#endif
 	{
 		#ifdef _OPENMP
@@ -520,7 +532,11 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			fftwf_execute_dft(p, in, in);
 			
 			// Shift FFTs
-			cfftshiftf(in);
+			temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			memcpy(temp2, in, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			memmove(in, (in+{{nChan}}/2+{{nChan}}%2), sizeof(float complex)*{{nChan}}/2);
+			memcpy((in+{{nChan}}/2), temp2, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+			fftwf_free(temp2);
 			
 			// Phase rotate and scale
 			for(k=0; k<{{nChan}}; k++) {
