@@ -266,12 +266,11 @@ def main(args):
 			bitDepths.append( 8 )
 			
 		# Parse the metadata to get the delay steps
-		if readers[i] is vdif:
-			## Nothing to be done here
-			delaySteps.append( (numpy.array([0.0, 1e12]), numpy.array([0.0, 0.0])) )
-		else:
-			delaySteps.append( parseLWAMetaData(metaname) )
-			
+		delayStep = None
+		if readers[i] is drx and metaname is not None:
+			delayStep = parseLWAMetaData(metaname)
+		delaySteps.append( delayStep )
+		
 	for i in xrange(len(filenames)):
 		# Align the files as close as possible by the time tags
 		if readers[i] is vdif:
@@ -368,6 +367,7 @@ def main(args):
 	for i in xrange(len(filenames)):
 		print "Filename: %s" % os.path.basename(filenames[i])
 		print "  Type/Reader: %s" % readers[i].__name__
+		print "  Delay Steps Avaliable: %s" % ('No' if delaySteps[i] is None else 'Yes',)
 		print "  Date of First Frame: %s" % beginDates[i]
 		print "  Sample Rate: %i Hz" % srate[i]
 		print "  Tuning 1: %.1f Hz" % cFreqs[i][0]
@@ -597,35 +597,44 @@ def main(args):
 		nSampV = int(srate[ 0]*tSub)
 		nSampD = int(srate[-1]*tSub)
 		
-		tV = i*tRead + numpy.arange(dataV.shape[1], dtype=numpy.float64)/srate[ 0]
+		#tV = i*tRead + numpy.arange(dataV.shape[1], dtype=numpy.float64)/srate[ 0]
 		tD = i*tRead + numpy.arange(dataD.shape[1], dtype=numpy.float64)/srate[-1]
 		
 		# Loop over sub-integrations
 		for j in xrange(nSub):
 			## Select the data to work with
 			tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/srate[0]
-			tVSub    = tV[j*nSampV:(j+1)*nSampV]
+			#tVSub    = tV[j*nSampV:(j+1)*nSampV]
 			tDSub    = tD[j*nSampD:(j+1)*nSampD]
 			dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
 			dataDSub = dataD[:,j*nSampD:(j+1)*nSampD]
 			
 			## Update antennas for any delay steps
-			for k in xrange(len(antennas)/2):
-				try:
-					### Find the next step
-					nextStep = numpy.where( (tSubInt - delaySteps[k][0]) >= 0.0 )[0][0]
-					step = delaySteps[k][1][nextStep]
-					if step != 0.0:
-						### Report
-						print "DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id)
-						### Apply the step
-						antennas[2*k+0].cable.clockOffset += step
-						antennas[2*k+1].cable.clockOffset += step
-					### Clenup so we don't re-apply the delay
-					delaySteps[k][0] = delaySteps[k][0][nextStep+1:]
-					delaySteps[k][1] = delaySteps[k][1][nextStep+1:]
-				except IndexError:
-					pass
+			for k in xrange(len(delaySteps)):
+				if delaySteps[k] is None:
+					## Skip over null entries
+					continue
+				elif delaySteps[k][0][0] > tStart[0]:
+					## Skip over antennas where the next step is in the future
+					continue
+					
+				## Find the next step
+				nextStep = numpy.where( (tStart[0] - delaySteps[k][0]) >= 0.0 )[0][0]
+				step = delaySteps[k][1][nextStep]
+				if step != 0.0:
+					## Report on the delay step
+					print "DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id)
+					print "DS - Step corresponds to %.1f deg at band center" % (360*cFreqs[0][0]*step,)
+					## Apply the step
+					antennas[2*k+0].cable.clockOffset += step
+					antennas[2*k+1].cable.clockOffset += step
+				## Clenup so we don't re-apply the step at the next iteration
+				if nextStep+1 < delaySteps[k][0].size:
+					### There are still more we can apply
+					delaySteps[k] = (delaySteps[k][0][nextStep+1:], delaySteps[k][1][nextStep+1:])
+				else:
+					### There is not left to apply
+					delaySteps[k] = None
 					
 			## Update the observation
 			observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET

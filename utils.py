@@ -10,11 +10,13 @@ $LastChangedDate$
 
 import re
 import ephem
+import numpy
 from datetime import datetime
 
 from lsl import astro
 from lsl.common import stations
 from lsl.reader import drx, vdif
+from lsl.common.dp import fS
 from lsl.common.mcs import datetime2mjdmpm
 from lsl.common.metabundle import getCommandScript
 from lsl.misc.beamformer import calcDelay
@@ -354,6 +356,8 @@ def parseLWAMetaData(filename):
 		### Delay calculation
 		b = calcDelay(ants, freq, az, el)
 		b = b.max() - b
+		### Convert to something that is compatible with the course and fine delays of DP
+		b = numpy.round(b*fS*16) / fS / 16
 		
 		## Figure out what it means and save it
 		t.append( c['time'] )
@@ -366,11 +370,9 @@ def parseLWAMetaData(filename):
 	# Convert to NumPy arrays and adjust as needed
 	t = numpy.array(t)
 	d = numpy.array(d)
-	t += 1.0					# BAM commmand are applied 1s after they are sent
+	t += 1.0					# BAM command are applied 1s after they are sent
 	d = numpy.diff(d)			# We want the relative delay change between steps
 	d = numpy.insert(d, 0, 0.0)	# ... and we need to start at zero
-	t = numpy.append(t, 1e12)	# Pad it out to the end of time
-	d = numpy.append(d, d[-1])	# Pad it out to the end of time
 	
 	# done
 	return t, d
