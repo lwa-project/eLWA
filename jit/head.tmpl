@@ -19,6 +19,7 @@
 	#include <omp.h>
 #endif
 
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include "numpy/arrayobject.h"
 
 #define PI 3.1415926535898
@@ -100,7 +101,7 @@ void cfftshift(double complex *data) {
 
 void cfftshiftf(float complex *data) {
 	float complex *temp;
-	temp = (float complex *) malloc(sizeof(float complex) * ({{nChan}}/2+{{nChan}}%2));
+	temp = (float complex *) fftwf_malloc(sizeof(float complex) * ({{nChan}}/2+{{nChan}}%2));
 	
 	// Copy the postive frequencies over to the temporary location
 	memcpy(temp, data, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
@@ -109,7 +110,7 @@ void cfftshiftf(float complex *data) {
 	// Copy the positive frequeices back in to the upper half
 	memcpy((data+{{nChan}}/2), temp, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 	
-	free(temp);
+	fftwf_free(temp);
 }
 
 
