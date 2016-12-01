@@ -103,9 +103,9 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 	
 	# F - defaults to running parallel in C via OpenMP
 	if len(signalsIndex1) != signals.shape[0]:
-		signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1)
+		signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, SampleRate=SampleRate)
 	else:
-		signalsF1, validF1 = FEngine(signals, freq, delays1)
+		signalsF1, validF1 = FEngine(signals, freq, delays1, SampleRate=SampleRate)
 	
 	return freq, signalsF1, validF1, delays1
 

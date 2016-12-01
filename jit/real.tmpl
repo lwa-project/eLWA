@@ -164,7 +164,6 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 			#pragma omp for schedule(static)
 		#endif
 		for(j=0; j<{{nFFT}}; j++) {
-			nActFFT = 0;
 			in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
 			
 			for(i=0; i<{{nStand}}; i++) {
@@ -229,7 +228,7 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyObject *signals, *signalsF;
 	PyArrayObject *data, *dataF;
 
-	long ik, i, j, k;
+	long ij, i, j, k;
 	
 	static char *kwlist[] = {"signals", NULL};
 	if(!PyArg_ParseTupleAndKeywords(args, kwds, "O", kwlist, &signals)) {
@@ -457,6 +456,24 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	// Time-domain blanking control
 	double cleanFactor;
 	
+	// Pre-compute the phase rotation and scaling factor
+	float complex *rot;
+	rot = (float complex *) malloc(sizeof(float complex) * {{nStand}}*{{nChan}});
+	#ifdef _OPENMP
+		#pragma omp parallel default(shared) private(i, j)
+	#endif
+	{
+		#ifdef _OPENMP
+			#pragma omp for schedule(static)
+		#endif
+		for(ij=0; ij<{{nStand}}*{{nChan}}; ij++) {
+			i = ij / {{nChan}};
+			j = ij % {{nChan}};
+			*(rot + {{nChan}}*i + j)  = cexp(TPI * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j) /= sqrt(2*{{nChan}});
+		}
+	}
+	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
 	#endif
@@ -467,7 +484,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
 			i = ij / {{nFFT}};
 			j = ij % {{nFFT}};
-			if(j>=nFFT) {
+			if(j >= nFFT) {
 				continue;
 			}
 			
@@ -489,8 +506,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			
 			for(k=0; k<{{nChan}}; k++) {
 				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}in[k];
-				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= cexp(TPI * *(c + k) * *(frac + {{nChan}}*i + k));
-				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) /= sqrt(2*{{nChan}});
+				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
 			}
 			
 			*(d + {{nFFT}}*i + j) = (unsigned char) cleanFactor;
@@ -498,6 +514,8 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			fftwf_free(in);
 		}
 	}
+	free(rot);
+	
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
 	free(frac);

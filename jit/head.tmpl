@@ -53,6 +53,67 @@ static PyObject *windowFunc = NULL;
 
 
 /*
+  FFT shift function
+*/
+
+void fftshift(double *data) {
+	double *temp;
+	temp = (double *) malloc(sizeof(double) * ({{nChan}}/2+{{nChan}}%2));
+	
+	// Copy the postive frequencies over to the temporary location
+	memcpy(temp, data, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+	// Move the negative frequencies to the bottom half
+	memmove(data, (data+{{nChan}}/2), sizeof(double)*{{nChan}}/2);
+	// Copy the positive frequeices back in to the upper half
+	memcpy((data+{{nChan}}/2), temp, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+	
+	free(temp);
+}
+
+void fftshiftf(float *data) {
+	float *temp;
+	temp = (float *) malloc(sizeof(float) * ({{nChan}}/2+{{nChan}}%2));
+	
+	// Copy the postive frequencies over to the temporary location
+	memcpy(temp, data, sizeof(float)*({{nChan}}/2+{{nChan}}%2));
+	// Move the negative frequencies to the bottom half
+	memmove(data, (data+{{nChan}}/2), sizeof(float)*{{nChan}}/2);
+	// Copy the positive frequeices back in to the upper half
+	memcpy((data+{{nChan}}/2), temp, sizeof(float)*({{nChan}}/2+{{nChan}}%2));
+	
+	free(temp);
+}
+
+void cfftshift(double complex *data) {
+	double complex *temp;
+	temp = (double complex *) malloc(sizeof(double complex) * ({{nChan}}/2+{{nChan}}%2));
+	
+	// Copy the postive frequencies over to the temporary location
+	memcpy(temp, data, sizeof(double complex)*({{nChan}}/2+{{nChan}}%2));
+	// Move the negative frequencies to the bottom half
+	memmove(data, (data+{{nChan}}/2), sizeof(double complex)*{{nChan}}/2);
+	// Copy the positive frequeices back in to the upper half
+	memcpy((data+{{nChan}}/2), temp, sizeof(double complex)*({{nChan}}/2+{{nChan}}%2));
+	
+	free(temp);
+}
+
+void cfftshiftf(float complex *data) {
+	float complex *temp;
+	temp = (float complex *) malloc(sizeof(float complex) * ({{nChan}}/2+{{nChan}}%2));
+	
+	// Copy the postive frequencies over to the temporary location
+	memcpy(temp, data, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+	// Move the negative frequencies to the bottom half
+	memmove(data, (data+{{nChan}}/2), sizeof(float complex)*{{nChan}}/2);
+	// Copy the positive frequeices back in to the upper half
+	memcpy((data+{{nChan}}/2), temp, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+	
+	free(temp);
+}
+
+
+/*
   Complex magnitude squared functions
 */
 

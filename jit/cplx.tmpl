@@ -84,11 +84,14 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 			}
 			
 			// Shift FFTs
+			fftshift((b + {{nChan}}*i));
+			/*
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
+			*/
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
@@ -189,7 +192,6 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 				
 				fftwf_execute_dft(p, in, in);
 				
-				
 				for(k=0; k<{{nChan}}; k++) {
 					value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
 					#ifdef _OPENMP
@@ -219,11 +221,14 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Shift FFTs
+			fftshift((b + {{nChan}}*i));
+			/*
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
+			*/
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
@@ -349,11 +354,14 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Shift FFTs
+			fftshift((b + {{nChan}}*i));
+			/*
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + {{nChan}}*i), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + {{nChan}}*i), (b + {{nChan}}*i)+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + {{nChan}}*i)+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
+			*/
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
@@ -485,8 +493,8 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	double cleanFactor;
 	
 	// Pre-compute the phase rotation and scaling factor
-	double complex *rot;
-	rot = (double complex *) malloc(sizeof(double complex *) * {{nStand}}*{{nChan}});
+	float complex *rot;
+	rot = (float complex *) malloc(sizeof(float complex) * {{nStand}}*{{nChan}});
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i, j)
 	#endif
@@ -516,7 +524,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 				continue;
 			}
 			
-			in = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}});
+			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 			
 			cleanFactor = 1.0;
 			
@@ -533,11 +541,14 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			fftwf_execute_dft(p, in, in);
 			
 			// Shift FFTs
+			cfftshiftf(in);
+			/*
 			temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, in, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 			memmove(in, (in+{{nChan}}/2), sizeof(float complex)*{{nChan}}/2);
 			memcpy((in+{{nChan}}/2), temp2, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 			fftwf_free(temp2);
+			*/
 			
 			// Phase rotate and scale
 			for(k=0; k<{{nChan}}; k++) {
