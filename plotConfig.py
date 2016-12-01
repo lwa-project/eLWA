@@ -86,12 +86,12 @@ def main(args):
 		for line in cConfig:
 			fh.write('%s\n' % line)
 		fh.close()
-		refSrc, filenames, foffsets, readers, antennas = readCorrelatorConfiguration(tempConfig)
+		refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(tempConfig)
 		os.unlink(tempConfig)
 		
 	except IOError:
 		## Standard .txt file
-		refSrc, filenames, foffsets, readers, antennas = readCorrelatorConfiguration(filename)
+		refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(filename)
 		
 	# Load in the stand position data and antenna names
 	data = []

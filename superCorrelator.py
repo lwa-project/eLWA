@@ -170,7 +170,7 @@ def main(args):
 	observer = site.getObserver()
 	
 	# Parse the correlator configuration
-	refSrc, filenames, foffsets, readers, antennas = readCorrelatorConfiguration(config['args'][0])
+	refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(config['args'][0])
 	
 	# Get the raw configuration
 	fh = open(config['args'][0], 'r')
@@ -192,7 +192,8 @@ def main(args):
 	tStart = []
 	cFreqs = []
 	bitDepths = []
-	for i,(filename,foffset) in enumerate(zip(filenames, foffsets)):
+	delaySteps = []
+	for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
 		fh.append( open(filename, "rb") )
 		
 		if readers[i] is vdif:
@@ -263,6 +264,13 @@ def main(args):
 			bitDepths.append( junkFrame.header.bitsPerSample )
 		except AttributeError:
 			bitDepths.append( 8 )
+			
+		# Parse the metadata to get the delay steps
+		if readers[i] is vdif:
+			## Nothing to be done here
+			delaySteps.append( (numpy.array([0.0, 1e12]), numpy.array([0.0, 0.0])) )
+		else:
+			delaySteps.append( parseLWAMetaData(metaname) )
 			
 	for i in xrange(len(filenames)):
 		# Align the files as close as possible by the time tags
@@ -601,6 +609,24 @@ def main(args):
 			dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
 			dataDSub = dataD[:,j*nSampD:(j+1)*nSampD]
 			
+			## Update antennas for any delay steps
+			for k in xrange(len(antennas)/2):
+				try:
+					### Find the next step
+					nextStep = numpy.where( (tSubInt - delaySteps[k][0]) >= 0.0 )[0][0]
+					step = delaySteps[k][1][nextStep]
+					if step != 0.0:
+						### Report
+						print "DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id)
+						### Apply the step
+						antennas[2*k+0].cable.clockOffset += step
+						antennas[2*k+1].cable.clockOffset += step
+					### Clenup so we don't re-apply the delay
+					delaySteps[k][0] = delaySteps[k][0][nextStep+1:]
+					delaySteps[k][1] = delaySteps[k][1][nextStep+1:]
+				except IndexError:
+					pass
+					
 			## Update the observation
 			observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
 			refSrc.compute(observer)

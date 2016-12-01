@@ -134,7 +134,7 @@ def main(args):
 	for line in cConfig:
 		fh.write('%s\n' % line)
 	fh.close()
-	refSrc, junk1, junk2, junk3, antennas = readCorrelatorConfiguration(tempConfig)
+	refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
 	os.unlink(tempConfig)
 	
 	visXX = dataDict['vis1XX'].astype(numpy.complex64)
