@@ -234,10 +234,10 @@ def main(args):
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
 		
 		ax = fig4.add_subplot(nRow, nCol, k+1)
-		ax.plot(dTimes, numpy.angle(vis[:,good].mean(axis=1)))
-		ax.set_ylim((-numpy.pi,numpy.pi))
+		ax.plot(dTimes, numpy.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
+		ax.set_ylim((-180, 180))
 		ax.set_xlabel('Elapsed Time [s]')
-		ax.set_ylabel('Mean Vis. Phase [rad]')
+		ax.set_ylabel('Mean Vis. Phase [deg]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
 		
 		k += 1
