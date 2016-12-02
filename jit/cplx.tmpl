@@ -83,10 +83,10 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 				nActFFT += (long) cleanFactor;
 			}
 			
-			// Shift FFTs - this is different than in cFEngine and I don't know why
+			// Shift FFTs
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2+{{nChan}}%2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
 			
@@ -217,10 +217,10 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 			#pragma omp for schedule(static)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
-			// Shift FFTs - this is different than in cFEngine and I don't know why
+			// Shift FFTs
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/+{{nChan}}%22, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
 			
@@ -347,10 +347,10 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 			#pragma omp for schedule(static)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
-			// Shift FFTs - this is different than in cFEngine and I don't know why
+			// Shift FFTs
 			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2, sizeof(double)*{{nChan}}/2);
+			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2+{{nChan}}%2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			free(temp2);
 			
