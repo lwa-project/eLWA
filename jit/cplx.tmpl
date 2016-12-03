@@ -497,6 +497,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			i = ij / {{nChan}};
 			j = ij % {{nChan}};
 			*(rot + {{nChan}}*i + j)  = cexp(TPI * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j) *= cexp(TPI * *(c + {{nChan}}/2) / SampleRate * *(fifo + i));
 			*(rot + {{nChan}}*i + j) /= sqrt({{nChan}});
 		}
 	}
