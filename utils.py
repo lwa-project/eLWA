@@ -17,7 +17,7 @@ from lsl import astro
 from lsl.common import stations
 from lsl.reader import drx, vdif
 from lsl.common.dp import fS
-from lsl.common.mcs import datetime2mjdmpm
+from lsl.common.mcs import datetime2mjdmpm, delaytoMCSD, MCSDtodelay
 from lsl.common.metabundle import getCommandScript
 from lsl.misc.beamformer import calcDelay
 
@@ -336,9 +336,9 @@ def parseLWAMetaData(filename):
 		if c['commandID'] != 'BAM':
 			continue
 			
-		## Figure out the station and the antenna layout
+		## Figure out the station, antenna layout, and antenna closest to the array center
 		try:
-			ants
+			refAnt
 		except NameError:
 			if c['subsystemID'] == 'DP':
 				site = stations.lwa1
@@ -346,6 +346,14 @@ def parseLWAMetaData(filename):
 				site = stations.lwasv
 			ants = site.getAntennas()
 			
+			refAnt = 0
+			best = 1e20
+			for i,a in enumerate(ants):
+				r = a.stand.x**2 + a.stand.y**2 + a.stand.z**2
+				if r < best:
+					best = r
+					refAnt = i
+					
 		## Parse the command to get the beamformer delays
 		### Pointing and frequency
 		beam, df, gf = c['data'].split(None, 2)
@@ -356,17 +364,12 @@ def parseLWAMetaData(filename):
 		### Delay calculation
 		b = calcDelay(ants, freq, az, el)
 		b = b.max() - b
-		### Convert to something that is compatible with the course and fine delays of DP
-		b = numpy.round(b*fS*16) / fS / 16
 		
-		## Figure out what it means and save it
+		## Figure out what it means and save it.  This includes a convertion to/from the MCS
+		## delay that breaks things down into a course and fine delay for DP
 		t.append( c['time'] )
-		try:
-			d.append( b[refAnt] )
-		except NameError:
-			refAnt = numpy.argmax(b)
-			d.append( b[refAnt] )
-			
+		d.append( MCSDtodelay(delaytoMCSD(b[refAnt]*1e9))/1e9 )
+		
 	# Convert to NumPy arrays and adjust as needed
 	t = numpy.array(t)
 	d = numpy.array(d)
