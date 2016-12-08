@@ -162,6 +162,7 @@ def main(args):
 	junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
 	sampleRate = junkFrame.getSampleRate()
 	vdif.DataLength = junkFrame.data.data.size
+	nSampsFrame = vdif.DataLength
 	station, thread = junkFrame.parseID()
 	tunepols = nThreads
 	beampols = tunepols
