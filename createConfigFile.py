@@ -14,9 +14,10 @@ import os
 import sys
 import numpy
 import getopt
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
+from lsl.common import metabundle
 
 from utils import *
 from get_vla_ant_pos import database
@@ -34,6 +35,7 @@ createConfigFile.py [OPTIONS] directory
 
 Options:
 -h, --help                  Display this help information
+-l, --lwa1-offset           LWA1 clock offset (default = 0)
 -o, --output                Write the configuration to the specified file
                             (default = standard out)
 """
@@ -48,11 +50,13 @@ def parseConfig(args):
 	config = {}
 	# Command line flags - default values
 	config['output'] = None
+	config['lwa1Offset'] = 0.0
+	config['lwasvOffset'] = 0.0
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "ho:", ["help", "output="])
+		opts, args = getopt.getopt(args, "hl:o:", ["help", "lwa1-offset=", "output="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -62,6 +66,8 @@ def parseConfig(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-l', '--lwa1-offset'):
+			config['lwa1Offset'] = value
 		elif opt in ('-o','--output'):
 			config['output'] = value
 		else:
@@ -102,6 +108,7 @@ def main(args):
 	corrConfig = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
 			    'inputs': []}
 	
+	metadata = {}
 	for filename in filenames:
 		#print "%s:" % os.path.basename(filename)
 
@@ -125,29 +132,46 @@ def main(args):
 					freq2 = frame.getCentralFreq()
 			tStart = datetime.utcfromtimestamp(frame0.getTime())
 			
+			## Read in the last few frames to find the end time
+			fh.seek(os.path.getsize(filename) - 4*drx.FrameSize)
+			frame0 = drx.readFrame(fh)
+			frame1 = drx.readFrame(fh)
+			frame2 = drx.readFrame(fh)
+			frame3 = drx.readFrame(fh)
+			freq1, freq2 = None, None
+			for frame in (frame0, frame1, frame2, frame3):
+				if frame.parseID()[1] == 1:
+					freq1 = frame.getCentralFreq()
+				else:
+					freq2 = frame.getCentralFreq()
+			tStop = datetime.utcfromtimestamp(frame0.getTime())
+			
 			## Save
 			corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
 									'antenna': 'LWA1', 'pols': 'X, Y', 
 									'location': (0.0, 0.0, 0.0), 
-									'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-									'tstart': tStart, 'freq':(freq1,freq2)} )
+									'clockoffset': (config['lwa1Offset'], config['lwa1Offset']), 'fileoffset': 0, 
+									'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
 									
 		elif ext == '.vdif':
 			## VDIF
 			## Read in the GUPPI header
 			header = readGUPPIHeader(fh)
-			#print "  Source: %s" % header['SRC_NAME']
-			#print "  Frequency: %.3f MHz" % (header['OBSFREQ']/1e6,)
-			#print "  Bandwidth: %.3f MHz" % header['CHAN_BW']
-		
+			
 			## Read in the first frame
 			vdif.FrameSize = vdif.getFrameSize(fh)
 			frame = vdif.readFrame(fh)
 			antID = frame.parseID()[0] - 12300
 			tStart =  datetime.utcfromtimestamp(frame.getTime())
 			nThread = vdif.getThreadCount(fh)
-			#print "  Station: %s" % antID
-			#print "  Start Time: %s" % tStart
+			
+			## Read in the last frame
+			nJump = int(os.path.getsize(filename)/vdif.FrameSize)
+			nJump -= 4
+			fh.seek(nJump*vdif.FrameSize, 1)
+			mark = fh.tell()
+			frame = vdif.readFrame(fh)
+			tStop = datetime.utcfromtimestamp(frame.getTime())
 		
 			## Find the antenna location
 			pad, edate = db.get_pad('EA%02i' % antID, tStart)
@@ -173,14 +197,57 @@ def main(args):
 									'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
 									'location': (enz[0], enz[1], enz[2]),
 									'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-									'pad': pad, 'tstart': tStart, 'freq':header['OBSFREQ']} )
+									'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
 									
+		elif ext == '.tgz':
+			## LWA Metadata
+			## Extract the file information so that we can pair things together
+			fileInfo = metabundle.getSessionMetaData(filename)
+	 		for obsID in fileInfo.keys():
+				metadata[fileInfo[obsID]['tag']] = filename
+				
 		# Done
 		fh.close()
 		
 	# Close out the connection to NRAO
 	db.close()
 	
+	# Choose a VDIF reference file, if there is one, and mark whether or 
+	# not DRX files were found
+	vdifRefFile = None
+	isDRX = False
+	for input in corrConfig['inputs']:
+		if input['type'] == 'VDIF':
+			if vdifRefFile is None:
+				vdifRefFile = input
+		elif input['type'] == 'DRX':
+				isDRX = True
+			
+	# Set a state variable so that we can generate a warning about missing
+	# DRX files
+	drxFound = False
+	
+	# Purge DRX files that don't make sense
+	toPurge = []
+	drxFound = False
+	for input in corrConfig['inputs']:
+		### Sort out multiple DRX files - this only works if we have only one LWA station
+		if input['type'] == 'DRX' and vdifRefFile is not None:
+			l0, l1 = input['tstart'], input['tstop']
+			v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
+			ve = (v1 - v0).total_seconds()
+			overlapWithVDIF = (v0>=l0 and v0<l1) != (l0>=v0 and l0<v1)
+			lvo = (min([v1,l1]) - max([v0,l0])).total_seconds()
+			if not overlapWithVDIF or lvo < 0.5*ve:
+				toPurge.append( input )
+			drxFound = True
+	for input in toPurge:
+		del corrConfig['inputs'][corrConfig['inputs'].index(input)]
+		
+	# VDIF/DRX warning check/report
+	if isDRX and not drxFound:
+		sys.stderr("WARNING: DRX files provided but none overlapped with VDIF data")
+		
 	# Update the file offsets to get things lined up better
 	tMax = max([input['tstart'] for input in corrConfig['inputs']])
 	for input in corrConfig['inputs']:
@@ -188,6 +255,8 @@ def main(args):
 		offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
 		input['fileoffset'] = max([0, offset])
 		
+	
+	
 	# Render the configuration
 	## Setup
 	if config['output'] is None:
@@ -208,8 +277,10 @@ def main(args):
 	fh.write("\n")
 	## Input files
 	for input in corrConfig['inputs']:
+		
 		fh.write("Input\n")
 		fh.write("# Start time is %s\n" % input['tstart'])
+		fh.write("# Stop time is %s\n" % input['tstop'])
 		try:
 			fh.write("# VLA pad is %s\n" % input['pad'])
 		except KeyError:
@@ -220,11 +291,16 @@ def main(args):
 		except TypeError:
 			fh.write("# Frequency tuning is %.3f Hz\n" % input['freq'])
 		fh.write("  File         %s\n" % input['file'])
+		try:
+			metaname = metadata[os.path.basename(input['file'])]
+			fh.write("  MetaData     %s\n" % metaname)
+		except KeyError:
+			pass
 		fh.write("  Type         %s\n" % input['type'])
 		fh.write("  Antenna      %s\n" % input['antenna'])
 		fh.write("  Pols         %s\n" % input['pols'])
 		fh.write("  Location     %.6f, %.6f, %.6f\n" % input['location'])
-		fh.write("  ClockOffset  %.3f, %.3f\n" % input['clockoffset'])
+		fh.write("  ClockOffset  %s, %s\n" % input['clockoffset'])
 		fh.write("  FileOffset   %.3f\n" % input['fileoffset'])
 		fh.write("InputDone\n")
 		fh.write("\n")
