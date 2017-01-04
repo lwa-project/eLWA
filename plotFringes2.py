@@ -37,6 +37,8 @@ Options:
 -h, --help                  Display this help information
 -r, --ref-ant               Limit plots to baselines containing the reference 
                             antenna (default = plot everything)
+-b, --baseline              Limit plots to the specified baseline in 'ANT-ANT' 
+                            format
 -x, --xx                    Plot XX data (default)
 -z, --xy                    Plot XY data
 -w, --yx                    Plot YX data
@@ -56,6 +58,7 @@ def parseConfig(args):
 	config = {}
 	# Command line flags - default values
 	config['refAnt'] = None
+	config['baseline'] = None
 	config['polToPlot'] = 'XX'
 	config['lastFile'] = -1
 	config['freqDecimation'] = 1
@@ -63,7 +66,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hr:xzwyl:d:", ["help", "ref-ant=", "xx", "xy", "yx", "yy", "limit=", "decimate="])
+		opts, args = getopt.getopt(args, "hr:b:xzwyl:d:", ["help", "ref-ant=", "baseline=", "xx", "xy", "yx", "yy", "limit=", "decimate="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -75,6 +78,8 @@ def parseConfig(args):
 			usage(exitCode=0)
 		elif opt in ('-r', '--ref-ant'):
 			config['refAnt'] = int(value, 10)
+		elif opt in ('-b', '--baseline'):
+			config['baseline'] = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in value.split(',')]]
 		elif opt in ('-x', '--xx'):
 			config['polToPlot'] = 'XX'
 		elif opt in ('-z', '--xy'):
@@ -93,6 +98,13 @@ def parseConfig(args):
 	# Add in arguments
 	config['args'] = args
 	
+	# Fill the baseline list with the conjugates, if needed
+	if config['baseline'] is not None:
+		newBaselines = []
+		for pair in config['baseline']:
+			newBaselines.append( (pair[1],pair[0]) )
+		config['baseline'].extend(newBaselines)
+		
 	# Validate
 	if len(config['args']) == 0:
 		raise RuntimeError("Must provide at least one .npz file to plot")
@@ -148,13 +160,18 @@ def main(args):
 		for j in xrange(i, len(antennas), 2):
 			ant2 = antennas[j].stand.id
 			if ant1 != ant2:
-				if config['refAnt'] is None:
-					bls.append( (ant1,ant2) )
-					cross.append( l )
-				else:
+				if config['baseline'] is not None:
+					if (ant1,ant2) in config['baseline']:
+						bls.append( (ant1,ant2) )
+						cross.append( l )
+				elif config['refAnt'] is not None:
 					if ant1 == config['refAnt'] or ant2 == config['refAnt']:
 						bls.append( (ant1,ant2) )
 						cross.append( l )
+				else:
+					bls.append( (ant1,ant2) )
+					cross.append( l )
+					
 			l += 1
 	nBL = len(cross)
 	

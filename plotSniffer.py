@@ -35,6 +35,8 @@ plotSniffer.py [OPTIONS] npz [npz [...]]
 Options:
 -h, --help                  Display this help information
 -r, --ref-ant               Reference antenna (default = first antenna)
+-b, --baseline              Limit plots to the specified baseline in 'ANT-ANT' 
+                            format
 -d, --decimate              Frequency decimation factor (default = 1)
 -l, --limit                 Limit the data loaded to the first N files
                             (default = -1 = load all)
@@ -57,6 +59,7 @@ def parseConfig(args):
 	config = {}
 	# Command line flags - default values
 	config['refAnt'] = None
+	config['baseline'] = None
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['yOnlyVLALWA'] = False
@@ -67,7 +70,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hr:d:l:ya:e:i:", ["help", "ref-ant=", "decimate=", "limit=", "y-only", "delay-window=", "rate-window=", "interval="])
+		opts, args = getopt.getopt(args, "hr:b:d:l:ya:e:i:", ["help", "ref-ant=", "baseline=", "decimate=", "limit=", "y-only", "delay-window=", "rate-window=", "interval="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -79,6 +82,8 @@ def parseConfig(args):
 			usage(exitCode=0)
 		elif opt in ('-r', '--ref-ant'):
 			config['refAnt'] = int(value, 10)
+		elif opt in ('-b', '--baseline'):
+			config['baseline'] = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in value.split(',')]]
 		elif opt in ('-d', '--decimate'):
 			config['freqDecimation'] = int(value, 10)
 		elif opt in ('-l', '--limit'):
@@ -97,6 +102,13 @@ def parseConfig(args):
 	# Add in arguments
 	config['args'] = args
 	
+	# Fill the baseline list with the conjugates, if needed
+	if config['baseline'] is not None:
+		newBaselines = []
+		for pair in config['baseline']:
+			newBaselines.append( (pair[1],pair[0]) )
+		config['baseline'].extend(newBaselines)
+		
 	# Validate
 	if len(config['args']) == 0:
 		raise RuntimeError("Must provide at least one .npz file to plot")
@@ -255,8 +267,8 @@ def main(args):
 		nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
 	nRates += (nRates + 1) % 2
 	
-	print "Searching delays %.1f to %.1f us in steps of %.1f us" % (config['delayWindow'][0], config['delayWindow'][1], dres)
-	print "           rates %.1f to %.1f mHz in steps of %.1f mHz" % (config['rateWindow'][0], config['rateWindow'][1], rres)
+	print "Searching delays %.1f to %.1f us in steps of %.2f us" % (config['delayWindow'][0], config['delayWindow'][1], dres)
+	print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (config['rateWindow'][0], config['rateWindow'][1], rres)
 	print " "
 	
 	delay = numpy.linspace(config['delayWindow'][0]*1e-6, config['delayWindow'][1]*1e-6, nDelays)		# s
@@ -287,8 +299,12 @@ def main(args):
 	
 	dirName = os.path.basename( os.path.dirname(filenames[0]) )
 	for b in xrange(len(bls)):
+		## Skip over baselines that are not in the baseline list (if provided)
+		if config['baseline'] is not None:
+			if bls[b] not in config['baseline']:
+				continue
 		## Skip over baselines that don't include the reference antenna
-		if bls[b][0] != config['refAnt'] and bls[b][1] != config['refAnt']:
+		elif bls[b][0] != config['refAnt'] and bls[b][1] != config['refAnt']:
 			continue
 			
 		## Check and see if we need to conjugate the visibility, i.e., switch from
