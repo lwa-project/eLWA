@@ -29,8 +29,11 @@ from lsl.correlator.uvUtils import computeUVW
 from lsl.common.constants import c as vLight
 
 from lsl.reader import drx, vdif, errors
+from lsl.reader.buffer import DRXFrameBuffer
 
+import jones
 from utils import *
+from buffer import VDIFFrameBuffer
 
 
 def usage(exitCode=None):
@@ -167,6 +170,10 @@ def main(args):
 	
 	# Build up the station
 	site = stations.lwa1
+	## Updated 2017/1/17 with solution for the 12/3 run
+	site.lat = 34.0687955336 * numpy.pi/180
+	site.long = -107.628427469 * numpy.pi/180
+	site.elev = 2129.62500168
 	observer = site.getObserver()
 	
 	# Parse the correlator configuration
@@ -193,6 +200,7 @@ def main(args):
 	cFreqs = []
 	bitDepths = []
 	delaySteps = []
+	buffers = []
 	for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
 		fh.append( open(filename, "rb") )
 		
@@ -271,6 +279,11 @@ def main(args):
 			delayStep = parseLWAMetaData(metaname)
 		delaySteps.append( delayStep )
 		
+		# Setup the frame buffers
+		if readers[i] is vdif:
+			buffers.append( VDIFFrameBuffer(threads=[0,1]) )
+		else:
+			buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1]) )
 	for i in xrange(len(filenames)):
 		# Align the files as close as possible by the time tags
 		if readers[i] is vdif:
@@ -432,6 +445,8 @@ def main(args):
 	subIntCount = 0
 	fileCount   = 0
 	wallStart = time.time()
+	done = False
+	firstPass = True
 	for i in xrange(nChunks):
 		wallTime = time.time()
 		
@@ -441,55 +456,17 @@ def main(args):
 		vdifRef = [0 for j in xrange(nVDIFInputs*2)]
 		drxRef  = [0 for j in xrange(nDRXInputs*4) ]
 		
-		# Read in a frame to figure out what the current time is
-		done = False
-		for j,f in enumerate(fh):
-			if readers[j] is vdif:
-				## VDIF
-				try:
-					junkFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-				except errors.syncError:
-					print "Error @ %i, %i" % (i, j)
-					f.seek(vdif.FrameSize, 1)
-					junkFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-				except errors.eofError:
-					done = True
-					break
-					
-				std,pol = junkFrame.parseID()
-				for p in (0,1):
-					sid = 2*j + p
-					vdifRef[sid] = junkFrame.header.secondsFromEpoch*framesPerSecondV + junkFrame.header.frameInSecond
-					
-			elif readers[j] is drx:
-				## DRX
-				try:
-					junkFrame = readers[j].readFrame(f)
-				except errors.eofError:
-					done = True
-					break
-					
-				beam,tune,pol = junkFrame.parseID()
-				for t in (1,2):
-					for p in (0,1):
-						bid = 4*(j-nVDIFInputs) + 2*(t-1) + p
-						drxRef[bid] = junkFrame.data.timeTag
-						
-			tStart.append( junkFrame.getTime() )
-			tStartB.append( getBetterTime(junkFrame) )
-			f.seek(-readers[j].FrameSize, 1)
-		if done:
-			break
-			
 		# Read in the data
 		dataV = numpy.zeros((len(vdifRef), readers[ 0].DataLength*nFramesV), dtype=numpy.complex64)
 		dataD = numpy.zeros((len(drxRef),  readers[-1].DataLength*nFramesD), dtype=numpy.complex64)
 		for j,f in enumerate(fh):
 			if readers[j] is vdif:
 				## VDIF
-				for k in xrange(beampols[j]*nFramesV):
+				k = 0
+				while k < beampols[j]*nFramesV:
 					try:
 						cFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+						buffers[j].append( cFrame )
 					except errors.syncError:
 						print "Error @ %i, %i" % (i, j)
 						f.seek(vdif.FrameSize, 1)
@@ -498,29 +475,60 @@ def main(args):
 						done = True
 						break
 						
-					std,pol = cFrame.parseID()
-					sid = 2*j + pol
-					
-					count = cFrame.header.secondsFromEpoch*framesPerSecondV + cFrame.header.frameInSecond
-					count -= vdifRef[sid]
-					dataV[sid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.data
+					frames = buffers[j].get()
+					if frames is None:
+						continue
+						
+					for cFrame in frames:
+						std,pol = cFrame.parseID()
+						sid = 2*j + pol
+						
+						if k == 0:
+							tStart.append( cFrame.getTime() )
+							tStartB.append( getBetterTime(cFrame) )
+							
+							for p in (0,1):
+								psid = 2*j + p
+								vdifRef[psid] = cFrame.header.secondsFromEpoch*framesPerSecondV + cFrame.header.frameInSecond
+								
+						count = cFrame.header.secondsFromEpoch*framesPerSecondV + cFrame.header.frameInSecond
+						count -= vdifRef[sid]
+						dataV[sid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.data
+						k += 1
 					
 			elif readers[j] is drx:
 				## DRX
-				for k in xrange(beampols[j]*nFramesD):
+				k = 0
+				while k < beampols[j]*nFramesD:
 					try:
 						cFrame = readers[j].readFrame(f)
+						buffers[j].append( cFrame )
 					except errors.eofError:
 						done = True
 						break
 						
-					beam,tune,pol = cFrame.parseID()
-					bid = 4*(j-nVDIFInputs) + 2*(tune-1) + pol
-					
-					count = cFrame.data.timeTag
-					count -= drxRef[bid]
-					count /= (4096*int(196e6/srate[-1]))
-					dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
+					frames = buffers[j].get()
+					if frames is None:
+						continue
+						
+					for cFrame in frames:
+						beam,tune,pol = cFrame.parseID()
+						bid = 4*(j-nVDIFInputs) + 2*(tune-1) + pol
+						
+						if k == 0:
+							tStart.append( cFrame.getTime() )
+							tStartB.append( getBetterTime(cFrame) )
+							
+							for t in (1,2):
+								for p in (0,1):
+									pbid = 4*(j-nVDIFInputs) + 2*(t-1) + p
+									drxRef[pbid] = cFrame.data.timeTag
+									
+						count = cFrame.data.timeTag
+						count -= drxRef[bid]
+						count /= (4096*int(196e6/srate[-1]))
+						dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
+						k += 1
 		if done:
 			break
 			
@@ -591,6 +599,11 @@ def main(args):
 		tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
 		if config['verbose']:
 			print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
+		if firstPass:
+			for k in xrange(len(tStartRel)):
+				antennas[2*k+0].cable.clockOffset += tStartRel[k]
+				antennas[2*k+1].cable.clockOffset += tStartRel[k]
+			firstPass = False
 			
 		# Setup everything we need to loop through the sub-integrations
 		nSub = int(tRead/tSub)
@@ -603,7 +616,7 @@ def main(args):
 		# Loop over sub-integrations
 		for j in xrange(nSub):
 			## Select the data to work with
-			tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/srate[0]
+			tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0]
 			#tVSub    = tV[j*nSampV:(j+1)*nSampV]
 			tDSub    = tD[j*nSampD:(j+1)*nSampD]
 			dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
@@ -640,6 +653,14 @@ def main(args):
 			observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
 			refSrc.compute(observer)
 			
+			## Get the Jones matrices and apply
+			if nVDIFInputs > 0:
+				jm = jones.getMatrixVLA(site, refSrc)
+				dataVSub = jones.applyMatrix(dataVSub, jm)
+			if nDRXInputs > 0:
+				jm = jones.getMatrixLWA(site, refSrc)
+				dataDSub = jones.applyMatrix(dataDSub, jm)
+				
 			## Correlate
 			if nVDIFInputs > 0:
 				freqV, feoV, veoV, deoV = multirate.MRF(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
@@ -814,8 +835,8 @@ def main(args):
 				print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
 				if fileCount == 1:
 					print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
-					print "CD - this integration took %.3f s to process" % (time.time() - wallTime,)
 				if (fileCount-1) % 25 == 0:
+					print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/fileCount,)
 					etc = (nInt - fileCount) * (time.time() - wallStart)/fileCount
 					eth = int(etc/60.0) / 60
 					etm = int(etc/60.0) % 60
