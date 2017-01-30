@@ -374,8 +374,9 @@ def parseLWAMetaData(filename):
 	t = numpy.array(t)
 	d = numpy.array(d)
 	t += 1.0					# BAM command are applied 1s after they are sent
+	d0 = d[0]					# Get the initial offset
 	d = numpy.diff(d)			# We want the relative delay change between steps
-	d = numpy.insert(d, 0, 0.0)	# ... and we need to start at zero
+	d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
 	
 	# done
 	return t, d
