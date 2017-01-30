@@ -223,9 +223,9 @@ def main(args):
 	iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
 	for i in xrange(1, len(times)):
 		iTimes[i-1] = times[i] - times[i-1]
-	print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max())
+	print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max())
 	iSize = int(round(config['interval']/iTimes.mean()))
-	print " -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*iTimes.mean())
+	print " -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes))
 	iCount = times.size/iSize
 	print " -> Working with %i chunks of data" % iCount
 	
@@ -344,6 +344,10 @@ def main(args):
 		
 		for pol,vis in zip(polToUse, visToUse):
 			for i in xrange(iCount):
+				subStart, subStop = times[iSize*i], times[iSize*(i+1)-1]
+				if (subStop - subStart) > 1.1*config['interval']:
+					continue
+					
 				subTime = times[iSize*i:iSize*(i+1)].mean()
 				dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
 				dTimes2.shape += (1,)
