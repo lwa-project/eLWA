@@ -159,6 +159,11 @@ def main(args):
 		freq.shape = (freq.size/config['freqDecimation'], config['freqDecimation'])
 		freq = freq.mean(axis=1)
 		
+	# Figure out the visibility conjugation problem in LSL, pre-1.1.4
+	conjugateVis = False
+	if float(fitsidi.__version__) < 0.9:
+		conjugateVis = True
+		
 	# Fill in the data
 	for i,filename in enumerate(filenames):
 		## Load in the integration
@@ -173,6 +178,12 @@ def main(args):
 		
 		dataDict.close()
 		
+		if conjugateVis:
+			visXX = visXX.conj()
+			visXY = visXY.conj()
+			visYX = visYX.conj()
+			visYY = visYY.conj()
+			
 		if config['freqDecimation'] > 1:
 			visXX.shape = (visXX.shape[0], visXX.shape[1]/config['freqDecimation'], config['freqDecimation'])
 			visXX = visXX.mean(axis=2)
