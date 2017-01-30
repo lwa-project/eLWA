@@ -18,7 +18,7 @@ from lsl.common.paths import data as dataPath
 
 __version__ = '0.1'
 __revision__ = '$Rev$'
-__all__ = ['getParallacticAngle', 'getMatrixLWA1', 'getMatrixVLA', 'applyMatrix', 
+__all__ = ['getParallacticAngle', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -77,7 +77,7 @@ def getLWA1AntennaGain(site, src):
 	return bx, by
 
 
-def getMatrixLWA1(site, src, inverse=False):
+def getMatrixLWA(site, src, inverse=False):
 	"""
 	Given an ephem.Observer instances and an ephem.Body instance, get the 
 	Jones matrix for an LWA station for the direction towards the source.
