@@ -82,9 +82,10 @@ def parseConfig(args):
 
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9))
 
-LWA_ECEF = numpy.array((-1602206.5890935822, -5042244.2888975842, 3554076.3184691621))
-LWA_LAT = 34.070 * numpy.pi/180
-LWA_LON = -107.628 * numpy.pi/180
+## Updated 2017/1/17 with solution for the 12/3 run
+LWA_ECEF = numpy.array((-1602265.88447377, -5042300.55066486, 3553963.38256972))
+LWA_LAT = 34.0687955336 * numpy.pi/180
+LWA_LON = -107.628427469 * numpy.pi/180
 LWA_ROT = numpy.array([[ numpy.sin(LWA_LAT)*numpy.cos(LWA_LON), numpy.sin(LWA_LAT)*numpy.sin(LWA_LON), -numpy.cos(LWA_LAT)], 
 				   [-numpy.sin(LWA_LON),                    numpy.cos(LWA_LON),                    0                  ],
 				   [ numpy.cos(LWA_LAT)*numpy.cos(LWA_LON), numpy.cos(LWA_LAT)*numpy.sin(LWA_LON),  numpy.sin(LWA_LAT)]])
@@ -188,6 +189,8 @@ def main(args):
 			sez = numpy.dot(LWA_ROT, rho)
 			enz = sez[[1,0,2]]
 			enz[1] *= -1
+			### z offset from pad height to elevation bearing
+			enz[2] += 11.0
 			
 			## Save
 			corrConfig['source']['name'] = header['SRC_NAME']
