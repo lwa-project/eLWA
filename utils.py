@@ -25,7 +25,7 @@ from lsl.misc.beamformer import calcDelay
 __version__ = '0.3'
 __revision__ = '$Rev$'
 __all__ = ['multiColumnPrint', 'parseTimeString', 'readCorrelatorConfiguration', 
-		 'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCo', 
+		 'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -384,23 +384,36 @@ def parseLWAMetaData(filename):
 
 class PolyCo(object):
 	"""
-	Class for working with pulsar PolyCo files
+	Class for working with a pulsar PolyCo entry.
 	"""
 	
+	def __init__(self, filename=None):
+		if filename is not None:
+			self.readFromFile(filename)
+			
 	def readFromFile(self, filename):
 		"""
-		Print given a filename, read in that file and populate the PolyCo 
-		instance with everything needed to get the pulsar phase or frequency
-		as a function of MJD.
+		Given a filename or open filehandle, read in that file and populate 
+		the PolyCo instance with everything needed to get the pulsar phase 
+		or frequency as a function of MJD.
 		"""
 		
-		# Open the file and go through it line-by-line
-		fh = open(filename, 'r')
+		# Figure out what to do
+		needToClose = False
+		if type(filename) is not file:
+			fh = open(filename, 'r')
+			needToClose = True
+		else:
+			fh = filename
+			
+		# Go through the file line-by-line
 		## First line
 		line1 = fh.readline()
+		if len(line1) < 3:
+			raise IOError("readline() returned an empty string")
 		name    = line1[ 0:10].lstrip().rstrip()
-		date    = line1[10:19].lstrip().rstrip()
-		time    = line1[19:31].lstrip().rstrip()
+		date    = line1[10:20].lstrip().rstrip()
+		time    = line1[20:31].lstrip().rstrip()
 		tMid    = line1[31:51].lstrip().rstrip()
 		DM      = line1[51:72].lstrip().rstrip()
 		dShift  = line1[73:79].lstrip().rstrip()
@@ -416,8 +429,8 @@ class PolyCo(object):
 		binPhs  = line2[75:80].lstrip().rstrip()
 		## Third and remaining lines
 		coeffs = []
-		lines = fh.readlines()
-		for line in lines:
+		for i in xrange(int(nCoeff)/3 + (0 if int(nCoeff)%3==0 else 1)):
+			line = fh.readline()
 			coeff1 = line[ 0:25].lstrip().rstrip()
 			coeff2 = line[25:50].lstrip().rstrip()
 			coeff3 = line[50:75].lstrip().rstrip()
@@ -425,11 +438,14 @@ class PolyCo(object):
 			coeffs.append( coeff2 )
 			coeffs.append( coeff3 )
 			
-		fh.close()
-		
+		if needToClose:
+			fh.close()
+			
 		# Make what we've just read in useful
 		## Type conversions - line 1
-		self.date    = datetime.strptime("%s %s" % (date, time), "%d-%m-%y %H%M%S.%f")
+		while len(time) < 7:
+			time = "0"+time
+		self.date    = datetime.strptime("%s %s" % (date, time), "%d-%b-%y %H%M%S.%f")
 		self.tMid    = float(tMid)
 		self.DM      = float(DM)
 		self.dShift  = float(dShift)*1e-4
@@ -441,9 +457,13 @@ class PolyCo(object):
 		self.span    = float(span)
 		self.nCoeff  = int(nCoeff, 10)
 		self.obsFreq = float(obsFreq)*1e6
-		self.binPhs  = float(binPhs)
+		self.binPhs  = float(binPhs) if binPhs != '' else 0.0
 		## Type conversions - coefficients
-		self.coeffs = [float(c) for c in coeffs]
+		self.coeffs = [float(c.replace('D', 'E')) for c in coeffs]
+		
+		# Fill in additional information about the valid MJD range
+		self.validMinMJD = self.tMid - self.span/1440/2
+		self.validMaxMJD = self.tMid + self.span/1440/2
 		
 	def getPhase(self, mjd):
 		"""
@@ -453,6 +473,10 @@ class PolyCo(object):
 		# Are we ready to go?
 		if getattr(self, 'tMid', None) is None:
 			raise RuntimeError("Need to populated from a .polyco file before using")
+			
+		# Is the MJD valid for this polyco?
+		if mjd < self.validMinMJD or mjd > self.validMaxMJD:
+			raise ValueError("PolyCo is only valid for MJD %.6f to %.6f" % (self.validMinMJD, self.validMaxMJD))
 			
 		# Get the time difference and compute
 		dt = (mjd - self.tMid)*1440.0
@@ -471,6 +495,10 @@ class PolyCo(object):
 		if getattr(self, 'tMid', None) is None:
 			raise RuntimeError("Need to populated from a .polyco file before using")
 			
+		# Is the MJD valid for this polyco?
+		if mjd < self.validMinMJD or mjd > self.validMaxMJD:
+			raise ValueError("PolyCo is only valid for MJD %.6f to %.6f" % (self.validMinMJD, self.validMaxMJD))
+			
 		# Get the time difference and compute
 		dt = (mjd - self.tMid)*1440.0
 		freq = self.rFreq + 0.0
@@ -480,3 +508,68 @@ class PolyCo(object):
 			freq += i*c*dt**(i-1)/60.0
 			
 		return freq
+
+
+class PolyCos(object):
+	"""
+	Class for working with pulsar PolyCos files.
+	"""
+	
+	def __init__(self, filename=None):
+		if filename is not None:
+			self.readFromFile(filename)
+			
+	def readFromFile(self, filename):
+		"""
+		Given a filename or open filehandle, read in that file and populate 
+		the PolyCos instance with everything needed to get the pulsar phase 
+		or frequency as a function of MJD.
+		"""
+		
+		# Figure out what to do
+		needToClose = False
+		if type(filename) is not file:
+			fh = open(filename, 'r')
+			needToClose = True
+		else:
+			fh = filename
+			
+		# Load in all of the coefficient sets
+		m, p = [], []
+		while True:
+			try:
+				c = PolyCo(fh)
+				m.append( c.tMid )
+				p.append( c )
+			except IOError:
+				break
+				
+		# Populate the instance with data
+		self.tMids = numpy.array(m)
+		self.polyCos = p
+		
+	def getPhase(self, mjd):
+		"""
+		Given a MJD value, compute the phase of the pulsar.
+		"""
+		
+		# Are we ready to go?
+		if getattr(self, 'tMids', None) is None:
+			raise RuntimeError("Need to populated from a .polycos file before using")
+			
+		# Find the best polynomial to use
+		best = numpy.argmin( numpy.abs(self.tMids - mjd) )
+		return self.polyCos[best].getPhase(mjd)
+		
+	def getFrequency(self, mjd):
+		"""
+		Given a MJD value, compute the frequency of the pulsar.
+		"""
+		
+		# Are we ready to go?
+		if getattr(self, 'tMids', None) is None:
+			raise RuntimeError("Need to populated from a .polycos file before using")
+			
+		# Find the best polynomial to use
+		best = numpy.argmin( numpy.abs(self.tMids - mjd) )
+		return self.polyCos[best].getFrequency(mjd)
