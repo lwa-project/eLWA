@@ -178,12 +178,6 @@ def main(args):
 		
 		dataDict.close()
 		
-		if conjugateVis:
-			visXX = visXX.conj()
-			visXY = visXY.conj()
-			visYX = visYX.conj()
-			visYY = visYY.conj()
-			
 		if config['freqDecimation'] > 1:
 			visXX.shape = (visXX.shape[0], visXX.shape[1]/config['freqDecimation'], config['freqDecimation'])
 			visXX = visXX.mean(axis=2)
@@ -193,6 +187,12 @@ def main(args):
 			visYX = visYX.mean(axis=2)
 			visYY.shape = (visYY.shape[0], visYY.shape[1]/config['freqDecimation'], config['freqDecimation'])
 			visYY = visYY.mean(axis=2)
+			
+		if conjugateVis:
+			visXX = visXX.conj()
+			visXY = visXY.conj()
+			visYX = visYX.conj()
+			visYY = visYY.conj()
 			
 		if i % config['maxIntsInIDI'] == 0:
 			## Clean up the previous file
