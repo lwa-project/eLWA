@@ -112,7 +112,11 @@ def main(args):
 	metadata = {}
 	for filename in filenames:
 		#print "%s:" % os.path.basename(filename)
-
+		
+		# Skip over empty files
+		if os.path.getsize(filename) == 0:
+			continue
+			
 		# Open the file
 		fh = open(filename, 'rb')
 		
@@ -120,94 +124,162 @@ def main(args):
 		ext = os.path.splitext(filename)[1]
 		if ext == '':
 			## DRX
-			## Read in the first few frames to get the start time
-			frame0 = drx.readFrame(fh)
-			frame1 = drx.readFrame(fh)
-			frame2 = drx.readFrame(fh)
-			frame3 = drx.readFrame(fh)
-			freq1, freq2 = None, None
-			for frame in (frame0, frame1, frame2, frame3):
-				if frame.parseID()[1] == 1:
-					freq1 = frame.getCentralFreq()
-				else:
-					freq2 = frame.getCentralFreq()
-			tStart = datetime.utcfromtimestamp(frame0.getTime())
-			
-			## Read in the last few frames to find the end time
-			fh.seek(os.path.getsize(filename) - 4*drx.FrameSize)
-			frame0 = drx.readFrame(fh)
-			frame1 = drx.readFrame(fh)
-			frame2 = drx.readFrame(fh)
-			frame3 = drx.readFrame(fh)
-			freq1, freq2 = None, None
-			for frame in (frame0, frame1, frame2, frame3):
-				if frame.parseID()[1] == 1:
-					freq1 = frame.getCentralFreq()
-				else:
-					freq2 = frame.getCentralFreq()
-			tStop = datetime.utcfromtimestamp(frame0.getTime())
-			
-			## Save
-			corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
-									'antenna': 'LWA1', 'pols': 'X, Y', 
-									'location': (0.0, 0.0, 0.0), 
-									'clockoffset': (config['lwa1Offset'], config['lwa1Offset']), 'fileoffset': 0, 
-									'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
-									
+			try:
+				## Read in the first few frames to get the start time
+				frame0 = drx.readFrame(fh)
+				frame1 = drx.readFrame(fh)
+				frame2 = drx.readFrame(fh)
+				frame3 = drx.readFrame(fh)
+				freq1, freq2 = None, None
+				for frame in (frame0, frame1, frame2, frame3):
+					if frame.parseID()[1] == 1:
+						freq1 = frame.getCentralFreq()
+					else:
+						freq2 = frame.getCentralFreq()
+				tStart = datetime.utcfromtimestamp(frame0.getTime())
+				
+				## Read in the last few frames to find the end time
+				fh.seek(os.path.getsize(filename) - 4*drx.FrameSize)
+				frame0 = drx.readFrame(fh)
+				frame1 = drx.readFrame(fh)
+				frame2 = drx.readFrame(fh)
+				frame3 = drx.readFrame(fh)
+				freq1, freq2 = None, None
+				for frame in (frame0, frame1, frame2, frame3):
+					if frame.parseID()[1] == 1:
+						freq1 = frame.getCentralFreq()
+					else:
+						freq2 = frame.getCentralFreq()
+				tStop = datetime.utcfromtimestamp(frame0.getTime())
+				
+				## Save
+				corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
+										'antenna': 'LWA1', 'pols': 'X, Y', 
+										'location': (0.0, 0.0, 0.0), 
+										'clockoffset': (config['lwa1Offset'], config['lwa1Offset']), 'fileoffset': 0, 
+										'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
+										
+			except Exception as e:
+				sys.stderr.write("ERROR reading DRX file: %s" % str(e))
+				sys.stderr.flush()
+				
 		elif ext == '.vdif':
 			## VDIF
-			## Read in the GUPPI header
-			header = readGUPPIHeader(fh)
+			try:
+				## Read in the GUPPI header
+				header = readGUPPIHeader(fh)
+				
+				## Read in the first frame
+				vdif.FrameSize = vdif.getFrameSize(fh)
+				frame = vdif.readFrame(fh)
+				antID = frame.parseID()[0] - 12300
+				tStart =  datetime.utcfromtimestamp(frame.getTime())
+				nThread = vdif.getThreadCount(fh)
+				
+				## Read in the last frame
+				nJump = int(os.path.getsize(filename)/vdif.FrameSize)
+				nJump -= 4
+				fh.seek(nJump*vdif.FrameSize, 1)
+				mark = fh.tell()
+				frame = vdif.readFrame(fh)
+				tStop = datetime.utcfromtimestamp(frame.getTime())
 			
-			## Read in the first frame
-			vdif.FrameSize = vdif.getFrameSize(fh)
-			frame = vdif.readFrame(fh)
-			antID = frame.parseID()[0] - 12300
-			tStart =  datetime.utcfromtimestamp(frame.getTime())
-			nThread = vdif.getThreadCount(fh)
+				## Find the antenna location
+				pad, edate = db.get_pad('EA%02i' % antID, tStart)
+				x,y,z = db.get_xyz(pad, tStart)
+				#print "  Pad: %s" % pad
+				#print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+				
+				## Move into the LWA1 coodinate system
+				### relative to ECEF
+				xyz = numpy.array([x,y,z])
+				xyz += VLA_ECEF
+				### ECEF to LWA1
+				rho = xyz - LWA_ECEF
+				sez = numpy.dot(LWA_ROT, rho)
+				enz = sez[[1,0,2]]
+				enz[1] *= -1
+				### z offset from pad height to elevation bearing
+				enz[2] += 11.0
+				
+				## Save
+				corrConfig['source']['name'] = header['SRC_NAME']
+				corrConfig['source']['ra2000'] = header['RA_STR']
+				corrConfig['source']['dec2000'] = header['DEC_STR']
+				corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
+										'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
+										'location': (enz[0], enz[1], enz[2]),
+										'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+										'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+										
+			except Exception as e:
+				sys.stderr.write("ERROR reading VDIF file: %s" % str(e))
+				sys.stderr.flush()
+				
+		elif ext == '.raw':
+			## GUPPI Raw
+			try:
+				## Read in the GUPPI header
+				header = readGUPPIHeader(fh)
+				
+				## Read in the first frame
+				guppi.FrameSize = guppi.getFrameSize(fh)
+				frame = guppi.readFrame(fh)
+				antID = frame.parseID()[0] - 12300
+				tStart =  datetime.utcfromtimestamp(frame.getTime())
+				nThread = guppi.getThreadCount(fh)
+				
+				## Read in the last frame
+				nJump = int(os.path.getsize(filename)/guppi.FrameSize)
+				nJump -= 2
+				fh.seek(nJump*guppi.FrameSize, 1)
+				mark = fh.tell()
+				frame = guppi.readFrame(fh)
+				tStop = datetime.utcfromtimestamp(frame.getTime())
 			
-			## Read in the last frame
-			nJump = int(os.path.getsize(filename)/vdif.FrameSize)
-			nJump -= 4
-			fh.seek(nJump*vdif.FrameSize, 1)
-			mark = fh.tell()
-			frame = vdif.readFrame(fh)
-			tStop = datetime.utcfromtimestamp(frame.getTime())
-		
-			## Find the antenna location
-			pad, edate = db.get_pad('EA%02i' % antID, tStart)
-	    		x,y,z = db.get_xyz(pad, tStart)
-			#print "  Pad: %s" % pad
-			#print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
-			
-			## Move into the LWA1 coodinate system
-			### relative to ECEF
-			xyz = numpy.array([x,y,z])
-			xyz += VLA_ECEF
-			### ECEF to LWA1
-			rho = xyz - LWA_ECEF
-			sez = numpy.dot(LWA_ROT, rho)
-			enz = sez[[1,0,2]]
-			enz[1] *= -1
-			### z offset from pad height to elevation bearing
-			enz[2] += 11.0
-			
-			## Save
-			corrConfig['source']['name'] = header['SRC_NAME']
-			corrConfig['source']['ra2000'] = header['RA_STR']
-			corrConfig['source']['dec2000'] = header['DEC_STR']
-			corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
-									'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-									'location': (enz[0], enz[1], enz[2]),
-									'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-									'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
-									
+				## Find the antenna location
+				pad, edate = db.get_pad('EA%02i' % antID, tStart)
+				x,y,z = db.get_xyz(pad, tStart)
+				#print "  Pad: %s" % pad
+				#print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+				
+				## Move into the LWA1 coodinate system
+				### relative to ECEF
+				xyz = numpy.array([x,y,z])
+				xyz += VLA_ECEF
+				### ECEF to LWA1
+				rho = xyz - LWA_ECEF
+				sez = numpy.dot(LWA_ROT, rho)
+				enz = sez[[1,0,2]]
+				enz[1] *= -1
+				### z offset from pad height to elevation bearing
+				enz[2] += 11.0
+				
+				## Save
+				corrConfig['source']['name'] = header['SRC_NAME']
+				corrConfig['source']['ra2000'] = header['RA_STR']
+				corrConfig['source']['dec2000'] = header['DEC_STR']
+				corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
+										'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
+										'location': (enz[0], enz[1], enz[2]),
+										'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+										'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+										
+			except Exception as e:
+				sys.stderr.write("ERROR reading GUPPI file: %s" % str(e))
+				sys.stderr.flush()
+				
 		elif ext == '.tgz':
 			## LWA Metadata
-			## Extract the file information so that we can pair things together
-			fileInfo = metabundle.getSessionMetaData(filename)
-	 		for obsID in fileInfo.keys():
-				metadata[fileInfo[obsID]['tag']] = filename
+			try:
+				## Extract the file information so that we can pair things together
+				fileInfo = metabundle.getSessionMetaData(filename)
+				for obsID in fileInfo.keys():
+					metadata[fileInfo[obsID]['tag']] = filename
+					
+			except Exception as e:
+				sys.stderr.write("ERROR reading metadata file: %s" % str(e))
+				sys.stderr.flush()
 				
 		# Done
 		fh.close()
