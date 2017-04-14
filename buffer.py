@@ -16,6 +16,11 @@ try:
 except ImportError:
 	from lsl.misc.OrderedDict import OrderedDict
 
+__version__ = '0.2'
+__revision__ = '$Rev$'
+__all__ == ['FrameBuffer', 'VDIFFrameBuffer', 'GUPPIFrameBuffer', 
+		  '__version__', '__revision__', '__all__']
+
 
 class FrameBuffer(object):
 	"""
@@ -310,3 +315,13 @@ class VDIFFrameBuffer(FrameBuffer):
 		fillFrame.valid = False
 		
 		return fillFrame
+
+
+class GUPPIFrameBuffer(FrameBuffer):
+	def figureOfMerit(self, frame):
+		"""
+		Figure of merit for sorting frames.  For DRX it is:
+		    <frame timetag in ticks>
+		"""
+		
+		return frame.header.offset

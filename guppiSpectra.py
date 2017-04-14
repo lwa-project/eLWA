@@ -84,7 +84,8 @@ def main(args):
 	fh = open(filename, 'rb')
 	header = readGUPPIHeader(fh)
 	guppi.FrameSize = guppi.getFrameSize(fh)
-	nFramesFile = os.path.getsize(filename) / guppi.FrameSize
+	guppi.BlockFrames = guppi.getFramesPerBlock(fh)
+	nFramesFile = os.path.getsize(filename) / guppi.FrameSize * guppi.BlockFrames
 	
 	junkFrame = guppi.readFrame(fh)
 	srate = junkFrame.getSampleRate()
@@ -97,8 +98,8 @@ def main(args):
 		print "Skipping forward %.3f s" % config['skip']
 		print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
 		
-		offset = int(config['skip']*srate / guppi.DataLength)
-		fh.seek(beampols*guppi.FrameSize*offset, 1)
+		offset = int(config['skip']*srate / guppi.DataLength )
+		fh.seek(guppi.FrameSize*(beampols*offset/guppi.BlockFrames - 1), 1)
 		junkFrame = guppi.readFrame(fh)
 		fh.seek(-guppi.FrameSize, 1)
 		

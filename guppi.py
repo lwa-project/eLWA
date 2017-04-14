@@ -17,8 +17,8 @@ from lsl.reader.errors import syncError, eofError
 __version__ = '0.1'
 __revision__ = '$Rev$'
 __all__ = ['FrameHeader', 'FrameData', 'Frame', 'readGUPPIHeader', 'readFrame', 
-		 'getFrameSize', 'getThreadCount', 'getFramesPerSecond', 'getSampleRate', 
-		 'getCentralFreq', '__version__', '__revision__', '__all__']
+		 'getFrameSize', 'getThreadCount', 'getFramesPerBlock', 'getFramesPerSecond', 
+		 'getSampleRate', 'getCentralFreq', '__version__', '__revision__', '__all__']
 
 
 class FrameHeader(object):
@@ -289,11 +289,19 @@ def readFrame(filehandle, Verbose=False):
 	
 	mark = filehandle.tell()
 	if 'SPARE' in _param_cache[filehandle].keys() and mark == last:
-		frame = _param_cache[filehandle]['SPARE']
-		del _param_cache[filehandle]['SPARE']
-		
+		frame = _param_cache[filehandle]['SPARE'].pop(0)
+		if len(_param_cache[filehandle]['SPARE']) == 0:
+			del _param_cache[filehandle]['SPARE']
+			
 	else:
 		try:
+			del _param_cache[filehandle]['SPARE']
+		except KeyError:
+			pass
+			
+		try:
+			if Verbose:
+				print "READ"
 			raw = numpy.fromfile(filehandle, dtype=numpy.uint8, count=blocksize)
 			_param_cache[filehandle]['LAST'] = filehandle.tell()
 		except IOError:
@@ -314,20 +322,23 @@ def readFrame(filehandle, Verbose=False):
 		offset /= blocksize
 		offset *= data.shape[1]
 		
-		dataX = data[0,:]
-		fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-						bitsPerSample=nbits, threadID=0, stationID=ant, 
-						sampleRate=srate, centralFreq=cfreq)
-		fdat = FrameData(data=dataX)
-		frame = Frame(header=fhdr, data=fdat)
-		
-		if npol == 2:
-			dataY = data[1,:]
-			fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-							bitsPerSample=nbits, threadID=1, stationID=ant, 
-							sampleRate=srate, centralFreq=cfreq)
-			fdat = FrameData(data=dataY)
-			_param_cache[filehandle]['SPARE'] = Frame(header=fhdr, data=fdat)
+		pktsize = data.shape[1] / npkt
+		frames = []
+		for i in xrange(npkt):
+			for j in xrange(npol):
+				fpkt = data[j,i*pktsize:(i+1)*pktsize]
+				fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
+								bitsPerSample=nbits, threadID=j, stationID=ant, 
+								sampleRate=srate, centralFreq=cfreq)
+				fdat = FrameData(data=fpkt)
+				frames.append( Frame(header=fhdr, data=fdat) )
+			offset += pktsize
+			
+		if len(frames) == 1:
+			frame = frames[0]
+		else:
+			frame = frames.pop(0)
+			_param_cache[filehandle]['SPARE'] = frames
 			
 	return frame
 
@@ -370,6 +381,25 @@ def getThreadCount(filehandle):
 	return nPol
 
 
+def getFramesPerBlock(filehandle):
+	"""
+	Find and return the number of frames per block.
+	"""
+	
+	try:
+		_param_cache[filehandle]
+	except KeyError:
+		mark = filehandle.tell()
+		filehandle.seek(0)
+		readGUPPIHeader(filehandle)
+		filehandle.seek(mark)
+		
+	nPkt = _param_cache[filehandle]['NPKT']
+	nPol = 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
+	
+	return nPkt*nPol
+
+
 def getFramesPerSecond(filehandle):
 	"""
 	Find out the number of frames per second in a file by watching how the 
@@ -382,14 +412,16 @@ def getFramesPerSecond(filehandle):
 	# Get the frame size
 	FrameSize = getFrameSize(filehandle)
 	
-	# Get the number of threads
+	# Get the number of threads and frames per block
 	nThreads = getThreadCount(filehandle)
+	framesPerBlock = getFramesPerBlock(filehandle)
 	
 	# Read in some frames
 	frames = []
-	for i in xrange(nThreads):
-		frames.append( readFrame(filehandle) )
-		
+	for i in xrange(framesPerBlock):
+		for j in xrange(nThreads):
+			frames.append( readFrame(filehandle) )
+			
 	# Return to the place in the file where we started
 	filehandle.seek(fhStart)
 	
