@@ -27,12 +27,13 @@ class FrameHeader(object):
 	frame.  Most fields in the VDIF version 1.1.1 header are stored.
 	"""
 	
-	def __init__(self, imjd=0, smjd=0, fmjd=0.0, offset=0.0, threadID=0, stationID=0, sampleRate=0.0, centralFreq=0.0):
+	def __init__(self, imjd=0, smjd=0, fmjd=0.0, offset=0.0, bitsPerSample=0, threadID=0, stationID=0, sampleRate=0.0, centralFreq=0.0):
 		self.imjd = imjd
 		self.smjd = smjd
 		self.fmjd = fmjd
 		self.offset = offset
 		
+		self.bitsPerSample = bitsPerSample
 		self.threadID = threadID
 		self.stationID = stationID
 		
@@ -315,14 +316,16 @@ def readFrame(filehandle, Verbose=False):
 		
 		dataX = data[0,:]
 		fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-						threadID=0, stationID=ant, sampleRate=srate, centralFreq=cfreq)
+						bitsPerSample=nbits, threadID=0, stationID=ant, 
+						sampleRate=srate, centralFreq=cfreq)
 		fdat = FrameData(data=dataX)
 		frame = Frame(header=fhdr, data=fdat)
 		
 		if npol == 2:
 			dataY = data[1,:]
 			fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-							threadID=1, stationID=ant, sampleRate=srate, centralFreq=cfreq)
+							bitsPerSample=nbits, threadID=1, stationID=ant, 
+							sampleRate=srate, centralFreq=cfreq)
 			fdat = FrameData(data=dataY)
 			_param_cache[filehandle]['SPARE'] = Frame(header=fhdr, data=fdat)
 			
