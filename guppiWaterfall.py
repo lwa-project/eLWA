@@ -518,8 +518,7 @@ def main(args):
 	fh = open(filename, "rb")
 	header = readGUPPIHeader(fh)
 	guppi.FrameSize = guppi.getFrameSize(fh)
-	guppi.BlockFrames = guppi.getFramesPerBlock(fh)
-	nFramesFile = os.path.getsize(filename) / guppi.FrameSize * guppi.BlockFrames
+	nFramesFile = os.path.getsize(filename) / guppi.FrameSize
 	
 	while True:
 		try:
@@ -545,7 +544,7 @@ def main(args):
 	# Offset in frames for beampols beam/tuning/pol. sets
 	offset = int(config['offset'] * srate / guppi.DataLength * beampols)
 	offset = int(1.0 * offset / beampols) * beampols
-	fh.seek(guppi.FrameSize*(offset/guppi.BlockFrames), 1)
+	fh.seek(guppi.FrameSize*offset, 1)
 	
 	# Iterate on the offsets until we reach the right point in the file.  This
 	# is needed to deal with files that start with only one tuning and/or a 
@@ -572,9 +571,9 @@ def main(args):
 		
 		## If the offset is zero, we are done.  Otherwise, apply the offset
 		## and check the location in the file again/
-		if cOffset < guppi.BlockFrames:
+		if cOffset == 0:
 			break
-		fh.seek(guppi.FrameSize*cOffset/(guppi.BlockFrames), 1)
+		fh.seek(guppi.FrameSize*cOffset, 1)
 	
 	# Update the offset actually used
 	config['offset'] = t1 - t0
@@ -621,7 +620,7 @@ def main(args):
 			centralFreq2 = junkFrame.getCentralFreq()
 		else:
 			pass
-	fh.seek(-guppi.FrameSize*(4/guppi.BlockFrames), 1)
+	fh.seek(-guppi.FrameSize*4, 1)
 	
 	config['freq1'] = centralFreq1
 	config['freq2'] = centralFreq2

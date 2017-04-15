@@ -300,9 +300,7 @@ def readFrame(filehandle, Verbose=False):
 			pass
 			
 		try:
-			if Verbose:
-				print "READ"
-			raw = numpy.fromfile(filehandle, dtype=numpy.uint8, count=blocksize)
+			raw = numpy.fromfile(filehandle, dtype=numpy.uint8, count=npol*pktsize)
 			_param_cache[filehandle]['LAST'] = filehandle.tell()
 		except IOError:
 			raise eofError
@@ -319,20 +317,18 @@ def readFrame(filehandle, Verbose=False):
 		data = data.reshape((npol,-1))
 		
 		offset = mark - ref
-		offset /= blocksize
+		offset /= pktsize*npol
 		offset *= data.shape[1]
 		
-		pktsize = data.shape[1] / npkt
+		pktsize = data.shape[1]
 		frames = []
-		for i in xrange(npkt):
-			for j in xrange(npol):
-				fpkt = data[j,i*pktsize:(i+1)*pktsize]
-				fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-								bitsPerSample=nbits, threadID=j, stationID=ant, 
-								sampleRate=srate, centralFreq=cfreq)
-				fdat = FrameData(data=fpkt)
-				frames.append( Frame(header=fhdr, data=fdat) )
-			offset += pktsize
+		for j in xrange(npol):
+			fpkt = data[j,:]
+			fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
+						bitsPerSample=nbits, threadID=j, stationID=ant, 
+						sampleRate=srate, centralFreq=cfreq)
+			fdat = FrameData(data=fpkt)
+			frames.append( Frame(header=fhdr, data=fdat) )
 			
 		if len(frames) == 1:
 			frame = frames[0]
@@ -356,7 +352,7 @@ def getFrameSize(filehandle, nFrames=None):
 		readGUPPIHeader(filehandle)
 		filehandle.seek(mark)
 		
-	frameSize = _param_cache[filehandle]['BLOCSIZE']
+	frameSize = _param_cache[filehandle]['PKTSIZE']
 	
 	return frameSize
 
@@ -394,10 +390,9 @@ def getFramesPerBlock(filehandle):
 		readGUPPIHeader(filehandle)
 		filehandle.seek(mark)
 		
-	nPkt = _param_cache[filehandle]['NPKT']
 	nPol = 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
 	
-	return nPkt*nPol
+	return nPol
 
 
 def getFramesPerSecond(filehandle):
@@ -412,23 +407,76 @@ def getFramesPerSecond(filehandle):
 	# Get the frame size
 	FrameSize = getFrameSize(filehandle)
 	
-	# Get the number of threads and frames per block
+	# Get the number of threads
 	nThreads = getThreadCount(filehandle)
-	framesPerBlock = getFramesPerBlock(filehandle)
 	
-	# Read in some frames
-	frames = []
-	for i in xrange(framesPerBlock):
-		for j in xrange(nThreads):
-			frames.append( readFrame(filehandle) )
+	# Get the current second counts for all threads
+	ref = {}
+	i = 0
+	while i < nThreads:
+		try:
+			cFrame = readFrame(filehandle)
+		except syncError:
+			filehandle.seek(FrameSize, 1)
+			continue
+		except eofError:
+			break
+			
+		cID = cFrame.header.threadID
+		cSC = cFrame.header.offset / int(getSampleRate(filehandle))
+		ref[cID] = cSC
+		i += 1
+		
+	# Read frames until we see a change in the second counter
+	cur = {}
+	fnd = []
+	while True:
+		## Get a frame
+		try:
+			cFrame = readFrame(filehandle)
+		except syncError:
+			filehandle.seek(FrameSize, 1)
+			continue
+		except eofError:
+			break
+			
+		## Pull out the relevant metadata
+		cID = cFrame.header.threadID
+		cSC = cFrame.header.offset / int(getSampleRate(filehandle))
+		cFC = cFrame.header.offset % int(getSampleRate(filehandle)) / cFrame.data.data.size
+		
+		## Figure out what to do with it
+		if cSC == ref[cID]:
+			### Same second as the reference, save the frame number
+			cur[cID] = cFC
+		else:
+			### Different second than the reference, we've found something
+			ref[cID] = cSC
+			if cID not in fnd:
+				fnd.append( cID )
+				
+		if len(fnd) == nThreads:
+			break
 			
 	# Return to the place in the file where we started
 	filehandle.seek(fhStart)
 	
-	# Get the number of frames per second
-	nFramesSecond = int(frames[0].data.data.size / getSampleRate(filehandle))
-	
-	return nFramesSecond
+	# Pull out the mode
+	mode = {}
+	for key,value in cur.iteritems():
+		try:
+			mode[value] += 1
+		except KeyError:
+			mode[value] = 1
+	best, bestValue = 0, 0
+	for key,value in mode.iteritems():
+		if value > bestValue:
+			best = key
+			bestValue = value
+			
+	# Correct for a zero-based counter and return
+	best += 1
+	return best
 
 
 def getSampleRate(filehandle):

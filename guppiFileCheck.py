@@ -83,8 +83,7 @@ def main(args):
 	fh = open(filename, 'rb')
 	header = readGUPPIHeader(fh)
 	guppi.FrameSize = guppi.getFrameSize(fh)
-	guppi.BlockFrames = guppi.getFramesPerBlock(fh)
-	nFramesFile = os.path.getsize(filename) / guppi.FrameSize * guppi.BlockFrames
+	nFramesFile = os.path.getsize(filename) / guppi.FrameSize
 	
 	junkFrame = guppi.readFrame(fh)
 	srate = junkFrame.getSampleRate()
@@ -193,9 +192,9 @@ def main(args):
 			print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
 		
 			i += 1
-			if fh.tell() + guppi.FrameSize*(chunkSkip/guppi.BlockFrames) >= os.path.getsize(filename):
+			if fh.tell() + guppi.FrameSize*chunkSkip >= os.path.getsize(filename):
 				break
-			fh.seek(guppi.FrameSize*(chunkSkip/guppi.BlockFrames), 1)
+			fh.seek(guppi.FrameSize*chunkSkip, 1)
 			
 	clipFraction = numpy.array(clipFraction)
 	meanPower = numpy.array(meanPower)
