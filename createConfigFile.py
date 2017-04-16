@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle
 
+import guppi
 from utils import *
 from get_vla_ant_pos import database
 
@@ -160,7 +161,7 @@ def main(args):
 										'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
 										
 			except Exception as e:
-				sys.stderr.write("ERROR reading DRX file: %s" % str(e))
+				sys.stderr.write("ERROR reading DRX file: %s\n" % str(e))
 				sys.stderr.flush()
 				
 		elif ext == '.vdif':
@@ -213,7 +214,7 @@ def main(args):
 										'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
 										
 			except Exception as e:
-				sys.stderr.write("ERROR reading VDIF file: %s" % str(e))
+				sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
 				sys.stderr.flush()
 				
 		elif ext == '.raw':
@@ -231,7 +232,7 @@ def main(args):
 				
 				## Read in the last frame
 				nJump = int(os.path.getsize(filename)/guppi.FrameSize)
-				nJump -= 2
+				nJump -= 4
 				fh.seek(nJump*guppi.FrameSize, 1)
 				mark = fh.tell()
 				frame = guppi.readFrame(fh)
@@ -266,7 +267,7 @@ def main(args):
 										'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
 										
 			except Exception as e:
-				sys.stderr.write("ERROR reading GUPPI file: %s" % str(e))
+				sys.stderr.write("ERROR reading GUPPI file: %s\n" % str(e))
 				sys.stderr.flush()
 				
 		elif ext == '.tgz':
@@ -278,7 +279,7 @@ def main(args):
 					metadata[fileInfo[obsID]['tag']] = filename
 					
 			except Exception as e:
-				sys.stderr.write("ERROR reading metadata file: %s" % str(e))
+				sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
 				sys.stderr.flush()
 				
 		# Done
@@ -292,9 +293,10 @@ def main(args):
 	vdifRefFile = None
 	isDRX = False
 	for input in corrConfig['inputs']:
-		if input['type'] == 'VDIF':
+		if input['type'] in ('VDIF', 'GUPPI'):
 			if vdifRefFile is None:
 				vdifRefFile = input
+				print input
 		elif input['type'] == 'DRX':
 				isDRX = True
 			
@@ -321,7 +323,7 @@ def main(args):
 		
 	# VDIF/DRX warning check/report
 	if isDRX and not drxFound:
-		sys.stderr("WARNING: DRX files provided but none overlapped with VDIF data")
+		sys.stderr.write("WARNING: DRX files provided but none overlapped with VDIF data")
 		
 	# Update the file offsets to get things lined up better
 	tMax = max([input['tstart'] for input in corrConfig['inputs']])

@@ -18,7 +18,7 @@ except ImportError:
 
 __version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ == ['FrameBuffer', 'VDIFFrameBuffer', 'GUPPIFrameBuffer', 
+__all__ = ['FrameBuffer', 'VDIFFrameBuffer', 'GUPPIFrameBuffer', 
 		  '__version__', '__revision__', '__all__']
 
 
@@ -317,7 +317,7 @@ class VDIFFrameBuffer(FrameBuffer):
 		return fillFrame
 
 
-class GUPPIFrameBuffer(FrameBuffer):
+class GUPPIFrameBuffer(VDIFFrameBuffer):
 	def figureOfMerit(self, frame):
 		"""
 		Figure of merit for sorting frames.  For DRX it is:

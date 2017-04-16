@@ -212,7 +212,7 @@ def _filenameToAntenna(filename, vdifID=False):
 			11: 23, 
 			12: 27}
 			
-	ant = ant[lookup]
+	ant = lookup[ant]
 	if vdifID:
 		ant += 12300
 		
