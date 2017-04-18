@@ -309,7 +309,7 @@ def readFrame(filehandle, Verbose=False):
 			data = numpy.zeros((2*raw.size), dtype=numpy.uint8)
 			data[1::2] = (raw & 0xF0) >> 4
 			data[0::2] = (raw & 0x0F)
-			data = data.astype(numpy.int8) - 8
+			data = data.astype(numpy.int8) - ((data&0x8)<<1)
 			data = data.reshape((-1,npol,2))
 			data = numpy.transpose(data, [1, 0, 2])
 		elif nbits == 8:
