@@ -306,16 +306,18 @@ def readFrame(filehandle, Verbose=False):
 			raise eofError
 			
 		if nbits == 4:
-			data = numpy.zeros((2*raw.size), dtype=numpy.uint8)
-			data[1::2] = (raw & 0xF0) >> 4
-			data[0::2] = (raw & 0x0F)
-			data = data.astype(numpy.int8) - ((data&0x8)<<1)
-			data = data.reshape((-1,npol,2))
-			data = numpy.transpose(data, [1, 0, 2])
+			data = numpy.zeros((2,raw.size), dtype=numpy.uint8)
+			even = raw[0::2]
+			odd  = raw[1::2]
+			data[0,1::2] = (even & 0xF0) >> 4
+			data[0,0::2] = (even & 0x0F)
+			data[1,1::2] = (odd  & 0xF0) >> 4
+			data[1,0::2] = (odd  & 0x0F)
+			data = data.astype(numpy.float32) - 8
 		elif nbits == 8:
 			data = raw.astype(numpy.int8)
-		data = data.reshape((npol,-1))
-		
+			data = data.reshape((npol,-1))
+			
 		offset = mark - ref
 		offset /= pktsize*npol
 		offset *= data.shape[1]
