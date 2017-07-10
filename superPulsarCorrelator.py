@@ -32,16 +32,19 @@ from lsl.reader import drx, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer
 
 import guppi
+from lsl.misc.dedispersion import delay as dispDelay
+
 import jones
 from utils import *
-from buffer import VDIFFrameBuffer, GUPPIFrameBuffer
+from buffer import VDIFFrameBuffer
 
 
 def usage(exitCode=None):
-	print """superCorrelator.py - The next generation of correlator
+	print """superPulsarCorrelator.py - The next generation of correlator for pulsar
+data
 
 Usage:
-superCorrelator.py [OPTIONS] <config_file>
+superPulsarCorrelator.py [OPTIONS] <config_file>
 
 Options:
 -h, --help                  Display this help information
@@ -355,7 +358,7 @@ def main(args):
 				while (timeTags[j+0] != timeTags[j+1]):
 					j += 1
 					fh[i].seek(readers[i].FrameSize, 1)
-				
+					
 			nFramesFile[i] -= j
 			
 		# Align the files as close as possible by the time tags
@@ -489,9 +492,28 @@ def main(args):
 	print "Integration (dump) time is: %.3f s" % tDump
 	print " "
 	
-	subIntTimes = []
-	subIntCount = 0
-	fileCount   = 0
+	# Solve for the pulsar binning
+	observer.date = beginMJDs[0] + astro.MJD_OFFSET - astro.DJD_OFFSET
+	refSrc.compute(observer)
+	pulsarPeriod = refSrc.period
+	nProfileBins = int(pulsarPeriod / tSub)
+	nProfileBins = min([nProfileBins, 64])
+	profileBins = numpy.linspace(0, 1+1.0/nProfileBins, nProfileBins+2)
+	profileBins -= (profileBins[1]-profileBins[0])/2.0
+	print "Pulsar frequency: %.6f Hz" % refSrc.frequency
+	print "Pulsar period: %.6s seconds" % pulsarPeriod
+	print "Number of profile bins:  %i" % nProfileBins
+	print "Phase coverage per bin: %.3f" % (profileBins[1]-profileBins[0],)
+	print " "
+	
+	subIntTimes = [[] for i in xrange(nProfileBins)]
+	subIntCount = [0 for i in xrange(nProfileBins)]
+	subIntWeight = [0 for i in xrange(nProfileBins)]
+	fileCount   = [0 for i in xrange(nProfileBins)]
+	visXX = [0 for i in xrange(nProfileBins)]
+	visXY = [0 for i in xrange(nProfileBins)]
+	visYX = [0 for i in xrange(nProfileBins)]
+	visYY = [0 for i in xrange(nProfileBins)]
 	wallStart = time.time()
 	done = False
 	firstPass = True
@@ -900,51 +922,97 @@ def main(args):
 			svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
 			svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
 			
-			## Accumulate
-			if subIntCount == 0:
-				subIntTimes = [tSubInt,]
-				freqXX = sfreqXX
-				freqYY = sfreqYY
-				visXX  = svisXX / nDump
-				visXY  = svisXY / nDump
-				visYX  = svisYX / nDump
-				visYY  = svisYY / nDump
-			else:
-				subIntTimes.append( tSubInt )
-				visXX += svisXX / nDump
-				visXY += svisXY / nDump
-				visYX += svisYX / nDump
-				visYY += svisYY / nDump
-			subIntCount += 1
+			# Determine the pulsar phase as a function of frequency
+			currentPeriod = refSrc.period
+			## Dispersion
+			try:
+				phaseDispersion = tDisp / currentPeriod
+			except NameError:
+				tDisp = dispDelay(sfreqXX, refSrc.dm)
+				phaseDispersion = tDisp / currentPeriod
+			phaseDispersion -= numpy.floor(phaseDispersion)
+			## Folding
+			phaseProfile = refSrc.phase
+			phaseProfile -= int(phaseProfile)
+			## Combined
+			profilePhase = (phaseProfile - phaseDispersion) % 1
+			
+			## Map the phases to bins
+			bestBins = {}
+			for b,phs in enumerate(profilePhase):
+				bestBin = numpy.where( phs >= profileBins )[0][-1] % nProfileBins
+				try:
+					bestBins[bestBin].append( b )
+				except KeyError:
+					bestBins[bestBin] = [b,]
+					
+			summary = [None for i in profileBins[:-2]]
+			for bestBin in bestBins:
+				summary[bestBin] = (len(bestBins[bestBin]), subIntCount[bestBin])
+			print summary
+			
+			### Accumulate
+			for bestBin in bestBins:
+				bestFreq = bestBins[bestBin]
+				if subIntCount[bestBin] == 0:
+					subIntTimes[bestBin] = []
+					freqXX = sfreqXX
+					freqYY = sfreqYY
+					try:
+						okToZero = numpy.where( subIntWeight[bestBin] ==  subIntWeight[bestBin].max() )[0]
+						subIntWeight[bestBin] *= 0
+					except AttributeError:
+						subIntWeight[bestBin] = numpy.zeros(freqXX.size)
+						
+					visXX[bestBin] = svisXX*0.0
+					visXY[bestBin] = svisXY*0.0
+					visYX[bestBin] = svisYX*0.0
+					visYY[bestBin] = svisYY*0.0
+					
+				subIntTimes[bestBin].append( tSubInt )
+				visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
+				visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
+				visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
+				visYY[bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
+				subIntCount[bestBin] += 1
+				subIntWeight[bestBin][bestFreq] += 1
 			
 			## Save
-			if subIntCount == nDump:
-				subIntCount = 0
-				fileCount += 1
-				
-				outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
-				numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
-							vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
-							tStart=numpy.mean(subIntTimes), tInt=tDump)
-				### CD = correlator dump
-				print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
-				if fileCount == 1:
-					print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
-				if (fileCount-1) % 25 == 0:
-					print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/fileCount,)
-					etc = (nInt - fileCount) * (time.time() - wallStart)/fileCount
-					eth = int(etc/60.0) / 60
-					etm = int(etc/60.0) % 60
-					ets = etc % 60
-					print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
+			for bestBin in bestBins:
+				if subIntCount[bestBin] == nDump:
+					subIntCount[bestBin] = 0
+					fileCount[bestBin] += 1
 					
+					visXX[bestBin] *= nDump / subIntWeight[bestBin]
+					visXY[bestBin] *= nDump / subIntWeight[bestBin]
+					visYX[bestBin] *= nDump / subIntWeight[bestBin]
+					visYY[bestBin] *= nDump / subIntWeight[bestBin]
+					
+					outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
+					numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
+								vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
+								vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
+								tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDump)
+					### CD = correlator dump
+					print "CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(subIntTimes[bestBin]))
+					if bestBin == 0:
+						if fileCount[0] == 1:
+							print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
+						if (fileCount[0]-1) % 25 == 0:
+							print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/sum(fileCount),)
+							etc = (nInt - sum(fileCount)) * (time.time() - wallStart)/sum(fileCount)
+							eth = int(etc/60.0) / 60
+							etm = int(etc/60.0) % 60
+							ets = etc % 60
+							print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
+							
 	# Cleanup
 	etc = time.time() - wallStart
 	eth = int(etc/60.0) / 60
 	etm = int(etc/60.0) % 60
 	ets = etc % 60
 	print "Processing finished after %i:%02i:%04.1f" % (eth, etm, ets)
-	print "Average time per integration was %.3f s" % (etc/fileCount,)
+	print "Average time per integration was %.3f s" % (etc/sum(fileCount),)
 	for f in fh:
 		f.close()
 
