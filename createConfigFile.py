@@ -12,12 +12,14 @@ $LastChangedDate$
 
 import os
 import sys
+import ephem
 import numpy
 import getopt
 from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle
+from lsl.common.mcs import mjdmpm2datetime
 
 import guppi
 from utils import *
@@ -37,6 +39,7 @@ createConfigFile.py [OPTIONS] directory
 Options:
 -h, --help                  Display this help information
 -l, --lwa1-offset           LWA1 clock offset (default = 0)
+-s, --lwasv-offset          LWA-SV clock offset (default = 0)
 -o, --output                Write the configuration to the specified file
                             (default = standard out)
 """
@@ -57,7 +60,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hl:o:", ["help", "lwa1-offset=", "output="])
+		opts, args = getopt.getopt(args, "hl:s:o:", ["help", "lwa1-offset=", "lwasv-offset=", "output="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -69,6 +72,8 @@ def parseConfig(args):
 			usage(exitCode=0)
 		elif opt in ('-l', '--lwa1-offset'):
 			config['lwa1Offset'] = value
+		elif opt in ('-s', '--lwasv-offset'):
+			config['lwasvOffset'] = value
 		elif opt in ('-o','--output'):
 			config['output'] = value
 		else:
@@ -84,12 +89,15 @@ def parseConfig(args):
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9))
 
 ## Updated 2017/1/17 with solution for the 12/3 run
-LWA_ECEF = numpy.array((-1602265.88447377, -5042300.55066486, 3553963.38256972))
-LWA_LAT = 34.0687955336 * numpy.pi/180
-LWA_LON = -107.628427469 * numpy.pi/180
-LWA_ROT = numpy.array([[ numpy.sin(LWA_LAT)*numpy.cos(LWA_LON), numpy.sin(LWA_LAT)*numpy.sin(LWA_LON), -numpy.cos(LWA_LAT)], 
-				   [-numpy.sin(LWA_LON),                    numpy.cos(LWA_LON),                    0                  ],
-				   [ numpy.cos(LWA_LAT)*numpy.cos(LWA_LON), numpy.cos(LWA_LAT)*numpy.sin(LWA_LON),  numpy.sin(LWA_LAT)]])
+LWA1_ECEF = numpy.array((-1602265.88447377, -5042300.55066486, 3553963.38256972))
+LWA1_LAT = 34.0687955336 * numpy.pi/180
+LWA1_LON = -107.628427469 * numpy.pi/180
+LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
+				   [-numpy.sin(LWA1_LON),                    numpy.cos(LWA1_LON),                    0                  ],
+				   [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
+
+## Derived from the 2017 Oct 27 LWA-SV SSMIF
+LWASV_ECEF = numpy.array((-1531554.7717322097, -5045440.9839560054, 3579249.988606174))
 
 
 def main(args):
@@ -106,6 +114,50 @@ def main(args):
 	# Open the database connection to NRAO to find the antenna locations
 	db = database('params')
 	
+	# Pass 1 - Get the LWA metadata so we know where we are pointed
+	sources = []
+	metadata = {}
+	lwasite = {}
+	for filename in filenames:
+		# Figure out what to do with the file
+		ext = os.path.splitext(filename)[1]
+		if ext == '.tgz':
+			## LWA Metadata
+			try:
+				## Extract the SDF
+				if len(sources) == 0:
+					sdf = metabundle.getSessionDefinition(filename)
+					for obs in sdf.sessions[0].observations:
+						ra = ephem.hours(str(obs.ra))
+						dec = ephem.hours(str(obs.dec))
+						tStart = mjdmpm2datetime(obs.mjd, obs.mpm)
+						tStop  = mjdmpm2datetime(obs.mjd, obs.mpm+obs.dur)
+						sources.append( {'name':obs.target, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
+						
+				## Extract the file information so that we can pair things together
+				fileInfo = metabundle.getSessionMetaData(filename)
+				for obsID in fileInfo.keys():
+					metadata[fileInfo[obsID]['tag']] = filename
+					
+				## Figure out LWA1 vs LWA-SV
+				try:
+					cs = metabundle.getCommandScript(filename)
+					for c in cs:
+						if c['subsystemID'] == 'DP':
+							site = 'LWA1'
+							break
+						elif c['subsystemID'] == 'ADP':
+							site = 'LWA-SV'
+							break
+				except ValueError:
+					site = 'LWA-SV'
+				for obsID in fileInfo.keys():
+					lwasite[fileInfo[obsID]['tag']] = site
+					
+			except Exception as e:
+				sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
+				sys.stderr.flush()
+				
 	# Setup what we need to write out a configration file
 	corrConfig = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
 			    'inputs': []}
@@ -126,6 +178,29 @@ def main(args):
 		if ext == '':
 			## DRX
 			try:
+				## Get the site
+				try:
+					sitename = lwasite[os.path.basename(filename)]
+				except KeyError:
+					sitename = 'LWA1'
+					
+				## Get the location so that we can set site-specific parameters
+				if sitename == 'LWA1':
+					xyz = LWA1_ECEF
+					off = config['lwa1Offset']
+				elif sitename == 'LWA-SV':
+					xyz = LWASV_ECEF
+					off = config['lwasvOffset']
+				else:
+					raise RuntimeError("Unknown LWA site '%s'" % site)
+					
+				## Move into the LWA1 coodinate system
+				### ECEF to LWA1
+				rho = xyz - LWA1_ECEF
+				sez = numpy.dot(LWA1_ROT, rho)
+				enz = sez[[1,0,2]]
+				enz[1] *= -1
+				
 				## Read in the first few frames to get the start time
 				frame0 = drx.readFrame(fh)
 				frame1 = drx.readFrame(fh)
@@ -155,9 +230,9 @@ def main(args):
 				
 				## Save
 				corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
-										'antenna': 'LWA1', 'pols': 'X, Y', 
-										'location': (0.0, 0.0, 0.0), 
-										'clockoffset': (config['lwa1Offset'], config['lwa1Offset']), 'fileoffset': 0, 
+										'antenna': sitename, 'pols': 'X, Y', 
+										'location': (enz[0], enz[1], enz[2]), 
+										'clockoffset': (off, off), 'fileoffset': 0, 
 										'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
 										
 			except Exception as e:
@@ -196,13 +271,11 @@ def main(args):
 				xyz = numpy.array([x,y,z])
 				xyz += VLA_ECEF
 				### ECEF to LWA1
-				rho = xyz - LWA_ECEF
-				sez = numpy.dot(LWA_ROT, rho)
+				rho = xyz - LWA1_ECEF
+				sez = numpy.dot(LWA1_ROT, rho)
 				enz = sez[[1,0,2]]
 				enz[1] *= -1
-				### z offset from pad height to elevation bearing
-				enz[2] += 11.0
-				
+								
 				## Save
 				corrConfig['source']['name'] = header['SRC_NAME']
 				corrConfig['source']['ra2000'] = header['RA_STR']
@@ -249,8 +322,8 @@ def main(args):
 				xyz = numpy.array([x,y,z])
 				xyz += VLA_ECEF
 				### ECEF to LWA1
-				rho = xyz - LWA_ECEF
-				sez = numpy.dot(LWA_ROT, rho)
+				rho = xyz - LWA1_ECEF
+				sez = numpy.dot(LWA1_ROT, rho)
 				enz = sez[[1,0,2]]
 				enz[1] *= -1
 				### z offset from pad height to elevation bearing
@@ -332,57 +405,67 @@ def main(args):
 		offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
 		input['fileoffset'] = max([0, offset])
 		
-	
-	
 	# Render the configuration
-	## Setup
-	if config['output'] is None:
-		fh = sys.stdout
-	else:
-		fh = open(config['output'], 'w')
-	## Preample
-	fh.write("# Created\n")
-	fh.write("#  on %s\n" % datetime.now())
-	fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
-	fh.write("\n")
-	## Source
-	fh.write("Source\n")
-	fh.write("  Name     %s\n" % corrConfig['source']['name'])
-	fh.write("  RA2000   %s\n" % corrConfig['source']['ra2000'])
-	fh.write("  Dec2000  %s\n" % corrConfig['source']['dec2000'])
-	fh.write("SourceDone\n")
-	fh.write("\n")
-	## Input files
-	for input in corrConfig['inputs']:
+	startRef = sources[0]['start']
+	for s,source in enumerate(sources):
+		startOffset = source['start'] - startRef
+		startOffset = 10.0 + startOffset.total_seconds()	# Offset by 10s for LWA-SV data which is always strange
 		
-		fh.write("Input\n")
-		fh.write("# Start time is %s\n" % input['tstart'])
-		fh.write("# Stop time is %s\n" % input['tstop'])
-		try:
-			fh.write("# VLA pad is %s\n" % input['pad'])
-		except KeyError:
-			pass
-		try:
-			fh.write("# Frequency tuning 1 is %.3f Hz\n" % input['freq'][0])
-			fh.write("# Frequency tuning 2 is %.3f Hz\n" % input['freq'][1])
-		except TypeError:
-			fh.write("# Frequency tuning is %.3f Hz\n" % input['freq'])
-		fh.write("  File         %s\n" % input['file'])
-		try:
-			metaname = metadata[os.path.basename(input['file'])]
-			fh.write("  MetaData     %s\n" % metaname)
-		except KeyError:
-			pass
-		fh.write("  Type         %s\n" % input['type'])
-		fh.write("  Antenna      %s\n" % input['antenna'])
-		fh.write("  Pols         %s\n" % input['pols'])
-		fh.write("  Location     %.6f, %.6f, %.6f\n" % input['location'])
-		fh.write("  ClockOffset  %s, %s\n" % input['clockoffset'])
-		fh.write("  FileOffset   %.3f\n" % input['fileoffset'])
-		fh.write("InputDone\n")
+		dur = source['stop'] - source['start']
+		dur = dur.total_seconds() - 10.0
+		
+		## Setup
+		if config['output'] is None:
+			fh = sys.stdout
+		else:
+			fh = open(config['output']+str(s+1), 'w')
+			
+		## Preample
+		fh.write("# Created\n")
+		fh.write("#  on %s\n" % datetime.now())
+		fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
 		fh.write("\n")
-	if fh != sys.stdout:
-		fh.close()
+		## Source
+		fh.write("Source\n")
+		fh.write("# Observation start is %s\n" % source['start'])
+		fh.write("# Duration is %s\n" % (source['stop'] - source['start'],))
+		fh.write("  Name     %s\n" % source['name'])
+		fh.write("  RA2000   %s\n" % source['ra2000'])
+		fh.write("  Dec2000  %s\n" % source['dec2000'])
+		fh.write("  Duration %.3f\n" % dur)
+		fh.write("SourceDone\n")
+		fh.write("\n")
+		## Input files
+		for input in corrConfig['inputs']:
+		
+			fh.write("Input\n")
+			fh.write("# Start time is %s\n" % input['tstart'])
+			fh.write("# Stop time is %s\n" % input['tstop'])
+			try:
+				fh.write("# VLA pad is %s\n" % input['pad'])
+			except KeyError:
+				pass
+			try:
+				fh.write("# Frequency tuning 1 is %.3f Hz\n" % input['freq'][0])
+				fh.write("# Frequency tuning 2 is %.3f Hz\n" % input['freq'][1])
+			except TypeError:
+				fh.write("# Frequency tuning is %.3f Hz\n" % input['freq'])
+			fh.write("  File         %s\n" % input['file'])
+			try:
+				metaname = metadata[os.path.basename(input['file'])]
+				fh.write("  MetaData     %s\n" % metaname)
+			except KeyError:
+				pass
+			fh.write("  Type         %s\n" % input['type'])
+			fh.write("  Antenna      %s\n" % input['antenna'])
+			fh.write("  Pols         %s\n" % input['pols'])
+			fh.write("  Location     %.6f, %.6f, %.6f\n" % input['location'])
+			fh.write("  ClockOffset  %s, %s\n" % input['clockoffset'])
+			fh.write("  FileOffset   %.3f\n" % (startOffset + input['fileoffset'],))
+			fh.write("InputDone\n")
+			fh.write("\n")
+		if fh != sys.stdout:
+			fh.close()
 
 
 if __name__ == "__main__":
