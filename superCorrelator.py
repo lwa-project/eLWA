@@ -189,6 +189,7 @@ def main(args):
 	
 	# Parse the correlator configuration
 	refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(config['args'][0])
+	config['duration'] = refSrc.duration
 	
 	# Get the raw configuration
 	fh = open(config['args'][0], 'r')
@@ -429,8 +430,8 @@ def main(args):
 		print "  Delay Steps Avaliable: %s" % ('No' if delaySteps[i] is None else 'Yes',)
 		print "  Date of First Frame: %s" % beginDates[i]
 		print "  Sample Rate: %i Hz" % srate[i]
-		print "  Tuning 1: %.1f Hz" % cFreqs[i][0]
-		print "  Tuning 2: %.1f Hz" % cFreqs[i][1]
+		print "  Tuning 1: %.3f Hz" % cFreqs[i][0]
+		print "  Tuning 2: %.3f Hz" % cFreqs[i][1]
 		print "  Bit Depth: %i" % bitDepths[i]
 	print "  ==="
 	print "  Phase Center:"
@@ -759,8 +760,7 @@ def main(args):
 				freqD, feoD, veoD, deoD = multirate.MRF(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
 											SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
 											Pol='*', phaseCenter=refSrc)
-											
-				
+			
 			## Rotate the phase in time to deal with frequency offset between the VLA and LWA
 			if nDRXInputs*nVDIFInputs > 0:
 				subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
