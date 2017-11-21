@@ -751,15 +751,21 @@ def main(args):
 				dataDSub = jones.applyMatrix(dataDSub, skyToVLA)
 				
 			## Correlate
+			delayPadding = multirate.getOptimalDelayPadding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
+			                                                LFFT=drxLFFT, SampleRate=srate[-1], 
+			                                                CentralFreq=cFreqs[-1][vdifPivot-1], 
+                                                                        Pol='*', phaseCenter=refSrc)
 			if nVDIFInputs > 0:
 				freqV, feoV, veoV, deoV = multirate.MRF(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
 											SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
-											Pol='*', phaseCenter=refSrc)
+											Pol='*', phaseCenter=refSrc, 
+                                                                                        delayPadding=delayPadding)
 											
 			if nDRXInputs > 0:
 				freqD, feoD, veoD, deoD = multirate.MRF(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
 											SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
-											Pol='*', phaseCenter=refSrc)
+											Pol='*', phaseCenter=refSrc, 
+                                                                                        delayPadding=delayPadding)
 			
 			## Rotate the phase in time to deal with frequency offset between the VLA and LWA
 			if nDRXInputs*nVDIFInputs > 0:
