@@ -20,12 +20,68 @@ from lsl.correlator.fx import pol2pol, noWindow
 
 from jit import justInTimeOptimizer
 
-__version__ = '0.1'
+__version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['MRF', 'MRX', 'MRX3', '__version__', '__revision__', '__all__']
+__all__ = ['getOptimalDelayPadding', 'MRF', 'MRX', 'MRX3', '__version__', '__revision__', '__all__']
 
 
 jitopt = justInTimeOptimizer()
+
+
+def getOptimalDelayPadding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
+	# Decode the polarization product into something that we can use to figure 
+	# out which antennas to use for the cross-correlation
+	if Pol == '*':
+		antennas1 = antennaSet1
+		antennas2 = antennaSet2
+		
+	else:
+		pol1, pol2 = pol2pol(Pol)
+		
+		antennas1 = [a for a in antennaSet1 if a.pol == pol1]
+		antennas2 = [a for a in antennaSet2 if a.pol == pol1]
+		
+	# Combine the two sets and proceede
+	antennas1.extend(antennas2)
+	nStands = len(antennas1)
+	
+	# Create a reasonable mock setup for computing the delays
+	if SampleRate is None:
+		SampleRate = dp_common.fS
+	freq = numpy.fft.fftfreq(LFFT, d=1.0/SampleRate)
+	freq += float(CentralFreq)
+	freq = numpy.fft.fftshift(freq)
+	
+	# Get the location of the phase center in radians and create a 
+	# pointing vector
+	if phaseCenter == 'z':
+		azPC = 0.0
+		elPC = numpy.pi/2.0
+	else:
+		if isinstance(phaseCenter, ephem.Body):
+			azPC = phaseCenter.az * 1.0
+			elPC = phaseCenter.alt * 1.0
+		else:
+			azPC = phaseCenter[0]*numpy.pi/180.0
+			elPC = phaseCenter[1]*numpy.pi/180.0
+			
+	source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
+					  numpy.cos(elPC)*numpy.cos(azPC), 
+					  numpy.sin(elPC)])
+					  
+	# Define the cable/signal delay caches to help correlate along and compute 
+	# the delays that we need to apply to align the signals
+	dlyRef = len(freq)/2
+	delays1 = numpy.zeros((nStands,LFFT))
+	for i in list(range(nStands)):
+		xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+		
+		delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight
+	minDelay = delays1[:,dlyRef].min()
+	
+	# Round to the next lowest 5 us, negate, and return
+	minDelay = numpy.floor( minDelay / 5e-6) * 5e-6
+	return -minDelay
 
 
 def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
