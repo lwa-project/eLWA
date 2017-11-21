@@ -20,6 +20,7 @@ from lsl.reader import drx, vdif
 from lsl.common.dp import fS
 from lsl.common.mcs import datetime2mjdmpm, delaytoMCSD, MCSDtodelay
 from lsl.common.metabundle import getCommandScript
+from lsl.common.metabundleADP import getCommandScript as getCommandScriptADP
 from lsl.misc.beamformer import calcDelay
 
 import guppi
@@ -263,7 +264,7 @@ def readCorrelatorConfiguration(filename):
 		line = line.strip().rstrip()
 		
 		if line == 'Source':
-			source = {}
+			source = {'duration':0.0}
 		elif line[:4] == 'Name':
 			source['name'] = line.split(None, 1)[1]
 		elif line[:6] == 'RA2000':
@@ -272,6 +273,8 @@ def readCorrelatorConfiguration(filename):
 			source['dec'] = line.split(None, 1)[1]
 		elif line[:6] == 'Polyco':
 			source['polyco'] = line.split(None, 1)[1]
+		elif line[:8] == 'Duration':
+			source['duration'] = float(line.split(None, 1)[1])
 		elif line == 'SourceDone':
 			sources.append( source )
 		elif line == 'Input':
@@ -307,6 +310,7 @@ def readCorrelatorConfiguration(filename):
 		refSource._ra = sources[0]['ra']
 		refSource._dec = sources[0]['dec']
 		refSource._epoch = ephem.J2000
+		refSource.duration = sources[0]['duration']
 		try:
 			refSource._polycos = PolyCos(sources[0]['polyco'])
 		except KeyError:
@@ -479,7 +483,10 @@ def parseLWAMetaData(filename):
 	d = []
 	
 	# Load in the command script and walk through the commands
-	cs = getCommandScript(filename)
+	try:
+		cs = getCommandScript(filename)
+	except ValueError:
+		cs = getCommandScriptADP(filename)
 	for c in cs:
 		## Jump over any command that is not a BAM
 		if c['commandID'] != 'BAM':
@@ -525,8 +532,11 @@ def parseLWAMetaData(filename):
 	t += 1.0					# BAM command are applied 1s after they are sent
 	d0 = d[0]					# Get the initial offset
 	d = numpy.diff(d)			# We want the relative delay change between steps
-	d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
-	
+	if site == stations.lwa1:
+		d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
+	else:
+		d = numpy.insert(d, 0, 0.0)	# ... and we need to start at zero
+		
 	# done
 	return t, d
 
