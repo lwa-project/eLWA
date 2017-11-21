@@ -88,16 +88,21 @@ def parseConfig(args):
 
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9))
 
-## Updated 2017/1/17 with solution for the 12/3 run
-LWA1_ECEF = numpy.array((-1602265.88447377, -5042300.55066486, 3553963.38256972))
-LWA1_LAT = 34.0687955336 * numpy.pi/180
-LWA1_LON = -107.628427469 * numpy.pi/180
+## Derived from the 2017 Oct 31 LWA1 SSMIF
+LWA1_ECEF = numpy.array((-1602258.2104158669, -5042300.0220439518, 3553974.6599673284))
+LWA1_LAT =   34.068894 * numpy.pi/180
+LWA1_LON = -107.628350 * numpy.pi/180
 LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
-				   [-numpy.sin(LWA1_LON),                    numpy.cos(LWA1_LON),                    0                  ],
-				   [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
+                        [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
+                        [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
 
 ## Derived from the 2017 Oct 27 LWA-SV SSMIF
 LWASV_ECEF = numpy.array((-1531554.7717322097, -5045440.9839560054, 3579249.988606174))
+LWASV_LAT =   34.348358 * numpy.pi/180
+LWASV_LON = -106.885783 * numpy.pi/180
+LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
+                         [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
+                         [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
 
 
 def main(args):
