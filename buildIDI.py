@@ -43,13 +43,15 @@ buildIDI.py [OPTIONS] npz [npz [...]]
 
 Options:
 -h, --help                  Display this help information
+-c, --circular              Convert to circular
+-k, --stokes                Convert to Stokes
 -d, --decimate              Frequency decimation factor (default = 1)
 -l, --limit                 Limit the data loaded to the first N files
                             (default = -1 = load all)
 -s, --split                 Maximum number of integrations in a FITS IDI file
                             (default = 3000)
 -t, --tag                   Optional tag to add to the filename
--f, --force                  Force overwritting of existing FITS-IDI files
+-f, --force                 Force overwriting of existing FITS-IDI files
 """
 	
 	if exitCode is not None:
@@ -61,6 +63,8 @@ Options:
 def parseConfig(args):
 	config = {}
 	# Command line flags - default values
+	config['circular'] = False
+	config['stokes'] = False
 	config['freqDecimation'] = 1
 	config['lastFile'] = -1
 	config['maxIntsInIDI'] = 3000
@@ -70,7 +74,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hd:l:s:t:f", ["help", "decimate=", "limit=", "split=", "tag=", "force"])
+		opts, args = getopt.getopt(args, "hckd:l:s:t:f", ["help", "circular", "stokes", "decimate=", "limit=", "split=", "tag=", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -80,6 +84,12 @@ def parseConfig(args):
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
 			usage(exitCode=0)
+		elif opt in ('-c', '--circular'):
+			config['circular'] = True
+			config['stokes'] = False
+		elif opt in ('-k', '--stokes'):
+			config['circular'] = False
+			config['stokes'] = True
 		elif opt in ('-d', '--decimate'):
 			config['freqDecimation'] = int(value, 10)
 		elif opt in ('-l', '--limit'):
@@ -194,6 +204,18 @@ def main(args):
 			visYX = visYX.conj()
 			visYY = visYY.conj()
 			
+		if config['circular'] or config['stokes']:
+			visI = visXX + visYY
+			visQ = visXX - visYY
+			visU = visXY + visYX
+			visV = (visXY - visYX) / 1.0j
+			
+			if config['circular']:
+				visRR = visI + visV
+				visRL = visQ + 1j*visU
+				visLR = visQ - 1j*visU
+				visLL = visI - visV
+				
 		if i % config['maxIntsInIDI'] == 0:
 			## Clean up the previous file
 			try:
@@ -223,7 +245,12 @@ def main(args):
 					
 			### Create the file
 			fits = fitsidi.IDI(outname, refTime=tStart)
-			fits.setStokes(['XX', 'XY', 'YX', 'YY'])
+			if config['circular']:
+				fits.setStokes(['RR', 'RL', 'LR', 'LL'])
+			elif config['stokes']:
+				fits.setStokes(['I', 'Q', 'U', 'V'])
+			else:
+				fits.setStokes(['XX', 'XY', 'YX', 'YY'])
 			fits.setFrequency(freq)
 			fits.setGeometry(stations.lwa1, [a for a in antennas if a.pol == 0])
 			print "Opening %s for writing" % outname
@@ -237,11 +264,22 @@ def main(args):
 		
 		## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
 		obsTime = astro.unix_to_taimjd(tStart)
-		fits.addDataSet(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
-		fits.addDataSet(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
-		fits.addDataSet(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
-		fits.addDataSet(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
-		
+		if config['circular']:
+			fits.addDataSet(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
+		elif config['stokes']:
+			fits.addDataSet(obsTime, tInt, blList, visI, pol='I', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visU, pol='U', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visV, pol='V', source=refSrc)
+		else:
+			fits.addDataSet(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
+			fits.addDataSet(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
+			
 	# Cleanup the last file
 	fits.write()
 	fits.close()
