@@ -28,7 +28,7 @@ __all__ = ['MRF', 'MRX', 'MRX3', '__version__', '__revision__', '__all__']
 jitopt = justInTimeOptimizer()
 
 
-def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z'):
+def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
 	"""
 	Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
 	"""
@@ -90,7 +90,7 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 	for i in list(range(nStands)):
 		xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
 		
-		delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + 40e-6
+		delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
 	minDelay = delays1[:,dlyRef].min()
 	if minDelay < 0:
 		raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))

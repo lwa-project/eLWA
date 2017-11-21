@@ -118,12 +118,24 @@ def parseConfig(args):
 	return config
 
 
+def cmpNPZ(x, y):
+	xDD = numpy.load(x)
+	xT = xDD['tStart'].item()
+	xDD.close()
+	
+	yDD = numpy.load(y)
+	yT = yDD['tStart'].item()
+	yDD.close()
+	
+	return cmp(xT, yT)
+
+
 def main(args):
 	# Parse the command line
 	config = parseConfig(args)
 	
 	filenames = config['args']
-	filenames.sort()
+	filenames.sort(cmp=cmpNPZ)
 	if config['lastFile'] != -1:
 		filenames = filenames[:config['lastFile']]
 		
@@ -140,6 +152,7 @@ def main(args):
 	
 	cConfig = dataDict['config']
 	fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
+	os.close(fh)
 	fh = open(tempConfig, 'w')
 	for line in cConfig:
 		fh.write('%s\n' % line)
@@ -160,7 +173,6 @@ def main(args):
 	nChan = visXX.shape[1]
 	blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
 	
-	
 	if config['freqDecimation'] > 1:
 		if nChan % config['freqDecimation'] != 0:
 			raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, config['freqDecimation'], nChan%config['freqDecimation']))
@@ -168,16 +180,27 @@ def main(args):
 		nChan /= config['freqDecimation']
 		freq.shape = (freq.size/config['freqDecimation'], config['freqDecimation'])
 		freq = freq.mean(axis=1)
-		
+	
 	# Figure out the visibility conjugation problem in LSL, pre-1.1.4
 	conjugateVis = False
 	if float(fitsidi.__version__) < 0.9:
+		print "Warning: Applying conjugate to visibility data"
 		conjugateVis = True
 		
 	# Fill in the data
 	for i,filename in enumerate(filenames):
 		## Load in the integration
 		dataDict = numpy.load(filename)
+		
+		cConfig = dataDict['config']
+		fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
+		os.close(fh)
+		fh = open(tempConfig, 'w')
+		for line in cConfig:
+			fh.write('%s\n' % line)
+		fh.close()
+		refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
+		os.unlink(tempConfig)
 
 		tStart = dataDict['tStart'].item()
 		tInt = dataDict['tInt'].item()
@@ -227,9 +250,9 @@ def main(args):
 			## Create the FITS-IDI file as needed
 			### What to call it
 			if config['outnameTag'] is None:
-				outname = 'buildIDI_%s.FITS_%i' % (refSrc.name, i/config['maxIntsInIDI']+1,)
+				outname = 'buildIDI.FITS_%i' % (i/config['maxIntsInIDI']+1,)
 			else:
-				outname = 'buildIDI_%s_%s.FITS_%i' % (refSrc.name, config['outnameTag'], i/config['maxIntsInIDI']+1,)
+				outname = 'buildIDI_%s.FITS_%i' % (config['outnameTag'], i/config['maxIntsInIDI']+1,)
 				
 			### Does it already exist or not
 			if os.path.exists(outname):
