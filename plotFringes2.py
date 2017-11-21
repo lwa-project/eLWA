@@ -216,7 +216,7 @@ def main(args):
 	delay = numpy.linspace(-350e-6, 350e-6, 301)		# s
 	drate = numpy.linspace(-150e-3, 150e-3, 301)		# Hz
 	
-	good = numpy.where( (freq>72e6) & ((freq<77.26e6) | (freq>77.3e6)) & ((freq<76.3e6) | (freq>76.32e6)) & ((freq<76.82e6) | (freq>76.83e6)) & ((freq<78.8e6) | (freq>76.86e6)) & ((freq<79.85e6) | (freq>79.90e6)) )[0]
+	good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
 	
 	fig1 = plt.figure()
 	fig2 = plt.figure()
@@ -231,24 +231,29 @@ def main(args):
 		vis = visToPlot[:,b,:]
 		
 		ax = fig1.add_subplot(nRow, nCol, k+1)
-		ax.imshow(numpy.angle(vis), extent=(freq[0], freq[-1], dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+		ax.imshow(numpy.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Elapsed Time [s]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+		ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
+		ax.set_ylim((dTimes[0], dTimes[-1]))
 		
 		ax = fig2.add_subplot(nRow, nCol, k+1)
-		ax.imshow( numpy.log10(numpy.abs(vis))*10, extent=(freq[0], freq[-1], dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest')
+		ax.imshow( numpy.abs(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest')
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Elapsed Time [s]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
-		
+		ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
+		ax.set_ylim((dTimes[0], dTimes[-1]))
+				
 		ax = fig3.add_subplot(nRow, nCol, k+1)
-		ax.plot(freq/1e6, numpy.log10(numpy.abs(vis).mean(axis=0))*10)
+		ax.plot(freq/1e6, numpy.abs(vis.mean(axis=0)))
 		ax.set_xlabel('Frequency [MHz]')
-		ax.set_ylabel('Mean Vis. Amp. [dB]')
+		ax.set_ylabel('Mean Vis. Amp. [lin.]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+		ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
 		
 		ax = fig4.add_subplot(nRow, nCol, k+1)
 		ax.plot(dTimes, numpy.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
@@ -256,6 +261,7 @@ def main(args):
 		ax.set_xlabel('Elapsed Time [s]')
 		ax.set_ylabel('Mean Vis. Phase [deg]')
 		ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+		ax.set_xlim((dTimes[0], dTimes[-1]))
 		
 		k += 1
 		
