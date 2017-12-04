@@ -471,7 +471,7 @@ def main(args):
 	print " "
 	
 	vdifPivot = 1
-	if abs(cFreqs[0][0] - cFreqs[-1][1]) < 10:
+	if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
 		vdifPivot = 2
 	if nVDIFInputs == 0 and config['which'] is not None:
 		vdifPivot = config['which']
