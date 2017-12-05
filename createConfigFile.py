@@ -423,7 +423,10 @@ def main(args):
 		if config['output'] is None:
 			fh = sys.stdout
 		else:
-			fh = open(config['output']+str(s+1), 'w')
+			outname = config['output']
+			if len(sources) > 1:
+				outname += str(s+1)
+			fh = open(outname, 'w')
 			
 		## Preample
 		fh.write("# Created\n")
