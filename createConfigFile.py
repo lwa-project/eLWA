@@ -410,6 +410,20 @@ def main(args):
 		offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
 		input['fileoffset'] = max([0, offset])
 		
+	# Reconcile the source lists for when we have eLWA data.  This is needed so
+	# that we use the source information contained in the VDIF files rather than
+	# the stub information contained in the SDFs
+	if len(sources) <= 1:
+		if corrConfig['source']['name'] != '':
+			## Update the source information with what comes from the VLA
+			try:
+				sources[0] = corrConfig['source']
+			except IndexError:
+				sources.append( corrConfig['source'] )
+	# Update the dwell time using the minimum on-source time for all inputs
+	sources[0]['start'] = max([input['tstart'] for input in corrConfig['inputs']])
+	sources[0]['stop'] = min([input['tstop'] for input in corrConfig['inputs']])
+			
 	# Render the configuration
 	startRef = sources[0]['start']
 	for s,source in enumerate(sources):
