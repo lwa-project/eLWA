@@ -200,6 +200,7 @@ def main(args):
 			fh.write('%s\n' % line)
 		fh.close()
 		refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
+		refSrc.name = refSrc.name.upper()	# For AIPS
 		os.unlink(tempConfig)
 
 		tStart = dataDict['tStart'].item()
