@@ -374,7 +374,6 @@ def main(args):
 		if input['type'] in ('VDIF', 'GUPPI'):
 			if vdifRefFile is None:
 				vdifRefFile = input
-				print input
 		elif input['type'] == 'DRX':
 				isDRX = True
 			
@@ -391,9 +390,9 @@ def main(args):
 			l0, l1 = input['tstart'], input['tstop']
 			v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
 			ve = (v1 - v0).total_seconds()
-			overlapWithVDIF = (v0>=l0 and v0<l1) != (l0>=v0 and l0<v1)
+			overlapWithVDIF = (v0>=l0 and v0<l1) or (l0>=v0 and l0<v1)
 			lvo = (min([v1,l1]) - max([v0,l0])).total_seconds()
-			if not overlapWithVDIF or lvo < 0.5*ve:
+			if not overlapWithVDIF or lvo < 0.25*ve:
 				toPurge.append( input )
 			drxFound = True
 	for input in toPurge:
