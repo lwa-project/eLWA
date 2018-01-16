@@ -419,10 +419,12 @@ def main(args):
 				sources[0] = corrConfig['source']
 			except IndexError:
 				sources.append( corrConfig['source'] )
-	# Update the dwell time using the minimum on-source time for all inputs
-	sources[0]['start'] = max([input['tstart'] for input in corrConfig['inputs']])
-	sources[0]['stop'] = min([input['tstop'] for input in corrConfig['inputs']])
-			
+	# Update the dwell time using the minimum on-source time for all inputs if 
+	# there is only one source, i.e., for full eLWA runs
+	if len(sources) == 1:
+		sources[0]['start'] = max([input['tstart'] for input in corrConfig['inputs']])
+		sources[0]['stop'] = min([input['tstop'] for input in corrConfig['inputs']])
+		
 	# Render the configuration
 	startRef = sources[0]['start']
 	for s,source in enumerate(sources):
