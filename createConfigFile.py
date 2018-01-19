@@ -384,6 +384,7 @@ def main(args):
 	# Purge DRX files that don't make sense
 	toPurge = []
 	drxFound = False
+	lwasvFound = False
 	for input in corrConfig['inputs']:
 		### Sort out multiple DRX files - this only works if we have only one LWA station
 		if input['type'] == 'DRX' and vdifRefFile is not None:
@@ -395,6 +396,8 @@ def main(args):
 			if not overlapWithVDIF or lvo < 0.25*ve:
 				toPurge.append( input )
 			drxFound = True
+			if input['antenna'] == 'LWA-SV':
+				lwasvFound = True
 	for input in toPurge:
 		del corrConfig['inputs'][corrConfig['inputs'].index(input)]
 		
@@ -429,11 +432,16 @@ def main(args):
 	startRef = sources[0]['start']
 	for s,source in enumerate(sources):
 		startOffset = source['start'] - startRef
-		startOffset = 10.0 + startOffset.total_seconds()	# Offset by 10s for LWA-SV data which is always strange
+		startOffset = startOffset.total_seconds()
 		
 		dur = source['stop'] - source['start']
-		dur = dur.total_seconds() - 10.0
+		dur = dur.total_seconds()
 		
+		## Small correction for the first scan to compenstate for stale data at LWA-SV
+		if lwasvFound and s == 0:
+			startOffset += 10.0
+			dur -= 10.0
+			
 		## Setup
 		if config['output'] is None:
 			fh = sys.stdout
@@ -460,7 +468,6 @@ def main(args):
 		fh.write("\n")
 		## Input files
 		for input in corrConfig['inputs']:
-		
 			fh.write("Input\n")
 			fh.write("# Start time is %s\n" % input['tstart'])
 			fh.write("# Stop time is %s\n" % input['tstop'])
