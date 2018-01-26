@@ -18,7 +18,7 @@ import getopt
 from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
-from lsl.common import metabundle
+from lsl.common import metabundle, metabundleADP
 from lsl.common.mcs import mjdmpm2datetime
 
 import guppi
@@ -131,7 +131,10 @@ def main(args):
 			try:
 				## Extract the SDF
 				if len(sources) == 0:
-					sdf = metabundle.getSessionDefinition(filename)
+					try:
+						sdf = metabundle.getSessionDefinition(filename)
+					except Exception as e:
+						sdf = metabundleADP.getSessionDefinition(filename)
 					for obs in sdf.sessions[0].observations:
 						ra = ephem.hours(str(obs.ra))
 						dec = ephem.hours(str(obs.dec))
