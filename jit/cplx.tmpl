@@ -446,7 +446,6 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		free(frac);
 		return NULL;
 	}
-	PyArray_FILLWBYTE(dataF, 0);
 	
 	// Create an array to store whether or not the FFT window is valid (1) or not (0)
 	npy_intp dimsV[2];
@@ -462,13 +461,12 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		free(frac);
 		return NULL;
 	}
-	PyArray_FILLWBYTE(validF, 0);
 	
 	// Create the FFTW plan
 	float complex *inP, *in;
 	inP = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_MEASURE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
@@ -506,6 +504,9 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, temp2)
 	#endif
 	{
+		in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
+		
 		#ifdef _OPENMP
 			#pragma omp for schedule(static)
 		#endif
@@ -513,10 +514,12 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			i = ij / {{nFFT}};
 			j = ij % {{nFFT}};
 			if(j >= nFFT) {
+				for(k=0; k<{{nChan}}; k++) {
+					*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = 0.0;
+				}
+				*(d + {{nFFT}}*i + j) = 0;
 				continue;
 			}
-			
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 			
 			cleanFactor = 1.0;
 			
@@ -533,11 +536,9 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			fftwf_execute_dft(p, in, in);
 			
 			// Shift FFTs
-			temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, in, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 			memmove(in, (in+{{nChan}}/2+{{nChan}}%2), sizeof(float complex)*{{nChan}}/2);
 			memcpy((in+{{nChan}}/2), temp2, sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
-			fftwf_free(temp2);
 			
 			// Phase rotate and scale
 			for(k=0; k<{{nChan}}; k++) {
@@ -546,9 +547,10 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			}
 			
 			*(d + {{nFFT}}*i + j) = (unsigned char) cleanFactor;
-			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(temp2);
+		fftwf_free(in);
 	}
 	free(rot);
 	

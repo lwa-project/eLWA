@@ -419,7 +419,6 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		free(frac);
 		return NULL;
 	}
-	PyArray_FILLWBYTE(dataF, 0);
 	
 	// Create an array to store whether or not the FFT window is valid (1) or not (0)
 	npy_intp dimsV[2];
@@ -435,7 +434,6 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		free(frac);
 		return NULL;
 	}
-	PyArray_FILLWBYTE(validF, 0);
 	
 	// Create the FFTW plan                          
 	float complex *inP, *in;                          
@@ -478,6 +476,8 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
 	#endif
 	{
+		in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+		
 		#ifdef _OPENMP
 			#pragma omp for schedule(static)
 		#endif
@@ -485,10 +485,12 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			i = ij / {{nFFT}};
 			j = ij % {{nFFT}};
 			if(j >= nFFT) {
+				for(k=0; k<{{nChan}}; k++) {
+					*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = 0.0;
+				}
+				*(d + {{nFFT}}*i + j) = 0;
 				continue;
 			}
-			
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
 			
 			cleanFactor = 1.0;
 			
@@ -511,8 +513,9 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			
 			*(d + {{nFFT}}*i + j) = (unsigned char) cleanFactor;
 			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(in);
 	}
 	free(rot);
 	
