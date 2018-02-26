@@ -210,31 +210,23 @@ def main(args):
 				enz[1] *= -1
 				
 				## Read in the first few frames to get the start time
-				frame0 = drx.readFrame(fh)
-				frame1 = drx.readFrame(fh)
-				frame2 = drx.readFrame(fh)
-				frame3 = drx.readFrame(fh)
-				freq1, freq2 = None, None
-				for frame in (frame0, frame1, frame2, frame3):
+				frames = [drx.readFrame(fh) for i in xrange(32)]
+				for frame in frames:
 					if frame.parseID()[1] == 1:
 						freq1 = frame.getCentralFreq()
 					else:
 						freq2 = frame.getCentralFreq()
-				tStart = datetime.utcfromtimestamp(frame0.getTime())
+				tStart = datetime.utcfromtimestamp(frames[0].getTime())
 				
 				## Read in the last few frames to find the end time
-				fh.seek(os.path.getsize(filename) - 4*drx.FrameSize)
-				frame0 = drx.readFrame(fh)
-				frame1 = drx.readFrame(fh)
-				frame2 = drx.readFrame(fh)
-				frame3 = drx.readFrame(fh)
-				freq1, freq2 = None, None
-				for frame in (frame0, frame1, frame2, frame3):
+				fh.seek(os.path.getsize(filename) - 32*drx.FrameSize)
+				frames = [drx.readFrame(fh) for i in xrange(32)]
+				for frame in frames:
 					if frame.parseID()[1] == 1:
 						freq1 = frame.getCentralFreq()
 					else:
 						freq2 = frame.getCentralFreq()
-				tStop = datetime.utcfromtimestamp(frame0.getTime())
+				tStop = datetime.utcfromtimestamp(frames[-1].getTime())
 				
 				## Save
 				corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
