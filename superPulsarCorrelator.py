@@ -36,7 +36,7 @@ from lsl.misc.dedispersion import delay as dispDelay
 
 import jones
 from utils import *
-from buffer import VDIFFrameBuffer
+from buffer import VDIFFrameBuffer, GUPPIFrameBuffer
 
 
 def usage(exitCode=None):
@@ -53,7 +53,7 @@ Options:
 -s, --skip                  Amount of time in to skip into the files (seconds; 
                             default = 0 s)
 -u, --subint-time           Sub-integration time for the data (seconds; 
-                            default = 0.020 s)
+                            default = 0.010 s)
 -t, --dump-time             Correlator dump time for saving the visibilties
                             (seconds; default = 1 s)
 -d, --duration              Duration of the file to correlate (seconds; 
@@ -77,7 +77,7 @@ def parseConfig(args):
 	# Command line flags - default values
 	config['verbose'] = True
 	config['readTime'] = 1.0
-	config['subTime'] = 0.020
+	config['subTime'] = 0.010
 	config['dumpTime'] = 1.0
 	config['LFFT'] = 512
 	config['skip'] = 0.0
@@ -351,15 +351,15 @@ def main(args):
 			fh[i].seek(-16*readers[i].FrameSize, 1)
 			
 			j = 0
-			if beampols[i] == 4:
-				while (timeTags[j+0] != timeTags[j+1]) or (timeTags[j+0] != timeTags[j+2]) or (timeTags[j+0] != timeTags[j+3]):
-					j += 1
-					fh[i].seek(readers[i].FrameSize, 1)
-			else:
-				while (timeTags[j+0] != timeTags[j+1]):
-					j += 1
-					fh[i].seek(readers[i].FrameSize, 1)
-					
+			#if beampols[i] == 4:
+			#	while (timeTags[j+0] != timeTags[j+1]) or (timeTags[j+0] != timeTags[j+2]) or (timeTags[j+0] != timeTags[j+3]):
+			#		j += 1
+			#		fh[i].seek(readers[i].FrameSize, 1)
+			#else:
+			#	while (timeTags[j+0] != timeTags[j+1]):
+			#		j += 1
+			#		fh[i].seek(readers[i].FrameSize, 1)
+				
 			nFramesFile[i] -= j
 			
 		# Align the files as close as possible by the time tags
@@ -468,6 +468,7 @@ def main(args):
 	while drxLFFT != int(drxLFFT):
 		vdifLFFT += 1
 		drxLFFT = vdifLFFT * srate[-1] / srate[0]
+	vdifLFFT = vdifLFFT / 2
 	drxLFFT = int(drxLFFT)
 	print "VDIF Transform Size: %i" % vdifLFFT
 	print "DRX Transform Size: %i" % drxLFFT
@@ -513,7 +514,6 @@ def main(args):
 	fileCount   = [0 for i in xrange(nProfileBins)]
 	visXX = [0 for i in xrange(nProfileBins)]
 	visXY = [0 for i in xrange(nProfileBins)]
-	visYX = [0 for i in xrange(nProfileBins)]
 	visYY = [0 for i in xrange(nProfileBins)]
 	wallStart = time.time()
 	done = False
@@ -525,11 +525,15 @@ def main(args):
 		tStartB = []
 		
 		vdifRef = [0 for j in xrange(nVDIFInputs*2)]
-		drxRef  = [0 for j in xrange(nDRXInputs*4) ]
+		drxRef  = [0 for j in xrange(nDRXInputs*2) ]
 		
 		# Read in the data
-		dataV = numpy.zeros((len(vdifRef), readers[ 0].DataLength*nFramesV), dtype=numpy.complex64)
-		dataD = numpy.zeros((len(drxRef),  readers[-1].DataLength*nFramesD), dtype=numpy.complex64)
+		try:
+			dataV *= 0.0
+			dataD *= 0.0
+		except NameError:
+			dataV = numpy.zeros((len(vdifRef), readers[ 0].DataLength*nFramesV), dtype=numpy.float32)
+			dataD = numpy.zeros((len(drxRef),  readers[-1].DataLength*nFramesD), dtype=numpy.complex64)
 		for j,f in enumerate(fh):
 			if readers[j] is vdif:
 				## VDIF
@@ -613,6 +617,9 @@ def main(args):
 					try:
 						cFrame = readers[j].readFrame(f)
 						buffers[j].append( cFrame )
+					except errors.syncError:
+						print "Error @ %i, %i" % (i, j)
+						continue
 					except errors.eofError:
 						done = True
 						break
@@ -623,7 +630,9 @@ def main(args):
 						
 					for cFrame in frames:
 						beam,tune,pol = cFrame.parseID()
-						bid = 4*(j-nVDIFInputs) + 2*(tune-1) + pol
+						if tune != vdifPivot:
+							continue
+						bid = 2*(j-nVDIFInputs) + pol
 						
 						if k == 0:
 							tStart.append( cFrame.getTime() )
@@ -631,28 +640,26 @@ def main(args):
 							tStartB.append( getBetterTime(cFrame) )
 							tStartB[-1][0] += grossOffsets[j]
 							
-							for t in (1,2):
-								for p in (0,1):
-									pbid = 4*(j-nVDIFInputs) + 2*(t-1) + p
-									drxRef[pbid] = cFrame.data.timeTag
-									
+							for p in (0,1):
+								pbid = 2*(j-nVDIFInputs) + p
+								drxRef[pbid] = cFrame.data.timeTag
+								
 						count = cFrame.data.timeTag
 						count -= drxRef[bid]
 						count /= (4096*int(196e6/srate[-1]))
-						dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
-						k += 1
+						try:
+							dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
+							k += 2
+						except ValueError:
+							k = beampols[j]*nFramesD
+							break
 		if done:
 			break
 			
+		print 'RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead)
+		
 		# Figure out which DRX tuning corresponds to the VDIF data
 		if nDRXInputs > 0:
-			sel = []
-			for l in xrange(4*nDRXInputs):
-				if vdifPivot == 1 and (l/2)%2 == 0:
-					sel.append( l )
-				elif vdifPivot == 2 and (l/2)%2 == 1:
-					sel.append( l )
-			dataD = dataD[sel,:]
 			dataD /= 7.0
 			
 		# Time tag alignment (sample based)
@@ -692,15 +699,8 @@ def main(args):
 					dataD[idx1,:] = numpy.roll(dataD[idx1,:], -offset)
 					
 		vdifOffsets = offsets[:nVDIFInputs]
-		if nVDIFInputs > 0:
-			if max(vdifOffsets) != 0:
-				dataV = dataV[:,:-max(vdifOffsets)]
-				
 		drxOffsets = offsets[nVDIFInputs:]
-		if nDRXInputs > 0:
-			if max(drxOffsets) != 0:
-				dataD = dataD[:,:-max(drxOffsets)]
-				
+		
 		## Apply the corrections to the original time tags and report on the sub-sample
 		## residuals
 		if config['verbose']:
@@ -721,8 +721,8 @@ def main(args):
 		nSampV = int(srate[ 0]*tSub)
 		nSampD = int(srate[-1]*tSub)
 		
-		#tV = i*tRead + numpy.arange(dataV.shape[1], dtype=numpy.float64)/srate[ 0]
-		tD = i*tRead + numpy.arange(dataD.shape[1], dtype=numpy.float64)/srate[-1]
+		#tV = i*tRead + numpy.arange(dataV.shape[1]-max(vdifOffsets), dtype=numpy.float64)/srate[ 0]
+		tD = i*tRead + numpy.arange(dataD.shape[1]-max(drxOffsets), dtype=numpy.float64)/srate[-1]
 		
 		# Loop over sub-integrations
 		for j in xrange(nSub):
@@ -731,8 +731,16 @@ def main(args):
 			#tVSub    = tV[j*nSampV:(j+1)*nSampV]
 			tDSub    = tD[j*nSampD:(j+1)*nSampD]
 			dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
+			#if dataVSub.shape[1] != tVSub.size:
+			#	dataVSub = dataVSub[:,:tVSub.size]
+			#if tVSub.size == 0:
+			#	continue
 			dataDSub = dataD[:,j*nSampD:(j+1)*nSampD]
-			
+			if dataDSub.shape[1] != tDSub.size:
+				dataDSub = dataDSub[:,:tDSub.size]
+			if tDSub.size == 0:
+				continue
+				
 			## Update antennas for any delay steps
 			for k in xrange(len(delaySteps)):
 				if delaySteps[k] is None:
@@ -768,27 +776,26 @@ def main(args):
 			## NOTE: This moves the LWA into the frame of the VLA
 			if nDRXInputs > 0:
 				lwaToSky = jones.getMatrixLWA(site, refSrc)
-				dataDSub = jones.applyMatrix(dataDSub, lwaToSky)
 				skyToVLA = jones.getMatrixVLA(site, refSrc, inverse=True)
-				dataDSub = jones.applyMatrix(dataDSub, skyToVLA)
+				dataDSub = jones.applyMatrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
 				
 			## Correlate
 			delayPadding = multirate.getOptimalDelayPadding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
 			                                                LFFT=drxLFFT, SampleRate=srate[-1], 
 			                                                CentralFreq=cFreqs[-1][vdifPivot-1], 
-                                                                        Pol='*', phaseCenter=refSrc)
+			                                                Pol='*', phaseCenter=refSrc)
 			if nVDIFInputs > 0:
 				freqV, feoV, veoV, deoV = multirate.MRF(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
-											SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
-											Pol='*', phaseCenter=refSrc, 
-                                                                                        delayPadding=delayPadding)
-											
+				                                        SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
+				                                        Pol='*', phaseCenter=refSrc, 
+				                                        delayPadding=delayPadding)
+				
 			if nDRXInputs > 0:
 				freqD, feoD, veoD, deoD = multirate.MRF(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-											SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
-											Pol='*', phaseCenter=refSrc, 
-                                                                                        delayPadding=delayPadding)
-			
+				                                        SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
+				                                        Pol='*', phaseCenter=refSrc, 
+				                                        delayPadding=delayPadding)
+				
 			## Rotate the phase in time to deal with frequency offset between the VLA and LWA
 			if nDRXInputs*nVDIFInputs > 0:
 				subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
@@ -798,24 +805,23 @@ def main(args):
 					tv,tu = bestFreqUnits(subChanFreqOffset)
 					print "FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu)
 					
-				for s in xrange(feoD.shape[0]):
-					for w in xrange(feoD.shape[2]):
-						feoD[s,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
-						
+				for w in xrange(feoD.shape[2]):
+					feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
+					
 			## Sort out what goes where (channels and antennas) if we don't already know
 			try:
 				if nVDIFInputs > 0:
 					freqV = freqV[goodV]
-					feoV = feoV[:,goodV,:]
+					feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
 				if nDRXInputs > 0:
 					freqD = freqD[goodD]
-					feoD = feoD[:,goodD,:]
+					feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
 					
 			except NameError:
 				### Frequency overlap
 				fMin, fMax = -1e12, 1e12
 				if nVDIFInputs > 0:
-					fMin, fMax = max([fMin, freqV[vdifLFFT/2:].min()]), min([fMax, freqV[vdifLFFT/2:].max()])
+					fMin, fMax = max([fMin, freqV.min()]), min([fMax, freqV.max()])
 				if nDRXInputs > 0:
 					fMin, fMax = max([fMin, freqD.min()]), min([fMax, freqD.max()])
 					
@@ -870,16 +876,16 @@ def main(args):
 				### Apply
 				if nVDIFInputs > 0:
 					freqV = freqV[goodV]
-					feoV = feoV[:,goodV,:]
+					feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
 				if nDRXInputs > 0:
 					freqD = freqD[goodD]
-					feoD = feoD[:,goodD,:]
+					feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
 			try:
-				nChan = feoV.shape[1]
+				nChan = freqV.size
 				fdt = feoV.dtype
 				vdt = veoV.dtype
 			except NameError:
-				nChan = feoD.shape[1]
+				nChan = freqD.size
 				fdt = feoD.dtype
 				vdt = veoD.dtype
 			## Setup the intermediate F-engine products and trim the data
@@ -891,11 +897,14 @@ def main(args):
 				nWin = min([nWin, feoD.shape[2]])
 				
 			### Initialize the intermediate arrays
-			feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
-			feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
-			veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-			veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-			
+			try:
+				assert(feoX.shape[2] == nWin)
+			except (NameError, AssertionError):
+				feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
+				feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
+				veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+				veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+				
 			### Trim
 			if nVDIFInputs > 0:
 				feoV = feoV[:,:,:nWin]
@@ -905,16 +914,16 @@ def main(args):
 				veoD = veoD[:,:nWin]
 				
 			## Sort it all out by polarization
-			if nVDIFInputs > 0:
-				feoX[:nVDIFInputs,:,:] = feoV[aXV,:,:]
-				feoY[:nVDIFInputs,:,:] = feoV[aYV,:,:]
-				veoX[:nVDIFInputs,:] = veoV[aXV,:]
-				veoY[:nVDIFInputs,:] = veoV[aYV,:]
-			if nDRXInputs > 0:
-				feoX[nVDIFInputs:,:,:] = feoD[aXD,:,:]
-				feoY[nVDIFInputs:,:,:] = feoD[aYD,:,:]
-				veoX[nVDIFInputs:,:] = veoD[aXD,:]
-				veoY[nVDIFInputs:,:] = veoD[aYD,:]
+			for k in xrange(nVDIFInputs):
+				feoX[k,:,:] = feoV[aXV[k],:,:]
+				feoY[k,:,:] = feoV[aYV[k],:,:]
+				veoX[k,:] = veoV[aXV[k],:]
+				veoY[k,:] = veoV[aYV[k],:]
+			for k in xrange(nDRXInputs):
+				feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]
+				feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]
+				veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]
+				veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]
 				
 			## Cross multiply
 			try:
@@ -925,7 +934,6 @@ def main(args):
 				sfreqYY = freqD
 			svisXX = multirate.MRX(feoX, veoX, feoX, veoX)
 			svisXY = multirate.MRX(feoX, veoX, feoY, veoY)
-			svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
 			svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
 			
 			# Determine the pulsar phase as a function of frequency
@@ -972,13 +980,11 @@ def main(args):
 						
 					visXX[bestBin] = svisXX*0.0
 					visXY[bestBin] = svisXY*0.0
-					visYX[bestBin] = svisYX*0.0
 					visYY[bestBin] = svisYY*0.0
 					
 				subIntTimes[bestBin].append( tSubInt )
 				visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
 				visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
-				visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
 				visYY[bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
 				subIntCount[bestBin] += 1
 				subIntWeight[bestBin][bestFreq] += 1
@@ -991,13 +997,12 @@ def main(args):
 					
 					visXX[bestBin] *= nDump / subIntWeight[bestBin]
 					visXY[bestBin] *= nDump / subIntWeight[bestBin]
-					visYX[bestBin] *= nDump / subIntWeight[bestBin]
 					visYY[bestBin] *= nDump / subIntWeight[bestBin]
 					
 					outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
 					numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
 								vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
-								vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
+								vis1YX=visXY[bestBin].conj(), vis1YY=visYY[bestBin], 
 								tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDump)
 					### CD = correlator dump
 					print "CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(subIntTimes[bestBin]))
