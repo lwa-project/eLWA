@@ -111,9 +111,8 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
 		
 	if SampleRate is None:
 		SampleRate = dp_common.fS
-	freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/SampleRate)
+	freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/SampleRate) + CentralFreq
 	if doFFTShift:
-		freq += CentralFreq
 		freq = numpy.fft.fftshift(freq)
 	freq = freq[:LFFT]
 	
