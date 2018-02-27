@@ -43,8 +43,8 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b, *temp2;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor;
@@ -156,8 +156,8 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b, *temp2;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor, value;
@@ -278,8 +278,8 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b, *temp2;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor;
@@ -398,7 +398,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	delay = (PyArrayObject *) PyArray_ContiguousFromObject(delays, NPY_DOUBLE, 2, 2);
 	
 	// Check data dimensions
-	if(data->dimensions[0] != delay->dimensions[0]) {
+	if(PyArray_DIM(data, 0) != PyArray_DIM(delay, 0)) {
 		PyErr_Format(PyExc_TypeError, "signals and delays have different stand counts");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -406,7 +406,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		return NULL;
 	}
 	
-	if({{nChan}} != freq->dimensions[0]) {
+	if({{nChan}} != PyArray_DIM(freq, 0)) {
 		PyErr_Format(PyExc_RuntimeError, "freqs has a different channel count than {{nChan}}");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -414,7 +414,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		return NULL;
 	}
 	
-	if(freq->dimensions[0] != delay->dimensions[1]) {
+	if(PyArray_DIM(freq, 0) != PyArray_DIM(delay, 1)) {
 		PyErr_Format(PyExc_TypeError, "freqs and delays have different channel counts");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -478,10 +478,10 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	float complex *b, *temp2;
 	double *c;
 	unsigned char *d;
-	a = ({{dtypeC}} *) data->data;
-	b = (float complex *) dataF->data;
-	c = (double *) freq->data;
-	d = (unsigned char *) validF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (float complex *) PyArray_DATA(dataF);
+	c = (double *) PyArray_DATA(freq);
+	d = (unsigned char *) PyArray_DATA(validF);
 	
 	// Time-domain blanking control
 	double cleanFactor;

@@ -35,16 +35,18 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyArray_FILLWBYTE(dataF, 0);
 	
 	// Create the FFTW plan                          
-	float complex *inP, *in;                          
-	inP = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+	float *inP, *in;                        
+	float complex *outP, *out;                          
+	inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+	outP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d(2*{{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	p = fftwf_plan_dft_r2c_1d(2*{{nChan}}, inP, outP, FFTW_R2HC|FFTW_MEASURE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor;
@@ -54,27 +56,29 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT)
 	#endif
 	{
+		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+		out = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			nActFFT = 0;
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
 			
 			for(j=0; j<{{nFFT}}; j++) {
 				cleanFactor = 1.0;
 				
 				for(k=0; k<2*{{nChan}}; k++) {
-					in[k] = (float complex) *(a + {{nSamps}} * i + 2*{{nChan}}*j/{{nOverlap}} + k);
+					in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 					
 					{%- if ClipLevel != 0 -%}
-					if( cabsf(in[k]) >= {{ClipLevel}} ) {
+					if( absf(in[k]) >= {{ClipLevel}} ) {
 						cleanFactor = 0.0;
 					}
 					{%- endif %}
 				}
 				
-				fftwf_execute_dft(p, in, in);
+				fftwf_execute_dft_r2c(p, in, out);
 				
 				for(k=0; k<{{nChan}}; k++) {
 					*(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
@@ -83,14 +87,16 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 				nActFFT += (long) cleanFactor;
 			}
 			
-			fftwf_free(in);
-			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/(2*{{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
 		}
+		
+		fftwf_free(in);
+		fftwf_free(out);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
+	fftwf_free(outP);
 	
 	Py_XDECREF(data);
 
@@ -139,16 +145,18 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyArray_FILLWBYTE(dataF, 0);
 	
 	// Create the FFTW plan                          
-	float complex *inP, *in;                          
-	inP = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+	float *inP, *in;                        
+	float complex *outP, *out;                          
+	inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+	outP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d(2*{{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	p = fftwf_plan_dft_r2c_1d(2*{{nChan}}, inP, outP, FFTW_R2HC|FFTW_MEASURE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor, value;
@@ -160,26 +168,27 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value)
 	#endif
 	{
+		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+		out = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(j=0; j<{{nFFT}}; j++) {
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
-			
 			for(i=0; i<{{nStand}}; i++) {
 				cleanFactor = 1.0;
 				
 				for(k=0; k<2*{{nChan}}; k++) {
-					in[k] = (float complex) *(a + {{nSamps}} * i + 2*{{nChan}}*j/{{nOverlap}} + k);
+					in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 					
 					{%- if ClipLevel != 0 -%}
-					if( cabsf(in[k]) >= {{ClipLevel}} ) {
+					if( absf(in[k]) >= {{ClipLevel}} ) {
 						cleanFactor = 0.0;
 					}
 					{%- endif %}
 				}
 				
-				fftwf_execute_dft(p, in, in);
+				fftwf_execute_dft_r2c(p, in, out);
 				
 				for(k=0; k<{{nChan}}; k++) {
 					value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
@@ -194,19 +203,21 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 				#endif
 				*(nActFFT + i) += (long) cleanFactor;
 			}
-			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(in);
+		fftwf_free(out);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
+	fftwf_free(outP);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Scale FFTs
@@ -252,16 +263,18 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	PyArray_FILLWBYTE(dataF, 0);
 	
 	// Create the FFTW plan                          
-	float complex *inP, *in;                          
-	inP = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+	float *inP, *in;                        
+	float complex *outP, *out;                          
+	inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+	outP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d(2*{{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	p = fftwf_plan_dft_r2c_1d(2*{{nChan}}, inP, outP, FFTW_R2HC|FFTW_MEASURE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
 	double *b;
-	a = ({{dtypeC}} *) data->data;
-	b = (double *) dataF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (double *) PyArray_DATA(dataF);
 	
 	// Time-domain blanking control
 	double cleanFactor;
@@ -281,28 +294,29 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
 	#endif
 	{
+		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+		out = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
 			i = ij / {{nFFT}};
 			j = ij % {{nFFT}};
 			
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
-			
 			cleanFactor = 1.0;
 			
 			for(k=0; k<2*{{nChan}}; k++) {
-				in[k] = (float complex) *(a + {{nSamps}} * i + 2*{{nChan}}*j/{{nOverlap}} + k);
+				in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 				
 				{%- if ClipLevel != 0 -%}
-				if( cabsf(in[k]) >= {{ClipLevel}} ) {
+				if( absf(in[k]) >= {{ClipLevel}} ) {
 					cleanFactor = 0.0;
 				}
 				{%- endif %}
 			}
 			
-			fftwf_execute_dft(p, in, in);
+			fftwf_execute_dft_r2c(p, in, out);
 			
 			#ifdef _OPENMP
 			omp_set_lock(&locks[i]);
@@ -317,19 +331,21 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 			#ifdef _OPENMP
 			omp_unset_lock(&locks[i]);
 			#endif
-			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(in);
+		fftwf_free(out);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
+	fftwf_free(outP);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(i)
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Scale FFTs
@@ -366,7 +382,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	delay = (PyArrayObject *) PyArray_ContiguousFromObject(delays, NPY_DOUBLE, 2, 2);
 	
 	// Check data dimensions
-	if(data->dimensions[0] != delay->dimensions[0]) {
+	if(PyArray_DIM(data, 0) != PyArray_DIM(delay, 0)) {
 		PyErr_Format(PyExc_TypeError, "signals and delays have different stand counts");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -374,7 +390,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		return NULL;
 	}
 	
-	if({{nChan}} != freq->dimensions[0]) {
+	if({{nChan}} != PyArray_DIM(freq, 0)) {
 		PyErr_Format(PyExc_RuntimeError, "freqs has a different channel count than {{nChan}}");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -382,7 +398,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		return NULL;
 	}
 	
-	if(freq->dimensions[0] != delay->dimensions[1]) {
+	if(PyArray_DIM(freq, 0) != PyArray_DIM(delay, 1)) {
 		PyErr_Format(PyExc_TypeError, "freqs and delays have different channel counts");
 		Py_XDECREF(data);
 		Py_XDECREF(freq);
@@ -448,10 +464,10 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	float complex *b;
 	double *c;
 	unsigned char *d;
-	a = ({{dtypeC}} *) data->data;
-	b = (float complex *) dataF->data;
-	c = (double *) freq->data;
-	d = (unsigned char *) validF->data;
+	a = ({{dtypeC}} *) PyArray_DATA(data);
+	b = (float complex *) PyArray_DATA(dataF);
+	c = (double *) PyArray_DATA(freq);
+	d = (unsigned char *) PyArray_DATA(validF);
 	
 	// Time-domain blanking control
 	double cleanFactor;
@@ -464,7 +480,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nChan}}; ij++) {
 			i = ij / {{nChan}};
@@ -483,7 +499,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		out = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
 			i = ij / {{nFFT}};

@@ -156,6 +156,7 @@ class justInTimeOptimizer(object):
 		
 		# NumPy
 		cflags.append( '-I%s' % numpy.get_include() )
+		cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
 		ldflags.append( '-lm' )
 		
 		# ATLAS

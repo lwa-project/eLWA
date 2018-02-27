@@ -55,15 +55,15 @@ static PyObject *XEngine2(PyObject *self, PyObject *args) {
 	long bl, c, f;
 	float complex tempVis;
 	float complex *a, *b, *v;
-	a = (float complex *) data1->data;
-	b = (float complex *) data2->data;
-	v = (float complex *) vis->data;
+	a = (float complex *) PyArray_DATA(data1);
+	b = (float complex *) PyArray_DATA(data2);
+	v = (float complex *) PyArray_DATA(vis);
 	
 	// Time-domain blanking control
 	long nActVis;
 	unsigned char *u1, *u2;
-	u1 = (unsigned char *) valid1->data;
-	u2 = (unsigned char *) valid2->data;
+	u1 = (unsigned char *) PyArray_DATA(valid1);
+	u2 = (unsigned char *) PyArray_DATA(valid2);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(s1, s2, c, f, nActVis, tempVis)
@@ -161,15 +161,15 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
 	long bl, c, f;
 	float complex tempVis;
 	float complex *a, *b, *v;
-	a = (float complex *) dataX->data;
-	b = (float complex *) dataY->data;
-	v = (float complex *) vis->data;
+	a = (float complex *) PyArray_DATA(dataX);
+	b = (float complex *) PyArray_DATA(dataY);
+	v = (float complex *) PyArray_DATA(vis);
 	
 	// Time-domain blanking control
 	long nActVisPureX, nActVisPureY, nActVisCross;
 	unsigned char *u1, *u2;
-	u1 = (unsigned char *) validX->data;
-	u2 = (unsigned char *) validY->data;
+	u1 = (unsigned char *) PyArray_DATA(validX);
+	u2 = (unsigned char *) PyArray_DATA(validY);
 	
 	#ifdef _OPENMP
 		#pragma omp parallel default(shared) private(s1, s2, c, f, nActVisPureX, nActVisPureY, nActVisCross, tempVis)

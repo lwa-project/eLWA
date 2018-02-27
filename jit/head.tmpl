@@ -79,7 +79,7 @@ long computeDelayComponents(PyArrayObject *delays, double SampleRate, long *fifo
 	
 	// Set up a way to access the data
 	double *a;
-	a = (double *) delays->data;
+	a = (double *) PyArray_DATA(delays);
 	
 	// Find the minimum delay
 	/*
