@@ -70,7 +70,7 @@ static PyObject *XEngine2(PyObject *self, PyObject *args) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(bl=0; bl<{{nBL}}; bl++) {
 			s1 = mapper[bl][0];
@@ -146,7 +146,6 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
 		Py_XDECREF(validY);
 		return NULL;
 	}
-	PyArray_FILLWBYTE(vis, 0);
 	
 	// Mapper for baseline number to stand 1, stand 2
 	long s1, s2, mapper[{{nBL}}][2];
@@ -177,7 +176,7 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(bl=0; bl<{{nBL}}; bl++) {
 			s1 = mapper[bl][0];
@@ -202,8 +201,9 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
 				*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
 				
 				// YX
-				cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
+				//cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+				//*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
+				*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
 				
 				// YY
 				cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);

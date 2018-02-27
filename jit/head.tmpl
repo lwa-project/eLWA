@@ -17,12 +17,15 @@
 
 #ifdef _OPENMP
 	#include <omp.h>
+	
+	// OpenMP scheduling method
+	#ifndef OMP_SCHEDULER
+	#define OMP_SCHEDULER static
+	#endif
 #endif
 
 #include "numpy/arrayobject.h"
-
-#define PI 3.1415926535898
-#define TPI (2*3.1415926535898*_Complex_I)
+#include "numpy/npy_math.h"
 
 
 /*

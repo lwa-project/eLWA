@@ -54,12 +54,14 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT, temp2)
 	#endif
 	{
+		in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			nActFFT = 0;
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 			
 			for(j=0; j<{{nFFT}}; j++) {
 				cleanFactor = 1.0;
@@ -84,17 +86,16 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 			}
 			
 			// Shift FFTs
-			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2+{{nChan}}%2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
-			
-			fftwf_free(in);
 		}
+		
+		free(temp2);
+		fftwf_free(in);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
@@ -168,12 +169,12 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value, temp2)
 	#endif
 	{
+		in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(j=0; j<{{nFFT}}; j++) {
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
-			
 			for(i=0; i<{{nStand}}; i++) {
 				cleanFactor = 1.0;
 				
@@ -202,9 +203,9 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 				#endif
 				*(nActFFT + i) += (long) cleanFactor;
 			}
-			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(in);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
@@ -213,20 +214,22 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(i, temp2)
 	#endif
 	{
+		temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Shift FFTs
-			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/+{{nChan}}%22, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
 		}
+		
+		free(temp2);
 	}
 	free(nActFFT);
 	
@@ -296,14 +299,14 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
 	#endif
 	{
+		in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
 			i = ij / {{nFFT}};
 			j = ij % {{nFFT}};
-			
-			in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 			
 			cleanFactor = 1.0;
 			
@@ -332,9 +335,9 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 			#ifdef _OPENMP
 			omp_unset_lock(&locks[i]);
 			#endif
-			
-			fftwf_free(in);
 		}
+		
+		fftwf_free(in);
 	}
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
@@ -343,16 +346,16 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 		#pragma omp parallel default(shared) private(i, temp2)
 	#endif
 	{
+		temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
+		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(i=0; i<{{nStand}}; i++) {
 			// Shift FFTs
-			temp2 = (double *) malloc(sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memcpy(temp2, (b + i*{{nChan}}), sizeof(double)*({{nChan}}/2+{{nChan}}%2));
 			memmove((b + i*{{nChan}}), (b + i*{{nChan}})+{{nChan}}/2+{{nChan}}%2, sizeof(double)*{{nChan}}/2);
 			memcpy((b + i*{{nChan}})+{{nChan}}/2, temp2, sizeof(double)*({{nChan}}/2+{{nChan}}%2));
-			free(temp2);
 			
 			// Scale FFTs
 			cblas_dscal({{nChan}}, 1.0/({{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
@@ -362,6 +365,8 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 			omp_destroy_lock(&locks[i]);
 			#endif
 		}
+		
+		free(temp2);
 	}
 	free(nActFFT);
 	
@@ -466,7 +471,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	float complex *inP, *in;
 	inP = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_MEASURE);
+	p = fftwf_plan_dft_1d({{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
@@ -489,13 +494,13 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 	#endif
 	{
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nChan}}; ij++) {
 			i = ij / {{nChan}};
 			j = ij % {{nChan}};
-			*(rot + {{nChan}}*i + j)  = cexp(TPI * *(c + j) * *(frac + {{nChan}}*i + j));
-			*(rot + {{nChan}}*i + j) *= cexp(TPI * *(c + {{nChan}}/2) / SampleRate * *(fifo + i));
+			*(rot + {{nChan}}*i + j)  = cexp(2*NPY_PI*_Complex_I * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + {{nChan}}/2) / SampleRate * *(fifo + i));
 			*(rot + {{nChan}}*i + j) /= sqrt({{nChan}});
 		}
 	}
@@ -508,7 +513,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
 		
 		#ifdef _OPENMP
-			#pragma omp for schedule(static)
+			#pragma omp for schedule(OMP_SCHEDULER)
 		#endif
 		for(ij=0; ij<{{nStand}}*{{nFFT}}; ij++) {
 			i = ij / {{nFFT}};

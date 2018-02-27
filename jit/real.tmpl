@@ -435,11 +435,13 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		return NULL;
 	}
 	
-	// Create the FFTW plan                          
-	float complex *inP, *in;                          
-	inP = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+	// Create the FFTW plan  
+	float *inP, *in;                        
+	float complex *outP, *out;                          
+	inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+	outP = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 	fftwf_plan p;
-	p = fftwf_plan_dft_1d(2*{{nChan}}, inP, inP, FFTW_FORWARD, FFTW_ESTIMATE);
+	p = fftwf_plan_dft_r2c_1d(2*{{nChan}}, inP, outP, FFTW_R2HC|FFTW_MEASURE);
 	
 	// Data indexing and access
 	{{dtypeC}} *a;
@@ -467,16 +469,18 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		for(ij=0; ij<{{nStand}}*{{nChan}}; ij++) {
 			i = ij / {{nChan}};
 			j = ij % {{nChan}};
-			*(rot + {{nChan}}*i + j)  = cexp(TPI * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j)  = cexp(2*NPY_PI*_Complex_I * *(c + j) * *(frac + {{nChan}}*i + j));
+			*(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + 0) / SampleRate * *(fifo + i));
 			*(rot + {{nChan}}*i + j) /= sqrt(2*{{nChan}});
 		}
 	}
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
+		#pragma omp parallel default(shared) private(in, out, i, j, k, cleanFactor)
 	#endif
 	{
-		in = (float complex *) fftwf_malloc(sizeof(float complex) * 2*{{nChan}});
+		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
+		out = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}});
 		
 		#ifdef _OPENMP
 			#pragma omp for schedule(static)
@@ -495,19 +499,19 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 			cleanFactor = 1.0;
 			
 			for(k=0; k<2*{{nChan}}; k++) {
-				in[k] = (float complex) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
+				in[k] = (float) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 				
 				{%- if ClipLevel != 0 -%}
-				if( cabsf(in[k]) >= {{ClipLevel}} ) {
+				if( absf(in[k]) >= {{ClipLevel}} ) {
 					cleanFactor = 0.0;
 				}
 				{%- endif %}
 			}
 			
-			fftwf_execute_dft(p, in, in);
+			fftwf_execute_dft_r2c(p, in, out);
 			
 			for(k=0; k<{{nChan}}; k++) {
-				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}in[k];
+				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}out[k];
 				*(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
 			}
 			
@@ -516,11 +520,13 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 		}
 		
 		fftwf_free(in);
+		fftwf_free(out);
 	}
 	free(rot);
 	
 	fftwf_destroy_plan(p);
 	fftwf_free(inP);
+	fftwf_free(outP);
 	free(frac);
 	free(fifo);
 
