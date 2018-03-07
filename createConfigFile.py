@@ -212,7 +212,8 @@ def main(args):
 				## Read in the first few frames to get the start time
 				frames = [drx.readFrame(fh) for i in xrange(32)]
 				for frame in frames:
-					if frame.parseID()[1] == 1:
+					beam, tune, _ = frame.parseID()
+					if tune == 1:
 						freq1 = frame.getCentralFreq()
 					else:
 						freq2 = frame.getCentralFreq()
@@ -222,7 +223,8 @@ def main(args):
 				fh.seek(os.path.getsize(filename) - 32*drx.FrameSize)
 				frames = [drx.readFrame(fh) for i in xrange(32)]
 				for frame in frames:
-					if frame.parseID()[1] == 1:
+					beam, tune, _ = frame.parseID()
+					if tune == 1:
 						freq1 = frame.getCentralFreq()
 					else:
 						freq2 = frame.getCentralFreq()
@@ -233,7 +235,7 @@ def main(args):
 										'antenna': sitename, 'pols': 'X, Y', 
 										'location': (enz[0], enz[1], enz[2]), 
 										'clockoffset': (off, off), 'fileoffset': 0, 
-										'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
+										'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
 										
 			except Exception as e:
 				sys.stderr.write("ERROR reading DRX file: %s\n" % str(e))
@@ -466,6 +468,10 @@ def main(args):
 			fh.write("Input\n")
 			fh.write("# Start time is %s\n" % input['tstart'])
 			fh.write("# Stop time is %s\n" % input['tstop'])
+			try:
+				fh.write("# Beam is %i\n" % input['beam'])
+			except KeyError:
+				pass
 			try:
 				fh.write("# VLA pad is %s\n" % input['pad'])
 			except KeyError:
