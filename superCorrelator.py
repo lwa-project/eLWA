@@ -496,7 +496,8 @@ def main(args):
 	fileCount   = 0
 	wallStart = time.time()
 	done = False
-	firstPass = True
+	oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
+	delayStepApplied = False
 	for i in xrange(nChunks):
 		wallTime = time.time()
 		
@@ -689,12 +690,11 @@ def main(args):
 		tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
 		if config['verbose']:
 			print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
-		if firstPass:
-			for k in xrange(len(tStartRel)):
-				antennas[2*k+0].cable.clockOffset += tStartRel[k]
-				antennas[2*k+1].cable.clockOffset += tStartRel[k]
-			firstPass = False
-			
+		for k in xrange(len(tStartRel)):
+			antennas[2*k+0].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
+			antennas[2*k+1].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
+		oldStartRel = tStartRel
+		
 		# Setup everything we need to loop through the sub-integrations
 		nSub = int(tRead/tSub)
 		nSampV = int(srate[ 0]*tSub)
@@ -739,6 +739,8 @@ def main(args):
 					## Apply the step
 					antennas[2*k+0].cable.clockOffset += step
 					antennas[2*k+1].cable.clockOffset += step
+					## Update the delay step flag
+					delayStepApplied = True
 				## Clenup so we don't re-apply the step at the next iteration
 				if nextStep+1 < delaySteps[k][0].size:
 					### There are still more we can apply
@@ -754,8 +756,8 @@ def main(args):
 			## Get the Jones matrices and apply
 			## NOTE: This moves the LWA into the frame of the VLA
 			if nDRXInputs > 0:
-				lwaToSky = jones.getMatrixLWA(site, refSrc)
-				skyToVLA = jones.getMatrixVLA(site, refSrc, inverse=True)
+				lwaToSky = jones.getMatrixLWA(observer, refSrc)
+				skyToVLA = jones.getMatrixVLA(observer, refSrc, inverse=True)
 				dataDSub = jones.applyMatrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
 				
 			## Correlate
@@ -913,6 +915,7 @@ def main(args):
 				sfreqYY = freqD
 			svisXX = multirate.MRX(feoX, veoX, feoX, veoX)
 			svisXY = multirate.MRX(feoX, veoX, feoY, veoY)
+			svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
 			svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
 			
 			## Accumulate
@@ -922,11 +925,13 @@ def main(args):
 				freqYY = sfreqYY
 				visXX  = svisXX / nDump
 				visXY  = svisXY / nDump
+				visYX  = svisYX / nDump
 				visYY  = svisYY / nDump
 			else:
 				subIntTimes.append( tSubInt )
 				visXX += svisXX / nDump
 				visXY += svisXY / nDump
+				visYX += svisYX / nDump
 				visYY += svisYY / nDump
 			subIntCount += 1
 			
@@ -937,8 +942,10 @@ def main(args):
 				
 				outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
 				numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
-							vis1XX=visXX, vis1XY=visXY, vis1YX=visXY.conj(), vis1YY=visYY, 
-							tStart=numpy.mean(subIntTimes), tInt=tDump)
+							vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
+							tStart=numpy.mean(subIntTimes), tInt=tDump,
+							delayStepApplied=delayStepApplied)
+				delayStepApplied = False
 				### CD = correlator dump
 				print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
 				if fileCount == 1:

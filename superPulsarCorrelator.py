@@ -514,10 +514,12 @@ def main(args):
 	fileCount   = [0 for i in xrange(nProfileBins)]
 	visXX = [0 for i in xrange(nProfileBins)]
 	visXY = [0 for i in xrange(nProfileBins)]
+	visYX = [0 for i in xrange(nProfileBins)]
 	visYY = [0 for i in xrange(nProfileBins)]
 	wallStart = time.time()
 	done = False
-	firstPass = True
+	oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
+	delayStepApplied = False
 	for i in xrange(nChunks):
 		wallTime = time.time()
 		
@@ -710,12 +712,11 @@ def main(args):
 		tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
 		if config['verbose']:
 			print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
-		if firstPass:
-			for k in xrange(len(tStartRel)):
-				antennas[2*k+0].cable.clockOffset += tStartRel[k]
-				antennas[2*k+1].cable.clockOffset += tStartRel[k]
-			firstPass = False
-			
+		for k in xrange(len(tStartRel)):
+			antennas[2*k+0].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
+			antennas[2*k+1].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
+		oldStartRel = tStartRel
+		
 		# Setup everything we need to loop through the sub-integrations
 		nSub = int(tRead/tSub)
 		nSampV = int(srate[ 0]*tSub)
@@ -760,6 +761,8 @@ def main(args):
 					## Apply the step
 					antennas[2*k+0].cable.clockOffset += step
 					antennas[2*k+1].cable.clockOffset += step
+					## Update the delay step flag
+					delayStepApplied = True
 				## Clenup so we don't re-apply the step at the next iteration
 				if nextStep+1 < delaySteps[k][0].size:
 					### There are still more we can apply
@@ -775,8 +778,8 @@ def main(args):
 			## Get the Jones matrices and apply
 			## NOTE: This moves the LWA into the frame of the VLA
 			if nDRXInputs > 0:
-				lwaToSky = jones.getMatrixLWA(site, refSrc)
-				skyToVLA = jones.getMatrixVLA(site, refSrc, inverse=True)
+				lwaToSky = jones.getMatrixLWA(observer, refSrc)
+				skyToVLA = jones.getMatrixVLA(observer, refSrc, inverse=True)
 				dataDSub = jones.applyMatrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
 				
 			## Correlate
@@ -934,6 +937,7 @@ def main(args):
 				sfreqYY = freqD
 			svisXX = multirate.MRX(feoX, veoX, feoX, veoX)
 			svisXY = multirate.MRX(feoX, veoX, feoY, veoY)
+			svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
 			svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
 			
 			# Determine the pulsar phase as a function of frequency
@@ -980,16 +984,19 @@ def main(args):
 						
 					visXX[bestBin] = svisXX*0.0
 					visXY[bestBin] = svisXY*0.0
+					visYX[bestBin] = svisYX*0.0
 					visYY[bestBin] = svisYY*0.0
 					
 				subIntTimes[bestBin].append( tSubInt )
 				visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
 				visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
+				visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
 				visYY[bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
 				subIntCount[bestBin] += 1
 				subIntWeight[bestBin][bestFreq] += 1
 			
 			## Save
+			anyFilesSaved = False
 			for bestBin in bestBins:
 				if subIntCount[bestBin] == nDump:
 					subIntCount[bestBin] = 0
@@ -997,13 +1004,16 @@ def main(args):
 					
 					visXX[bestBin] *= nDump / subIntWeight[bestBin]
 					visXY[bestBin] *= nDump / subIntWeight[bestBin]
+					visYX[bestBin] *= nDump / subIntWeight[bestBin]
 					visYY[bestBin] *= nDump / subIntWeight[bestBin]
 					
 					outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
 					numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
-								vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
-								vis1YX=visXY[bestBin].conj(), vis1YY=visYY[bestBin], 
-								tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDump)
+					            vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
+					            vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
+					            tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDump, 
+					            delayStepApplied=delayStepApplied)
+					anyFilesSaved = True
 					### CD = correlator dump
 					print "CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(subIntTimes[bestBin]))
 					if bestBin == 0:
@@ -1016,7 +1026,9 @@ def main(args):
 							etm = int(etc/60.0) % 60
 							ets = etc % 60
 							print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
-							
+			if anyFilesSaved:
+				delayStepApplied = False
+				
 	# Cleanup
 	etc = time.time() - wallStart
 	eth = int(etc/60.0) / 60
