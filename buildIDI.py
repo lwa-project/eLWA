@@ -130,6 +130,78 @@ def cmpNPZ(x, y):
 	return cmp(xT, yT)
 
 
+_SIMBAD_CACHE = {}
+def getSourceName(src):
+	"""
+	Function to take a ephem.FixedBody() instance and resolve it to a name 
+	using Simbad.  This function returns the most popular (highest citation
+	count) name within 2" of the provided position.
+	"""
+	
+	import urllib
+	
+	# Pull out what we know about the source
+	name = src.name
+	ra = str(src._ra)
+	dec = str(src._dec)
+	epoch = (src._epoch - ephem.J2000) / 365.25 + 2000.0
+	epoch = str(epoch)
+	
+	# See if it is in the lookup cache
+	try:
+		name = _SIMBAD_CACHE[(ra, dec, epoch)]
+		return name
+		
+	except KeyError:
+		pass
+		
+	# If not, we need to query Simbad to find out what to call it
+	try:
+		## Query
+		result = urllib.urlopen('http://simbad.u-strasbg.fr/simbad/sim-coo?Coord=%s&CooFrame=FK5&CooEpoch=%s&CooEqui=%s&CooDefinedFrames=none&Radius=2&Radius.unit=arcsec&submit=submit%%20query&CoordList=&output.format=ASCII' % (urllib.quote_plus('%s %s' % (ra, dec)), epoch, epoch))
+		matches = result.readlines()
+		
+		## Parse
+		rank = 0
+		for line in matches:
+			### Skip over blank lines, comments, and ASCII table headers
+			if len(line) < 3:
+				continue
+			if line[0] in ('#', '-'):
+				continue
+				
+			if line[:6] == 'Object':
+				### Case 1: There is only one object within the search radius
+				fields = line.split('---')
+				name = fields[0].replace('Object', '')
+				_SIMBAD_CACHE[(ra, dec, epoch)] = name
+				break
+			else:
+				### Case 2: There are multiple objects and we need to parse 
+				### each entry to get the name and the citation count.  Highest
+				### citation count wins
+				fields = line.split('|')
+				if len(fields) < 13:
+					continue
+					
+				if int(fields[-2], 10) > rank:
+					name = fields[2].replace('NAME ', '')
+					rank = int(fields[-2], 10)
+					_SIMBAD_CACHE[(ra, dec, epoch)] = name
+					
+	except IOError:
+		## Fall-through for errors that should default to the original
+		## src.name
+		pass
+		
+	except ValueError:
+		## Fall-through for errors that should default to the original
+		## src.name
+		pass
+		
+	return name
+
+
 def main(args):
 	# Parse the command line
 	config = parseConfig(args)
@@ -201,6 +273,9 @@ def main(args):
 		fh.close()
 		refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
 		refSrc.name = refSrc.name.upper()	# For AIPS
+		if refSrc.name[:12] == 'ELWA_SESSION':
+			## Convert ELWA_SESSION names to "real" source names
+			refSrc.name = getSourceName(refSrc).replace(' ', '').upper()
 		os.unlink(tempConfig)
 
 		tStart = dataDict['tStart'].item()
