@@ -273,7 +273,7 @@ def main(args):
 		# Get the frequencies
 		cFreq1 = 0.0
 		cFreq2 = 0.0
-		for j in xrange(4):
+		for j in xrange(32):
 			if readers[i] is vdif:
 				junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
 				s,p = junkFrame.parseID()
@@ -298,7 +298,7 @@ def main(args):
 						cFreq2 = junkFrame.getCentralFreq()
 				else:
 					pass
-		fh[i].seek(-4*readers[i].FrameSize, 1)
+		fh[i].seek(-32*readers[i].FrameSize, 1)
 		cFreqs.append( [cFreq1,cFreq2] )
 		try:
 			bitDepths.append( junkFrame.header.bitsPerSample )
