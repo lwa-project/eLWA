@@ -102,8 +102,8 @@ def get_logfile_speed(node, logname):
 
 
 def main(args):
-	try:
-		while True:
+	while True:
+		try:
 			t0 = time.time()
 			
 			status = {}
@@ -210,8 +210,8 @@ def main(args):
 			# Sleep
 			time.sleep(min([0, 60-(t2-t0)]))
 			
-	except KeyboardInterrupt:
-		pass
+		except KeyboardInterrupt:
+			break
 
 
 if __name__ == "__main__":
