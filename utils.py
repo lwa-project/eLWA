@@ -430,7 +430,8 @@ def getBetterTime(frame):
 			frac -= 1.0
 			
 	elif type(frame) == drx.Frame:
-		tt = frame.data.timeTag - frame.header.timeOffset
+		# HACK - What should T_NOM really be at LWA1???
+		tt = frame.data.timeTag - (6660 if frame.header.timeOffset else 0)
 		sec = tt/196000000
 		frac = (tt - sec*196000000)/196e6
 		
