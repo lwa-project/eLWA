@@ -41,7 +41,7 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
 
 
 def get_directories(node):
-	status, dirnames, errors = run_command('ls -d /tmp/correlator-*', node=node)
+	status, dirnames, errors = run_command('ls -d -1 /tmp/correlator-*', node=node)
 	if status != 0:
 		dirnames = []
 	else:
@@ -61,7 +61,7 @@ def get_processes(node):
 
 
 def get_directory_contents(node, dirname):
-	status, filenames, errors = run_command('ls -d %s/*' % dirname, node=node)
+	status, filenames, errors = run_command('ls -d -1 %s/*' % dirname, node=node)
 	if status != 0:
 		filenames = []
 	else:
@@ -87,9 +87,17 @@ def get_logfile_speed(node, logname):
 			
 			for entry in speedtime:
 				if entry.find('verage') != -1:
-					_, speed = entry.rsplit('is', 1)
+					try:
+						_, speed = entry.rsplit('is', 1)
+						speed = speed.strip().rstrip()
+					except ValueError:
+						speed = '---'
 				elif entry.find('estimated') != -1:
-					_, remain = entry.rsplit('is', 1)
+					try:
+						_, remain = entry.rsplit('is', 1)
+						remain = remain.strip().rstrip()
+					except ValueError:
+						remain = '---'
 	return speed, remain
 
 
@@ -113,6 +121,7 @@ def main(args):
 				                'processes':[],
 				                'active'   :{},
 				                'progress' :{},
+				                'altconfig':{},
 				                'speed'    :{},
 				                'remaining':{}}
 				status[node]['dirnames'] = dirnames
@@ -126,6 +135,7 @@ def main(args):
 					dirname, cmdname = process.split('&&', 1)
 					_, dirname = dirname.split('cd', 1)
 					dirname = dirname.strip().rstrip()
+					cmdname, _ = cmdname.split('>', 1)
 					_, configname = cmdname.rsplit(None, 1)
 					status[node]['active'][dirname] = configname
 					
@@ -141,6 +151,7 @@ def main(args):
 					### file
 					nNPZ = 0
 					logname = None
+					configname = None
 					for filename in filenames:
 						filename = filename.strip().rstrip()
 						_, ext = os.path.splitext(filename)
@@ -148,6 +159,8 @@ def main(args):
 							nNPZ += 1
 						elif ext == '.log':
 							logname = filename
+						elif ext[:6] == '.config':
+							configname = filename
 							
 					### Parse the logfile, if we have one
 					if logname is not None:
@@ -157,36 +170,45 @@ def main(args):
 						
 					### Save
 					status[node]['progress'][dirname] = nNPZ
+					status[node]['altconfig'][dirname] = configname
 					status[node]['speed'][dirname] = cspeed
 					status[node]['remaining'][dirname] = cremain
 			t1 = time.time()
 			
 			# Report
 			print "=== %s ===" % datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-			for node in status.keys():
+			for node in sorted(status.keys()):
 				entry = status[node]
 				
 				print "%s:" % node
-				print "  Directories: %i" % len(entry['dirnames'])
 				for dirname in entry['dirnames']:
 					nFiles = entry['progress'][dirname]
-					isActive = 'active' if dirname in entry['active'] else 'stale'
-					print "    %s -> %i .npz files, %s" % (dirname, nFiles, isActive)
-				print "  Processes: %i" % len(entry['processes'])
-				for dirname in entry['active']:
-					configfile = entry['active']
-					pid = 0
-					for process in entry['processes']:
-						if process.rsplit(None, 1)[1] == configfile:
-							pid = int(process.split(None)[1], 10)
-					speed = entry['speed'][dirname]
-					remaining = entry['remaining'][dirname]
-					print "    %s -> PID %i, %s per integration, %s remaining" % (dirname, pid, speed, remaining)
+					if dirname in entry['active']:
+						active = 'active'
+						configfile = entry['active'][dirname]
+						pid = 0
+						for process in entry['processes']:
+							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
+								pid = int(process.split(None)[1], 10)
+						speed = entry['speed'][dirname]
+						remaining = entry['remaining'][dirname]
+						info = '%s @ %i; %s per integration, %s remaning' % (configfile, pid, speed, remaining)
+					else:
+						active = 'stale'
+						try:
+							info = '%s (?)' % entry['altconfig'][dirname]
+						except KeyError:
+							info = None
+					print '  %s (%s)' % (dirname, active)
+					print '    %i integrations processed' % nFiles
+					if info is not None:
+						print '    %s' % info
+						
 			t2 = time.time()
 			print "query %.3f, report %.3f" % (t1-t0, t2-t1)
 			
 			# Sleep
-			time.sleep(60-(t2-t0))
+			time.sleep(min([0, 60-(t2-t0)]))
 			
 	except KeyboardInterrupt:
 		pass
