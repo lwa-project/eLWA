@@ -228,8 +228,9 @@ def main(args):
 			print "query %.3f, report %.3f" % (t1-t0, t2-t1)
 			
 			# Sleep
-			time.sleep(min([0, 60-(t2-t0)]))
-			
+			while (time.time() - t0) < 60:
+				time.sleep(0.5)
+				
 		except KeyboardInterrupt:
 			break
 
