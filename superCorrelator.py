@@ -181,10 +181,11 @@ def main(args):
 	
 	# Build up the station
 	site = stations.lwa1
-	## Updated 2017/1/17 with solution for the 12/3 run
-	site.lat = 34.0687955336 * numpy.pi/180
-	site.long = -107.628427469 * numpy.pi/180
-	site.elev = 2129.62500168
+	## Updated 2018/3/8 with solutions from the 2018 Feb 28 eLWA
+	## run.  See createConfigFile.py for details.
+	site.lat = 34.068956328 * numpy.pi/180
+	site.long = -107.628103026 * numpy.pi/180
+	site.elev = 2132.96837346
 	observer = site.getObserver()
 	
 	# Parse the correlator configuration

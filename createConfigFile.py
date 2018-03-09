@@ -86,20 +86,21 @@ def parseConfig(args):
 	return config
 
 
-VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9))
-
-## Derived from the 2017 Oct 31 LWA1 SSMIF
-LWA1_ECEF = numpy.array((-1602258.2104158669, -5042300.0220439518, 3553974.6599673284))
-LWA1_LAT =   34.068894 * numpy.pi/180
-LWA1_LON = -107.628350 * numpy.pi/180
+## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
+## with LWA1 and EA03/EA01
+LWA1_ECEF = numpy.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
+LWA1_LAT =   34.068956328 * numpy.pi/180
+LWA1_LON = -107.628103026 * numpy.pi/180
 LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
                         [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
                         [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
 
-## Derived from the 2017 Oct 27 LWA-SV SSMIF
-LWASV_ECEF = numpy.array((-1531554.7717322097, -5045440.9839560054, 3579249.988606174))
-LWASV_LAT =   34.348358 * numpy.pi/180
-LWASV_LON = -106.885783 * numpy.pi/180
+## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
+## with LWA1 and LWA-SV.  This also includes the shift detailed
+## above for LWA1
+LWASV_ECEF = numpy.array((-1531818.98565439, -5045353.89686863, 3579263.4368991))
+LWASV_LAT =   34.348491532 * numpy.pi/180
+LWASV_LON = -106.888805133 * numpy.pi/180
 LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
                          [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
                          [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
