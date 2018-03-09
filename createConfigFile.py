@@ -86,6 +86,8 @@ def parseConfig(args):
 	return config
 
 
+VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9)) 
+
 ## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
 ## with LWA1 and EA03/EA01
 LWA1_ECEF = numpy.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
