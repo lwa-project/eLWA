@@ -166,7 +166,7 @@ def main(args):
 						elif ext == '.log':
 							logname = filename
 						elif ext[:7] == '.config':
-							configname = filename
+							configname = os.path.basename(filename)
 							
 					### Parse the logfile, if we have one
 					if logname is not None:
