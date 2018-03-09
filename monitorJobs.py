@@ -204,7 +204,7 @@ def main(args):
 							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
 								pid = int(process.split(None)[1], 10)
 								
-						info = '%s @ %i; %s per integration, %s remaning' % (configfile, pid, speed, remaining)
+						info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
 						
 					else:
 						try:
