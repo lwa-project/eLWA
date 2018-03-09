@@ -194,7 +194,7 @@ def main(args):
 	
 	for i,filename in enumerate(filenames):
 		dataDict = numpy.load(filename)
-
+		
 		tStart = dataDict['tStart']
 		
 		if config['polToPlot'] == 'I':
@@ -204,6 +204,7 @@ def main(args):
 			cvis /= 1j
 		else:
 			cvis = dataDict['vis1%s' % config['polToPlot']][cross,:]
+			
 		if config['freqDecimation'] > 1:
 			cvis.shape = (cvis.shape[0], cvis.shape[1]/config['freqDecimation'], config['freqDecimation'])
 			cvis = cvis.mean(axis=2)
