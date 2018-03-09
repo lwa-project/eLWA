@@ -43,6 +43,8 @@ Options:
 -z, --xy                    Plot XY data
 -w, --yx                    Plot YX data
 -y, --yy                    Plot YY data
+-i, --stokes-i              Plot Stokes I data
+-v, --stokes-v              Plot Stokes V data
 -l, --limit                 Limit the data loaded to the first N files
                             (default = -1 = load all)
 -d, --decimate              Frequency decimation factor (default = 1)
@@ -66,7 +68,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hr:b:xzwyl:d:", ["help", "ref-ant=", "baseline=", "xx", "xy", "yx", "yy", "limit=", "decimate="])
+		opts, args = getopt.getopt(args, "hr:b:xzwyivl:d:", ["help", "ref-ant=", "baseline=", "xx", "xy", "yx", "yy", "stokes-i", "stokes-v", "limit=", "decimate="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -88,6 +90,10 @@ def parseConfig(args):
 			config['polToPlot'] = 'YX'
 		elif opt in ('-y', '--yy'):
 			config['polToPlot'] = 'YY'
+		elif opt in ('-i', '--stokes-i'):
+			config['polToPlot'] = 'I'
+		elif opt in ('-v', '--stokes-v'):
+			config['polToPlot'] = 'V'
 		elif opt in ('-l', '--limit'):
 			config['lastFile'] = int(value, 10)
 		elif opt in ('-d', '--decimate'):
@@ -191,7 +197,13 @@ def main(args):
 
 		tStart = dataDict['tStart']
 		
-		cvis = dataDict['vis1%s' % config['polToPlot']][cross,:]
+		if config['polToPlot'] == 'I':
+			cvis = dataDict['vis1XX'][cross,:] + dataDict['vis1YY'][cross,:]
+		elif config['polToPlot'] == 'V':
+			cvis = dataDict['vis1XY'][cross,:] - dataDict['vis1YX'][cross,:]
+			cvis /= 1j
+		else:
+			cvis = dataDict['vis1%s' % config['polToPlot']][cross,:]
 		if config['freqDecimation'] > 1:
 			cvis.shape = (cvis.shape[0], cvis.shape[1]/config['freqDecimation'], config['freqDecimation'])
 			cvis = cvis.mean(axis=2)
