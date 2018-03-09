@@ -75,21 +75,26 @@ def get_logfile_speed(node, logname):
 	if status != 0:
 		speed  = '---'
 		remain = '---'
+		done = False
 	else:
 		speedtime = speedtime.split('\n')[:-1]
 		speedtime = [entry.strip().rstrip() for entry in speedtime]
 		if len(speedtime) == 0:
 			speed  = '---'
 			remain = '---'
+			done = False
 		else:
 			speed  = '---'
 			remain = '---'
+			done = False
 			
 			for entry in speedtime:
 				if entry.find('verage') != -1:
 					try:
 						_, speed = entry.rsplit('is', 1)
 						speed = speed.strip().rstrip()
+						if entry.find('Average') != -1:
+							done = True
 					except ValueError:
 						speed = '---'
 				elif entry.find('estimated') != -1:
@@ -98,7 +103,7 @@ def get_logfile_speed(node, logname):
 						remain = remain.strip().rstrip()
 					except ValueError:
 						remain = '---'
-	return speed, remain
+	return speed, remain, done
 
 
 def main(args):
@@ -123,7 +128,8 @@ def main(args):
 				                'progress' :{},
 				                'altconfig':{},
 				                'speed'    :{},
-				                'remaining':{}}
+				                'remaining':{},
+				                'complete': {}}
 				status[node]['dirnames'] = dirnames
 				
 				## Get running superCorrelator.py processes
@@ -159,20 +165,21 @@ def main(args):
 							nNPZ += 1
 						elif ext == '.log':
 							logname = filename
-						elif ext[:6] == '.config':
+						elif ext[:7] == '.config':
 							configname = filename
 							
 					### Parse the logfile, if we have one
 					if logname is not None:
-						cspeed, cremain = get_logfile_speed(node, logname)
+						cspeed, cremain, cdone = get_logfile_speed(node, logname)
 					else:
-						cspeed, cremain = '---', '---'
+						cspeed, cremain, cdone = '---', '---', False
 						
 					### Save
 					status[node]['progress'][dirname] = nNPZ
 					status[node]['altconfig'][dirname] = configname
 					status[node]['speed'][dirname] = cspeed
 					status[node]['remaining'][dirname] = cremain
+					status[node]['complete'][dirname] = cdone
 			t1 = time.time()
 			
 			# Report
@@ -184,21 +191,34 @@ def main(args):
 				for dirname in entry['dirnames']:
 					nFiles = entry['progress'][dirname]
 					if dirname in entry['active']:
-						active = 'active'
 						configfile = entry['active'][dirname]
+						speed = entry['speed'][dirname]
+						remaining = entry['remaining'][dirname]
+						done = entry['complete'][dirname]
+						
+						active = 'active'
+						if done:
+							active += ' - complete'
 						pid = 0
 						for process in entry['processes']:
 							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
 								pid = int(process.split(None)[1], 10)
-						speed = entry['speed'][dirname]
-						remaining = entry['remaining'][dirname]
+								
 						info = '%s @ %i; %s per integration, %s remaning' % (configfile, pid, speed, remaining)
+						
 					else:
-						active = 'stale'
 						try:
-							info = '%s (?)' % entry['altconfig'][dirname]
+							configfile = entry['altconfig'][dirname]
 						except KeyError:
-							info = None
+							configfile = None
+						done = entry['complete'][dirname]
+						
+						active = 'stale'
+						if done:
+							active += ' - complete'
+							
+						info = '%s (?)' % configfile if configfile is not None else None
+						
 					print '  %s (%s)' % (dirname, active)
 					print '    %i integrations processed' % nFiles
 					if info is not None:
