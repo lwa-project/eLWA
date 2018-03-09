@@ -92,6 +92,21 @@ def parseConfig(args):
 	return config
 
 
+def check_for_other_instances(quiet=True):
+	filename = os.path.basename(__file__)
+	pcmd = 'ps aux | grep python | grep %s | grep -v grep' % filename
+	
+	DEVNULL = None
+	if quiet:
+		DEVNULL = open(os.devnull, 'wb')
+	p = subprocess.Popen(pcmd, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+	status = p.wait()
+	if quiet:
+		DEVNULL.close()
+		
+	return True if status == 0 else False
+
+
 def run_command(cmd, node=None, cwd=None, quiet=False):
 	if node is None:
 		if type(cmd) is list:
@@ -272,19 +287,21 @@ def main(args):
 				continue
 				
 		## Lock file maintenance
-		for node in config['nodes']:
-			exited = any_active(threads, node=node)
-			if exited is None:
-				remove_lock_file(node)
-				
+		if not check_for_other_instances():
+			for node in config['nodes']:
+				exited = any_active(threads, node=node)
+				if exited is None:
+					remove_lock_file(node)
+					
 		## Rest
 		time.sleep(10)
 		
 	# Teardown
-	for node in config['nodes']:
-		## Lock file cleanup
-		remove_lock_file(node)
-		
+	if not check_for_other_instances():
+		for node in config['nodes']:
+			## Lock file cleanup
+			remove_lock_file(node)
+			
 	print "Done"
 
 
