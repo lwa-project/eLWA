@@ -134,8 +134,6 @@ def main(args):
 		visXX.shape = (visXX.shape[0]/nBL, nBL, visXX.shape[1])
 		visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
 		
-		maskXX = numpy.zeros(visXX.shape, dtype=numpy.bool)
-		maskYY = numpy.zeros(visYY.shape, dtype=numpy.bool)
 		antennas = []
 		for j in xrange(nBL):
 			ant1, ant2 = (bbls[j]>>8)&0xFF, bbls[j]&0xFF
@@ -144,24 +142,9 @@ def main(args):
 			if ant2 not in antennas:
 				antennas.append(ant2)
 				
-			#print '%i @ (%i,%i)' % (j, ant1, ant2)
-			
-			## XX
-			try:
-				submask = mask_bandpass(times, freq, visXX[:,j,:])
-			except ValueError:
-				#print "Error encountered for XX %i, %i, masking all data" % (ant1, ant2)
-				submask = numpy.ones((visXX.shape[0], visXX.shape[2]), dtype=numpy.bool)
-			maskXX[:,j,:] = submask
-			
-			## YY
-			try:
-				submask = mask_bandpass(times, freq, visYY[:,j,:])
-			except ValueError:
-				#print "Error encountered for YY %i, %i, masking all data" % (ant1, ant2)
-				submask = numpy.ones((visYY.shape[0], visYY.shape[2]), dtype=numpy.bool)
-			maskYY[:,j,:] = submask
-			
+		maskXX = mask_bandpass(antennas, times, freq, visXX)
+		maskYY = mask_bandpass(antennas, times, freq, visYY)
+		
 		visXX = numpy.ma.array(visXX, mask=maskXX)
 		visYY = numpy.ma.array(visYY, mask=maskYY)
 		
