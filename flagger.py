@@ -6,8 +6,10 @@ $LastChangedBy$
 $LastChangedDate$
 """
 
+import sys
 import time
 import numpy
+from StringIO import StringIO
 
 from lsl.common.stations import lwa1
 from lsl.statistics import robust
@@ -40,8 +42,11 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 		mn = max([0, i-winSize/2])
 		mx = min([i+winSize, smth.size])
 		smth[i] = numpy.median(spec[mn:mx])
-	smth /= robust.mean(smth)
-	
+	try:
+		smth /= robust.mean(smth)
+	except ValueError:
+		smth /= numpy.mean(smth)
+		
 	# Apply the model and find deviant channels
 	bp = spec / smth
 	try:
@@ -102,8 +107,11 @@ def flag_bandpass_time(times, data, clip=3.0):
 		mn = max([0, i-winSize/2])
 		mx = min([i+winSize, smth.size])
 		smth[i] = numpy.median(drift[mn:mx])
-	smth /= robust.mean(smth)
-	
+	try:
+		smth /= robust.mean(smth)
+	except ValueError:
+		smth /= numpy.mean(smth)
+		
 	# Apply the model and find deviant times
 	bp = drift / smth
 	try:
@@ -205,7 +213,7 @@ def mask_bandpass(antennas, times, freq, data, clip=3.0, grow=True, verbose=Fals
 	return mask
 
 
-def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=20, includeLWA=False, verbose=True):
+def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includeLWA=False, verbose=False):
 	"""
 	Given a list of antenna, an array of times, an array of uvw coordinates, 
 	an array of frequencies, and a 3-D (times by baselines by frequencies) 
@@ -231,6 +239,12 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=20, includ
 	except AttributeError:
 		mask = numpy.zeros(data.shape, dtype=numpy.bool)
 		
+	# Setup StringIO so that we can deal with the annoying
+	# 'Warning: converting a masked element to nan.' messages.
+	# This is a *little* dangerous since it can also hide 
+	# exceptions but I guess that is the price.
+	sys.stderr = StringIO()
+	
 	# Loop through the baselines to find out what is an auto-correlations 
 	# and what is not.  If it is an auto-correlation, save the median power
 	# so that we can compare the cross-correlations appropriately.  If it is
@@ -290,6 +304,10 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=20, includ
 		if len(bad) > 0 and verbose:
 			print "Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2)
 			
+	# Cleanup the StringIO instance
+	sys.stderr.close()
+	sys.stderr = sys.__stderr__
+	
 	# Done
 	return mask
 
