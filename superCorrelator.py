@@ -453,12 +453,15 @@ def main(args):
 	framesPerSecondV = int(srate[0] / readers[0].DataLength)
 	nFramesB = nFrames
 	framesPerSecondB = srate[-1] / readers[-1].DataLength
-	print "VDIF Frames/s: %.6f" % framesPerSecondV
-	print "VDIF Frames/Integration: %i" % nFramesV
-	print "DRX Frames/s: %.6f" % framesPerSecondB
-	print "DRX Frames/Integration: %i" % nFramesB
-	print "Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DataLength)/(nFramesB*4096),)
-	print "Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],)
+	if nVDIFInputs:
+		print "VDIF Frames/s: %.6f" % framesPerSecondV
+		print "VDIF Frames/Integration: %i" % nFramesV
+	if nDRXInputs:
+		print "DRX Frames/s: %.6f" % framesPerSecondB
+		print "DRX Frames/Integration: %i" % nFramesB
+	if nVDIFInputs*nDRXInputs:
+		print "Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DataLength)/(nFramesB*4096),)
+		print "Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],)
 	print " "
 	
 	vdifLFFT = LFFT * (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
@@ -468,8 +471,10 @@ def main(args):
 		drxLFFT = vdifLFFT * srate[-1] / srate[0]
 	vdifLFFT = vdifLFFT / (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
 	drxLFFT = int(drxLFFT)
-	print "VDIF Transform Size: %i" % vdifLFFT
-	print "DRX Transform Size: %i" % drxLFFT
+	if nVDIFInputs:
+		print "VDIF Transform Size: %i" % vdifLFFT
+	if nDRXInputs:
+		print "DRX Transform Size: %i" % drxLFFT
 	print " "
 	
 	vdifPivot = 1
@@ -477,7 +482,10 @@ def main(args):
 		vdifPivot = 2
 	if nVDIFInputs == 0 and config['which'] is not None:
 		vdifPivot = config['which']
-	print "VDIF appears to correspond to tuning #%i in DRX" % vdifPivot
+	if nVDIFInputs*nDRXInputs:
+		print "VDIF appears to correspond to tuning #%i in DRX" % vdifPivot
+	elif nDRXInputs:
+		print "Correlating DRX tuning #%i" % vdifPivot
 	print " "
 	
 	nChunks = int(tFile/tRead)
