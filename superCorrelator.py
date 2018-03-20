@@ -461,7 +461,7 @@ def main(args):
 	print "Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],)
 	print " "
 	
-	vdifLFFT = LFFT * 2
+	vdifLFFT = LFFT * (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
 	drxLFFT = vdifLFFT * srate[-1] / srate[0]
 	while drxLFFT != int(drxLFFT):
 		vdifLFFT += 1
