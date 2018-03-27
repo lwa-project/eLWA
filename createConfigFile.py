@@ -100,9 +100,9 @@ LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA
 ## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
 ## with LWA1 and LWA-SV.  This also includes the shift detailed
 ## above for LWA1
-LWASV_ECEF = numpy.array((-1531818.98565439, -5045353.89686863, 3579263.4368991))
-LWASV_LAT =   34.348491532 * numpy.pi/180
-LWASV_LON = -106.888805133 * numpy.pi/180
+LWASV_ECEF = numpy.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
+LWASV_LAT =   34.34841153053564 * numpy.pi/180
+LWASV_LON = -106.88582216960029 * numpy.pi/180
 LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
                          [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
                          [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])

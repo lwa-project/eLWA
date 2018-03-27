@@ -536,7 +536,7 @@ def parseLWAMetaData(filename):
 	if site == stations.lwa1:
 		d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
 	else:
-		d = numpy.insert(d, 0, 0.0)	# ... and we need to start at zero
+		d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
 		
 	# done
 	return t, d
