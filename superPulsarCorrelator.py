@@ -322,9 +322,9 @@ def main(args):
 			buffers.append( GUPPIFrameBuffer(threads=[0,1]) )
 		elif readers[i] is drx:
 			if beampols[i] == 4:
-				buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1]) )
+				buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nSegments=16) )
 			else:
-				buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,], pols=[0,1]) )
+				buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,], pols=[0,1], nSegments=16) )
 	for i in xrange(len(filenames)):
 		# Align the files as close as possible by the time tags
 		if readers[i] is vdif:
@@ -658,6 +658,10 @@ def main(args):
 						count = cFrame.data.timeTag
 						count -= drxRef[bid]
 						count /= (4096*int(196e6/srate[-1]))
+						### Fix from some LWA-SV files that seem to cause the current LSL
+						### ring buffer problems
+						if count < 0:
+							continue
 						try:
 							dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
 							k += 2
