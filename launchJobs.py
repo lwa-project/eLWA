@@ -94,7 +94,7 @@ def parseConfig(args):
 
 def check_for_other_instances(quiet=True):
 	filename = os.path.basename(__file__)
-	pcmd = 'ps aux | grep python | grep %s | grep -v grep' % filename
+	pcmd = 'ps aux | grep python | grep %s | grep -v %i | grep -v grep' % (filename, os.getpid())
 	
 	DEVNULL = None
 	if quiet:
@@ -114,9 +114,9 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
 		else:
 			pcmd = shlex.split(cmd)
 	elif cwd is None:
-		pcmd = ['ssh', '-t', '-t', node, 'bash -c "%s"' % cmd]
+		pcmd = ['ssh', '-t', '-t', node, 'bash -c "%s" | cat' % cmd]
 	else:
-		pcmd = ['ssh', '-t', '-t', node, 'bash -c "cd %s && %s"' % (cwd, cmd)]
+		pcmd = ['ssh', '-t', '-t', node, 'bash -c "cd %s && %s" | cat' % (cwd, cmd)]
 		
 	DEVNULL = None
 	if quiet:
