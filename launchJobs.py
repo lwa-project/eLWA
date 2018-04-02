@@ -114,9 +114,9 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
 		else:
 			pcmd = shlex.split(cmd)
 	elif cwd is None:
-		pcmd = ['ssh', '-t', '-t', node, 'bash -c "%s" | cat' % cmd]
+		pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "%s"' % cmd]
 	else:
-		pcmd = ['ssh', '-t', '-t', node, 'bash -c "cd %s && %s" | cat' % (cwd, cmd)]
+		pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && %s"' % (cwd, cmd)]
 		
 	DEVNULL = None
 	if quiet:
@@ -289,8 +289,7 @@ def main(args):
 		## Lock file maintenance
 		if not check_for_other_instances():
 			for node in config['nodes']:
-				exited = any_active(threads, node=node)
-				if exited is None:
+				if not any_active(threads, node=node):
 					remove_lock_file(node)
 					
 		## Rest

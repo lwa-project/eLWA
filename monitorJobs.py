@@ -138,7 +138,7 @@ def main(args):
 				## For each process, get the configuration file being
 				## processes
 				for process in status[node]['processes']:
-					dirname, cmdname = process.split('&&', 1)
+					dirname, cmdname = process.rsplit('&&', 1)
 					_, dirname = dirname.split('cd', 1)
 					dirname = dirname.strip().rstrip()
 					cmdname, _ = cmdname.split('>', 1)
