@@ -16,9 +16,9 @@ import numpy
 
 from lsl.common.paths import data as dataPath
 
-__version__ = '0.1'
+__version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['getParallacticAngle', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
+__all__ = ['getParallacticAngle', 'getLWAAntennaGain', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -64,7 +64,7 @@ for pol,beamCoeff in zip(('X', 'Y'), (beamDict['fitX'], beamDict['fitY'])):
 		beamFuncY = BeamPattern
 
 
-def getLWA1AntennaGain(site, src):
+def getLWAAntennaGain(site, src):
 	# Basic location/source parameters
 	az, el = src.az, src.alt
 	az *= 180/numpy.pi
@@ -91,10 +91,6 @@ def getMatrixLWA(site, src, inverse=False):
 	dec = src.dec
 	lat = site.lat
 	
-	# Beam pattern
-	bx, by = getLWA1AntennaGain(site, src)
-	bx, by = numpy.sqrt(bx), numpy.sqrt(by)
-	
 	# Matrix elements
 	cosGA =  numpy.cos(HA)*numpy.sin(dec)*numpy.cos(lat) - numpy.cos(dec)*numpy.sin(lat)
 	sinGA = -numpy.sin(HA)*numpy.cos(lat)
@@ -110,14 +106,6 @@ def getMatrixLWA(site, src, inverse=False):
 			norm = numpy.sqrt((matrix[i,:]**2).sum())
 			matrix[i,:] /= norm
 			
-	# The beam correction
-	if inverse:
-		matrix[:,0] *= bx
-		matrix[:,1] *= by
-	else:
-		matrix[:,0] /= bx
-		matrix[:,1] /= by
-		
 	# Done
 	return matrix
 

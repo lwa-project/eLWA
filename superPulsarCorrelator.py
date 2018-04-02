@@ -788,9 +788,15 @@ def main(args):
 			observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
 			refSrc.compute(observer)
 			
+			## Correct for the LWA dipole power pattern
+			if nDRXInputs > 0:
+				dipoleX, dipoleY = jones.getLWAAntennaGain(observer, refSrc)
+				dataDSub[0::2] /= numpy.sqrt(dipoleX)
+				dataDSub[1::2] /= numpy.sqrt(dipoleY)
+				
 			## Get the Jones matrices and apply
 			## NOTE: This moves the LWA into the frame of the VLA
-			if nDRXInputs > 0:
+			if nVDIFInputs*nDRXInputs > 0:
 				lwaToSky = jones.getMatrixLWA(observer, refSrc)
 				skyToVLA = jones.getMatrixVLA(observer, refSrc, inverse=True)
 				dataDSub = jones.applyMatrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
