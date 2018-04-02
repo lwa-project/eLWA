@@ -190,8 +190,10 @@ def job(node, configfile, options='-l 128 -t 1 -j', softwareDir=None, resultsDir
 def any_active(threads, node=None):
 	active = False
 	for slot in threads.keys():
-		if node is not None and slot.split('-')[0] != node:
-			continue
+		if node is not None:
+			cnode, _ = slot.split('-', 1)
+			if cnode != node:
+				continue
 		if threads[slot] is not None:
 			active = True
 			break
