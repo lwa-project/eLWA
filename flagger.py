@@ -40,11 +40,14 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 	# Compute the smoothed bandpass model
 	for i in xrange(smth.size):
 		mn = max([0, i-winSize/2])
-		mx = min([i+winSize, smth.size])
+		mx = min([i+winSize/2+1, smth.size])
 		smth[i] = numpy.median(spec[mn:mx])
+		
 	try:
+		scl = robust.mean(smth)
 		smth /= robust.mean(smth)
 	except ValueError:
+		scl = numpy.mean(smth)
 		smth /= numpy.mean(smth)
 		
 	# Apply the model and find deviant channels
@@ -55,7 +58,13 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 	except ValueError:
 		dm = numpy.mean(bp)
 		ds = numpy.std(bp)
-	bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) )[0]
+	## This is needed to deal with super smooth LWA-SV bandpasses.  
+	## I don't like it but without it everything gets flagged.  Maybe
+	## there is a better way to do this, like ignoring really small
+	## values for the standard deviation of the bandpass.
+	if ds < dm / 150.0:
+		ds = dm / 150.0
+	bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )[0]
 	
 	if grow:
 		try:
@@ -78,7 +87,7 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 					bad = numpy.append(bad, stop)
 		except IndexError:
 			pass
-		
+			
 	# Done
 	return spec, bad
 
@@ -105,7 +114,7 @@ def flag_bandpass_time(times, data, clip=3.0):
 	# Compute the smoothed drift model
 	for i in xrange(smth.size):
 		mn = max([0, i-winSize/2])
-		mx = min([i+winSize, smth.size])
+		mx = min([i+winSize/2+1, smth.size])
 		smth[i] = numpy.median(drift[mn:mx])
 	try:
 		smth /= robust.mean(smth)
@@ -186,9 +195,9 @@ def mask_bandpass(antennas, times, freq, data, clip=3.0, grow=True, verbose=Fals
 		##
 		## Part 2 - Flatten the data with we we just found
 		##
-		for i in xrange(subpower.shape[0]):
-			subpower.data[i,:] /= bp
-			subpower.data[i,:] /= drift[i]
+		for j in xrange(subpower.shape[0]):
+			subpower.data[j,:] /= bp
+			subpower.data[j,:] /= drift[j]
 			
 		##
 		## Part 3 - Flag deviant points
