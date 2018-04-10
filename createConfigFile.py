@@ -387,22 +387,23 @@ def main(args):
 	lwasvFound = False
 	for input in corrConfig['inputs']:
 		### Sort out multiple DRX files - this only works if we have only one LWA station
-		if input['type'] == 'DRX' and vdifRefFile is not None:
-			l0, l1 = input['tstart'], input['tstop']
-			v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
-			ve = (v1 - v0).total_seconds()
-			overlapWithVDIF = (v0>=l0 and v0<l1) or (l0>=v0 and l0<v1)
-			lvo = (min([v1,l1]) - max([v0,l0])).total_seconds()
-			if not overlapWithVDIF or lvo < 0.25*ve:
-				toPurge.append( input )
-			drxFound = True
+		if input['type'] == 'DRX':
+			if vdifRefFile is not None:
+				l0, l1 = input['tstart'], input['tstop']
+				v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
+				ve = (v1 - v0).total_seconds()
+				overlapWithVDIF = (v0>=l0 and v0<l1) or (l0>=v0 and l0<v1)
+				lvo = (min([v1,l1]) - max([v0,l0])).total_seconds()
+				if not overlapWithVDIF or lvo < 0.25*ve:
+					toPurge.append( input )
+				drxFound = True
 			if input['antenna'] == 'LWA-SV':
 				lwasvFound = True
 	for input in toPurge:
 		del corrConfig['inputs'][corrConfig['inputs'].index(input)]
 		
 	# VDIF/DRX warning check/report
-	if isDRX and not drxFound:
+	if vdifRefFile is not None and isDRX and not drxFound:
 		sys.stderr.write("WARNING: DRX files provided but none overlapped with VDIF data")
 		
 	# Update the file offsets to get things lined up better
