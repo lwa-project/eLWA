@@ -263,7 +263,7 @@ def main(args):
 			print "%s - %s started" % (slot, threads[slot].name)
 			time.sleep(2)
 		except IndexError:
-			continue
+			pass
 			
 	# Wait and processes more
 	while any_active(threads):
@@ -286,7 +286,7 @@ def main(args):
 				print "%s - %s started" % (slot, threads[slot].name)
 				time.sleep(2)
 			except IndexError:
-				continue
+				pass
 				
 		## Lock file maintenance
 		if not check_for_other_instances():
