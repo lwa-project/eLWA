@@ -296,9 +296,9 @@ def main(args):
 			## Convert ELWA_SESSION names to "real" source names
 			refSrc.name = getSourceName(refSrc).replace(' ', '').upper()
 		os.unlink(tempConfig)
-
-		tStart = dataDict['tStart'].item()
-		tInt = dataDict['tInt'].item()
+		
+		tStartL = dataDict['tStart'].item()
+		tIntL = dataDict['tInt'].item()
 		visXXL = dataDict['vis1XX'].astype(numpy.complex64)
 		visXYL = dataDict['vis1XY'].astype(numpy.complex64)
 		visYXL = dataDict['vis1YX'].astype(numpy.complex64)
@@ -308,7 +308,9 @@ def main(args):
 		
 		## Load in the integration - upper band
 		dataDict = numpy.load(highname)
-		
+
+		tStartH = dataDict['tStart'].item()
+		tIntH = dataDict['tInt'].item()
 		visXXH = dataDict['vis1XX'].astype(numpy.complex64)
 		visXYH = dataDict['vis1XY'].astype(numpy.complex64)
 		visYXH = dataDict['vis1YX'].astype(numpy.complex64)
@@ -317,6 +319,8 @@ def main(args):
 		dataDict.close()
 		
 		## Combine
+		tStart = tStartL
+		tInt = tIntL
 		visXX = numpy.concatenate([visXXL, visXXH], axis=1)
 		visXY = numpy.concatenate([visXYL, visXYH], axis=1)
 		visYX = numpy.concatenate([visYXL, visYXH], axis=1)
