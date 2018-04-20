@@ -224,6 +224,15 @@ def main(args):
 				
 				## Read in the last few frames to find the end time
 				fh.seek(os.path.getsize(filename) - 32*drx.FrameSize)
+				backed = 0
+				while backed < 2*drx.FrameSize:
+					try:
+						drx.readFrame(fh)
+						fh.seek(-drx.FrameSize, 1)
+						break
+					except errors.syncError:
+						backed += 1
+						fh.seek(-drx.FrameSize-1, 1)
 				frames = [drx.readFrame(fh) for i in xrange(32)]
 				for frame in frames:
 					beam, tune, _ = frame.parseID()
