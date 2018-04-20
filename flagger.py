@@ -58,14 +58,16 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 	except ValueError:
 		dm = numpy.mean(bp)
 		ds = numpy.std(bp)
-	## This is needed to deal with super smooth LWA-SV bandpasses.  
-	## I don't like it but without it everything gets flagged.  Maybe
-	## there is a better way to do this, like ignoring really small
-	## values for the standard deviation of the bandpass.
-	if ds < dm / 150.0:
-		ds = dm / 150.0
 	bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )[0]
 	
+	# Make sure we have flagged appropriately and revert the flags as needed.  We
+	# specifically need this when we have flagged everything because the bandpass 
+	# is very smooth, i.e., LWA-SV and some of the LWA1-LWA-SV data
+	if len(bad) == bp.size and ds < 1e-6 and spec.mean() > 1e-6:
+		dm = numpy.mean(bp)
+		ds = numpy.std(bp)
+		bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )[0]
+		
 	if grow:
 		try:
 			# If we need to grow the mask, find contiguous flagged regions
