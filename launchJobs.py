@@ -241,6 +241,9 @@ def main(args):
 	config = parseConfig(args)
 	
 	# Setup
+	## Time mark
+	tStart = time.time()
+	nConfig = len(config['args'])
 	## Sort
 	configfiles = config['args']
 	configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
@@ -298,12 +301,19 @@ def main(args):
 		time.sleep(10)
 		
 	# Teardown
+	## Lock files
 	if not check_for_other_instances():
 		for node in config['nodes']:
 			## Lock file cleanup
 			remove_lock_file(node)
-			
-	print "Done"
+	## Stop time
+	tFinish = time.time()
+	tElapsed = tFinish - tStart
+	
+	h = int(tElapsed / 60.0) / 60
+	m = int(tElapsed / 60.0) % 60
+	s = tElapsed % 60.0
+	print "Completed %i jobs in %i hr, %i min, %.0f sec" % (nConfig, h, m, s)
 
 
 if __name__ == "__main__":
