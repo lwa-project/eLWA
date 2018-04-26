@@ -32,9 +32,17 @@ Options:
 -n, --nodes               Comma seperated lists of nodes to use 
                           (Default = current)
 -o, --options             Correlator options to use
-                          (Default = -l 128 -t 1 -j)
+                          (Default = -l 256 -t 1 -j)
+-b, --both-tunings        For LWA-only configuration files, process both
+                          tunings (Default = No)
 -r, --results-dir         Directory to put the results in 
                           (Default = ./results')
+
+NOTE:  The -n/--nodes option also supports numerical node ranges using the 
+       '~' character to indicate a decimal range.  For example, 'lwaucf1~2'
+       is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also
+       be combined with other comma separated entries to specify more complex
+       node lists.
 """
 	
 	if exitCode is not None:
@@ -48,18 +56,22 @@ def parseConfig(args):
 	# Command line flags - default values
 	config['processes'] = 1
 	config['nodes'] = ['localhost',]
-	config['options'] = '-l 128 -t 1 -j'
+	config['options'] = '-l 256 -t 1 -j'
+	config['both'] = False
 	config['results'] = './results'
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hp:n:o:r:", ["help", "processes-per-node=", "nodes=", "options=", "results-dir="])
+		opts, args = getopt.getopt(args, "hp:n:o:br:", ["help", "processes-per-node=", "nodes=", "options=", "both-tunings", "results-dir="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
 		usage(exitCode=2)
 		
+	# Setup the node range parser
+	_rangeRE=re.compile('^(?P<hostbase>[a-zA-Z\-]*?)(?P<start>[0-9]+)~(?P<stop>[0-9]+)')
+	
 	# Work through opts
 	for opt, value in opts:
 		if opt in ('-h', '--help'):
@@ -67,9 +79,23 @@ def parseConfig(args):
 		elif opt in ('-p', '--processes-per-node'):
 			config['processes'] = int(value, 10)
 		elif opt in ('-n', '--nodes'):
-			config['nodes'] = [v.strip().rstrip() for v in value.split(',')]
+			## First pass - break into sets using commas
+			temp = [v.strip().rstrip() for v in value.split(',')]
+			## Second pass - look for the range character, ~, and expand
+			config['nodes'] = []
+			for t in temp:
+				mtch = _rangeRE.search(t)
+				if mtch is None:
+					config['nodes'].append( t )
+				else:
+					hostbase = mtch.group('hostbase')
+					start = int(mtch.group('start'), 10)
+					stop = int(mtch.group('stop'), 10)
+					config['nodes'].extend( ['%s%i' % (hostbase, i) for i in xrange(start, stop+1)] )
 		elif opt in ('-o', '--options'):
 			config['options'] = value
+		elif opt in ('-b', '--both-tunings'):
+			config['both'] = True
 		elif opt in ('-r', '--results-dir'):
 			config['results'] = value
 		else:
@@ -81,6 +107,8 @@ def parseConfig(args):
 	# Validate
 	if config['processes'] <= 0:
 		raise RuntimeError('Invalid number of processes per node')
+	if len(config['nodes']) < 1:
+		raise RuntimeError('Invalid list of nodes')
 	if os.path.exists(config['results']):
 		if not os.path.isdir(config['results']):
 			raise RuntimeError('%s is not a directory' % config['results'])
@@ -107,6 +135,20 @@ def check_for_other_instances(quiet=True):
 	return True if status == 0 else False
 
 
+def configfile_is_lwa_only(configfile, quiet=True):
+	gcmd = ['grep', '-e VDIF', '-e GUPPI', configfile]
+	
+	DEVNULL = None
+	if quiet:
+		DEVNULL = open(os.devnull, 'wb')
+	p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
+	status = p.wait()
+	if quiet:
+		DEVNULL.close()
+		
+	return False if status == 0 else True
+
+
 def run_command(cmd, node=None, cwd=None, quiet=False):
 	if node is None:
 		if type(cmd) is list:
@@ -129,7 +171,7 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
 	return status
 
 
-def job(node, configfile, options='-l 128 -t 1 -j', softwareDir=None, resultsDir=None):
+def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None):
 	code = 0
 	
 	# Create a temporary directory to use
@@ -243,7 +285,6 @@ def main(args):
 	# Setup
 	## Time mark
 	tStart = time.time()
-	nConfig = len(config['args'])
 	## Sort
 	configfiles = config['args']
 	configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
@@ -252,14 +293,26 @@ def main(args):
 	for p in xrange(config['processes']):
 		for node in config['nodes']:
 			threads['%s-%02i' % (node, p)] = None
-			
+	## Build the configfile/correlation options/results directory sets
+	jobs = []
+	for configfile in configfiles:
+		if config['both'] and configfile_is_lwa_only(configfile):
+			coptions = config['options']
+			coptions = coptions.replace('-w 1', '').replace('-w1', '')
+			coptions = coptions.replace('-w 2', '').replace('-w2', '')
+			jobs.append( (configfile, coptions+' -w 1', config['results']) )
+			jobs.append( (configfile, coptions+' -w 2', config['results']) )
+		else:
+			jobs.append( (configfile, config['options'], config['results']) )
+	nJobs = len(jobs)
+	
 	# Start
 	for slot in sorted(threads.keys()):
 		node, _ = slot.split('-', 1)
 		
 		try:
-			configfile = configfiles.pop(0)
-			threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':config['options'], 'resultsDir':config['results']})
+			configfile, coptions, resultsdir = jobs.pop(0)
+			threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
 			threads[slot].daemon = True
 			threads[slot].start()
 			create_lock_file(node)
@@ -282,8 +335,8 @@ def main(args):
 			node, _ = slot.split('-', 1)
 			
 			try:
-				configfile = configfiles.pop(0)
-				threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':config['options'], 'resultsDir':config['results']})
+				configfile, coptions, resultsdir = jobs.pop(0)
+				threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
 				threads[slot].daemon = True
 				threads[slot].start()
 				print "%s - %s started" % (slot, threads[slot].name)
@@ -313,7 +366,7 @@ def main(args):
 	h = int(tElapsed / 60.0) / 60
 	m = int(tElapsed / 60.0) % 60
 	s = tElapsed % 60.0
-	print "Completed %i jobs in %i hr, %i min, %.0f sec" % (nConfig, h, m, s)
+	print "Completed %i jobs in %i hr, %i min, %.0f sec" % (nJobs, h, m, s)
 
 
 if __name__ == "__main__":
