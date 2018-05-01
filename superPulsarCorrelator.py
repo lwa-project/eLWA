@@ -554,7 +554,7 @@ def main(args):
 						cFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
 						buffers[j].append( cFrame )
 					except errors.syncError:
-						print "Error @ %i, %i" % (i, j)
+						print "Error - VDIF @ %i, %i" % (i, j)
 						f.seek(vdif.FrameSize, 1)
 						continue
 					except errors.eofError:
@@ -592,7 +592,7 @@ def main(args):
 						cFrame = readers[j].readFrame(f)
 						buffers[j].append( cFrame )
 					except errors.syncError:
-						print "Error @ %i, %i" % (i, j)
+						print "Error - GUPPI @ %i, %i" % (i, j)
 						continue
 					except errors.eofError:
 						done = True
@@ -629,7 +629,7 @@ def main(args):
 						cFrame = readers[j].readFrame(f)
 						buffers[j].append( cFrame )
 					except errors.syncError:
-						print "Error @ %i, %i" % (i, j)
+						print "Error - DRX @ %i, %i" % (i, j)
 						continue
 					except errors.eofError:
 						done = True
@@ -688,7 +688,7 @@ def main(args):
 		## Sample offsets between the streams
 		offsets = []
 		for j in xrange(nVDIFInputs+nDRXInputs):
-			offsets.append( int( math.floor((max(tStartRel) - tStartRel[j])*srate[j]) ) )
+			offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
 		if config['verbose']:
 			print 'TT - Offsets', offsets
 			

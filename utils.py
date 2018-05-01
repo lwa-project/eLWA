@@ -26,10 +26,11 @@ from lsl.misc.beamformer import calcDelay
 import guppi
 
 
-__version__ = '0.3'
+__version__ = '0.4'
 __revision__ = '$Rev$'
-__all__ = ['EnhancedFixedBody', 'multiColumnPrint', 'parseTimeString', 'readCorrelatorConfiguration', 
-		 'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
+__all__ = ['EnhancedFixedBody', 'multiColumnPrint', 'parseTimeString', 'nsround', 
+		 'readCorrelatorConfiguration', 'getBetterTime', 'readGUPPIHeader', 
+		 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -237,6 +238,14 @@ def parseTimeString(value):
 				value *= 1e-9
 				
 	return value
+
+
+def nsround(value):
+	"""
+	Round a time in seconds to the nearest ns.
+	"""
+	
+	return round(value*1e9)/1e9
 
 
 def readCorrelatorConfiguration(filename):
