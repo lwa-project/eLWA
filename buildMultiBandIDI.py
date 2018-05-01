@@ -13,6 +13,7 @@ $LastChangedDate$
 import os
 import re
 import sys
+import glob
 import time
 import ephem
 import numpy
@@ -120,15 +121,24 @@ def parseConfig(args):
 	return config
 
 
+_CMP_CACHE = {}
 def cmpNPZ(x, y):
-	xDD = numpy.load(x)
-	xT = xDD['tStart'].item()
-	xDD.close()
-	
-	yDD = numpy.load(y)
-	yT = yDD['tStart'].item()
-	yDD.close()
-	
+	try:
+		xT = _CMP_CACHE[x]
+	except KeyError:
+		xDD = numpy.load(x)
+		_CMP_CACHE[x] = xDD['tStart'].item()
+		xDD.close()
+		xT = _CMP_CACHE[x]
+		
+	try:
+		yT = _CMP_CACHE[y]
+	except KeyError:
+		yDD = numpy.load(y)
+		_CMP_CACHE[y] = yDD['tStart'].item()
+		yDD.close()
+		yT = _CMP_CACHE[y]
+		
 	return cmp(xT, yT)
 
 
@@ -209,6 +219,11 @@ def main(args):
 	config = parseConfig(args)
 	
 	filenames = config['args']
+	# Special catch for when the command line is too short to list all of 
+	# the files to combine.  This works by running glob.glob() using the
+	# first input filename as the file regex
+	if len(filenames) == 1 and filenames[0].find('*') != -1:
+		filenames = glob.glob(filenames[0])
 	filenames.sort(cmp=cmpNPZ)
 	if config['lastFile'] != -1:
 		filenames = filenames[:config['lastFile']]
