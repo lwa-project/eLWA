@@ -82,6 +82,10 @@ def parseConfig(args):
 	# Add in arguments
 	config['args'] = args
 	
+	# Validate
+	if len(args) < 1:
+		raise RuntimeError("Must supply at least one filename")
+		
 	# Return configuration
 	return config
 
@@ -139,11 +143,21 @@ def main(args):
 					except Exception as e:
 						sdf = metabundleADP.getSessionDefinition(filename)
 					for obs in sdf.sessions[0].observations:
-						ra = ephem.hours(str(obs.ra))
-						dec = ephem.hours(str(obs.dec))
+						if type(obs).__name__ == 'Solar':
+							name = 'Sun'
+							ra = None
+							dec = None
+						elif type(obs).__name__ == 'Jovian':
+							name = 'Jupiter'
+							ra = None
+							dec = None
+						else:
+							name = obs.target
+							ra = ephem.hours(str(obs.ra))
+							dec = ephem.hours(str(obs.dec))
 						tStart = mjdmpm2datetime(obs.mjd, obs.mpm)
 						tStop  = mjdmpm2datetime(obs.mjd, obs.mpm+obs.dur)
-						sources.append( {'name':obs.target, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
+						sources.append( {'name':name, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
 						
 				## Extract the file information so that we can pair things together
 				fileInfo = metabundle.getSessionMetaData(filename)
@@ -471,8 +485,9 @@ def main(args):
 		fh.write("# Observation start is %s\n" % source['start'])
 		fh.write("# Duration is %s\n" % (source['stop'] - source['start'],))
 		fh.write("  Name     %s\n" % source['name'])
-		fh.write("  RA2000   %s\n" % source['ra2000'])
-		fh.write("  Dec2000  %s\n" % source['dec2000'])
+		if source['name'] not in ('Sun', 'Jupiter'):
+			fh.write("  RA2000   %s\n" % source['ra2000'])
+			fh.write("  Dec2000  %s\n" % source['dec2000'])
 		fh.write("  Duration %.3f\n" % dur)
 		fh.write("SourceDone\n")
 		fh.write("\n")
