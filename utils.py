@@ -186,13 +186,22 @@ class EnhancedSun(ephem.Sun):
 	"""
 	
 	def __getattr__(self, name):
-		# Catch the _ra, _dec, and _epoch attributes since they don't exist
+		# Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
 		# for ephem.Planet sub-classes and we don't want to break things
-		if name in ('_ra', '_dec', '_epoch'):
+		if name in ('_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
 			return 'moving'
 			
 		# Get the attribute if every is ok
 		super(self.__class__, self).__getattr__(name)
+		
+	def __setattr__(self, name, value):
+		# Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
+		# for ephem.Planet sub-classes and we don't want to break things
+		if name in ('_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
+			raise AttributeError("Cannot set '%s' on this object" % value)
+			
+		# Set the attribute if everything is ok
+		super(self.__class__, self).__setattr__(name, value)
 
 
 class EnhancedJupiter(ephem.Jupiter):
@@ -202,13 +211,22 @@ class EnhancedJupiter(ephem.Jupiter):
 	"""
 	
 	def __getattr__(self, name):
-		# Catch the _ra, _dec, and _epoch attributes since they don't exist
+		# Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
 		# for ephem.Planet sub-classes and we don't want to break things
-		if name in ('_ra', '_dec', '_epoch'):
+		if name in ('_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
 			return 'moving'
 			
 		# Get the attribute if every is ok
 		super(self.__class__, self).__getattr__(name)
+		
+	def __setattr__(self, name, value):
+		# Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
+		# for ephem.Planet sub-classes and we don't want to break things
+		if name in ('_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
+			raise AttributeError("Cannot set '%s' on this object" % value)
+			
+		# Set the attribute if everything is ok
+		super(self.__class__, self).__setattr__(name, value)
 
 
 def multiColumnPrint(items, sep=';  ', width=86):
