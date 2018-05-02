@@ -28,9 +28,9 @@ import guppi
 
 __version__ = '0.4'
 __revision__ = '$Rev$'
-__all__ = ['EnhancedFixedBody', 'multiColumnPrint', 'parseTimeString', 'nsround', 
-		 'readCorrelatorConfiguration', 'getBetterTime', 'readGUPPIHeader', 
-		 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
+__all__ = ['EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 'multiColumnPrint', 
+		 'parseTimeString', 'nsround', 'readCorrelatorConfiguration', 'getBetterTime', 
+		 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -124,6 +124,15 @@ class EnhancedFixedBody(ephem.FixedBody):
 	method, the 'phase' and 'frequency' attributes are set.
 	"""
 	
+	def __init__(self, body=None):
+		super(self.__class__, self).__init__()
+		
+		if type(body) is ephem.FixedBody:
+			for attr in ('name', '_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
+				value = getattr(body, attr, None)
+				if value is not None:
+					setattr(self, attr, value)
+					
 	def __setattr__(self, name, value):
 		# Validate that the _polycos attribute is set to a PolyCo or PolyCos instance
 		if name == '_polycos':
@@ -168,6 +177,38 @@ class EnhancedFixedBody(ephem.FixedBody):
 				delattr(self, 'phase')
 				delattr(self, 'frequency')
 				delattr(self, 'period')
+
+
+class EnhancedSun(ephem.Sun):
+	"""
+	Minimal sub-class of ephem.Sun to allow the 'duration' attribute to 
+	be set.
+	"""
+	
+	def __getattr__(self, name):
+		# Catch the _ra, _dec, and _epoch attributes since they don't exist
+		# for ephem.Planet sub-classes and we don't want to break things
+		if name in ('_ra', '_dec', '_epoch'):
+			return 'moving'
+			
+		# Get the attribute if every is ok
+		super(self.__class__, self).__getattr__(name)
+
+
+class EnhancedJupiter(ephem.Jupiter):
+	"""
+	Minimal sub-class of ephem.Jupiter to allow the 'duration' attribute to 
+	be set.
+	"""
+	
+	def __getattr__(self, name):
+		# Catch the _ra, _dec, and _epoch attributes since they don't exist
+		# for ephem.Planet sub-classes and we don't want to break things
+		if name in ('_ra', '_dec', '_epoch'):
+			return 'moving'
+			
+		# Get the attribute if every is ok
+		super(self.__class__, self).__getattr__(name)
 
 
 def multiColumnPrint(items, sep=';  ', width=86):
@@ -319,22 +360,24 @@ def readCorrelatorConfiguration(filename):
 		refSource._ra = sources[0]['ra']
 		refSource._dec = sources[0]['dec']
 		refSource._epoch = ephem.J2000
-		refSource.duration = sources[0]['duration']
-		try:
-			refSource._polycos = PolyCos(sources[0]['polyco'])
-		except KeyError:
-			pass
 	else:
-		srcs = [ephem.Sun(),]
+		srcs = [EnhancedSun(), EnhancedJupiter()]
 		for line in _srcs:
-			srcs.append( ephem.readdb(line) )
-		
+			srcs.append( EnhancedFixedBody(ephem.readdb(line)) )
+			
 		refSource = None
 		for i in xrange(len(srcs)):
 			if srcs[i].name == sources[0]['name']:
 				refSource = srcs[i]
 				break
-			
+		if refSource is None:
+			raise ValueError("Unknown source '%s'" % sources[0]['name'])
+	refSource.duration = sources[0]['duration']
+	try:
+		refSource._polycos = PolyCos(sources[0]['polyco'])
+	except KeyError:
+		pass
+		
 	# Sort everything out so that the VDIF files come first
 	order = sorted(range(len(blocks)), key=lambda x: blocks[x]['type'][-1])
 	blocks = [blocks[o] for o in order]
