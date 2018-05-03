@@ -18,21 +18,8 @@ from lsl.common.paths import data as dataPath
 
 __version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['getParallacticAngle', 'getLWAAntennaGain', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
+__all__ = ['getLWAAntennaGain', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
 		 '__version__', '__revision__', '__all__']
-
-
-def getParallacticAngle(lat, dec, HA):
-	"""
-	Given an observation latitude, a source declination, and a source hour 
-	angle (all in radians), return the parllactic angle (also in radians).
-	"""
-	
-	num = numpy.cos(lat)*numpy.sin(HA)
-	den = numpy.sin(lat)*numpy.cos(dec) - numpy.cos(lat)*numpy.sin(dec)*numpy.cos(HA)
-	pang = numpy.arctan2(num, den)
-	
-	return pang
 
 
 beamDict = numpy.load(os.path.join(dataPath, 'lwa1-dipole-emp.npz'))
@@ -90,27 +77,30 @@ def getMatrixLWA(site, src, inverse=False):
 	HA = site.sidereal_time() - src.ra
 	dec = src.dec
 	lat = site.lat
+	alpha = numpy.pi/2	# The LWA dipoles are vertical, i.e., pointed towards zenith
 	
 	# Matrix elements
-	cosGA =  numpy.cos(HA)*numpy.sin(dec)*numpy.cos(lat) - numpy.cos(dec)*numpy.sin(lat)
-	sinGA = -numpy.sin(HA)*numpy.cos(lat)
-	cosGB =  numpy.cos(HA)
-	sinGB = -numpy.sin(HA)*numpy.sin(dec)
+	GA = numpy.arctan2(-numpy.sin(HA)*numpy.cos(lat-alpha), numpy.cos(HA)*numpy.sin(dec)*numpy.cos(lat-alpha) - numpy.cos(dec)*numpy.sin(lat-alpha))
+	GB = numpy.arctan2(-numpy.sin(HA)*numpy.sin(dec), numpy.cos(HA))
+	cosGA = numpy.cos(GA)
+	sinGA = numpy.sin(GA)
+	cosGB = numpy.cos(GB) 
+	sinGB = numpy.sin(GB)
 	
 	# The matrix
-	matrix = numpy.array([[cosGA, -sinGA], 
-					  [sinGB,  cosGB]])
-	if inverse:
-		matrix = numpy.linalg.inv(matrix)
-		for i in xrange(2):
-			norm = numpy.sqrt((matrix[i,:]**2).sum())
-			matrix[i,:] /= norm
+	if not inverse:
+		matrix = numpy.array([[cosGA, -sinGA], 
+		                      [sinGB,  cosGB]])
+	else:
+		matrix = numpy.array([[ cosGB, sinGA],
+		                      [-sinGB, cosGA]])
+		matrix /= cosGA*cosGB + sinGA*sinGB
 			
 	# Done
 	return matrix
 
 
-def getMatrixVLA(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00')):
+def getMatrixVLA(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00.0')):
 	"""
 	Given an ephem.Observer instances and an ephem.Body instance, get the 
 	Jones matrix for the VLA for the direction towards the source.
@@ -124,25 +114,24 @@ def getMatrixVLA(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00')
 	dec = src.dec
 	lat = site.lat
 	
-	# Get the gamma angles - A and B are the same here
-	gammaA = getParallacticAngle(lat, dec, HA) + feedRotation
-	gammaB = gammaA
-	
 	# Matrix elements
-	cosGA = numpy.cos(gammaA)
-	sinGA = numpy.sin(gammaA)
-	cosGB = numpy.cos(gammaB)
-	sinGB = numpy.sin(gammaB)
+	G = numpy.arctan2(numpy.cos(lat)*numpy.sin(HA), numpy.cos(dec)*numpy.sin(lat) - numpy.sin(dec)*numpy.cos(lat)*numpy.cos(HA))
+	GA = G + feedRotation
+	GB = G + feedRotation
+	cosGA = numpy.cos(GA)
+	sinGA = numpy.sin(GA)
+	cosGB = numpy.cos(GB)
+	sinGB = numpy.sin(GB)
 	
 	# The matrix
-	matrix = numpy.array([[cosGA, -sinGA], 
-					  [sinGB,  cosGB]])
-	if inverse:
-		matrix = numpy.linalg.inv(matrix)
-		for i in xrange(2):
-			norm = numpy.sqrt((matrix[i,:]**2).sum())
-			matrix[i,:] /= norm
-			
+	if not inverse:
+		matrix = numpy.array([[cosGA, -sinGA], 
+		                      [sinGB,  cosGB]])
+	else:
+		matrix = numpy.array([[ cosGB, sinGA],
+		                      [-sinGB, cosGA]])
+		matrix /= cosGA*cosGB + sinGA*sinGB
+		
 	# Done
 	return matrix
 
