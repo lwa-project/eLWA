@@ -224,7 +224,7 @@ def main(args):
 	for i in xrange(1, len(times)):
 		iTimes[i-1] = times[i] - times[i-1]
 	print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max())
-	iSize = int(round(config['interval']/iTimes.mean()))
+	iSize = int(round(config['interval']/robust.mean(iTimes)))
 	print " -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes))
 	iCount = times.size/iSize
 	print " -> Working with %i chunks of data" % iCount
@@ -240,7 +240,7 @@ def main(args):
 		config['delayWindow'][0] = -dMax*1e6
 	if dMax*1e6 < config['delayWindow'][1]:
 		config['delayWindow'][1] = dMax*1e6
-	rMax = 1.0/iTimes.mean()/4
+	rMax = 1.0/robust.mean(iTimes)/4
 	rMax = int(rMax*1e2)*1e-2
 	if -rMax*1e3 > config['rateWindow'][0]:
 		config['rateWindow'][0] = -rMax*1e3
@@ -316,8 +316,8 @@ def main(args):
 		## Figure out which polarizations to process
 		if bls[b][0] not in (51, 52) and bls[b][1] not in (51, 52):
 			### Standard VLA-VLA baseline
-			polToUse = ('XX', 'YY')
-			visToUse = (visXX, visYY)
+			polToUse = ('XX', 'XY', 'YX', 'YY')
+			visToUse = (visXX, visXY, visYX, visYY)
 		else:
 			### LWA-LWA or LWA-VLA baseline
 			if config['yOnlyVLALWA']:
