@@ -769,8 +769,8 @@ def main(args):
 			## Correct for the LWA dipole power pattern
 			if nDRXInputs > 0:
 				dipoleX, dipoleY = jones.getLWAAntennaGain(observer, refSrc)
-				dataDSub[0::2] /= numpy.sqrt(dipoleX)
-				dataDSub[1::2] /= numpy.sqrt(dipoleY)
+				dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
+				dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
 				
 			## Get the Jones matrices and apply
 			## NOTE: This moves the LWA into the frame of the VLA

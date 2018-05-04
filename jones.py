@@ -16,7 +16,7 @@ import numpy
 
 from lsl.common.paths import data as dataPath
 
-__version__ = '0.2'
+__version__ = '0.3'
 __revision__ = '$Rev$'
 __all__ = ['getLWAAntennaGain', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
 		 '__version__', '__revision__', '__all__']
@@ -32,8 +32,8 @@ for pol,beamCoeff in zip(('X', 'Y'), (beamDict['fitX'], beamDict['fitY'])):
 	betaH =  numpy.polyval(beamCoeff[1,1,:], 74e6)
 	gammaH = numpy.polyval(beamCoeff[1,2,:], 74e6)
 	deltaH = numpy.polyval(beamCoeff[1,3,:], 74e6)
-	print "Beam Coeffs. X: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaH, betaH, gammaH, deltaH)
-	print "Beam Coeffs. Y: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaE, betaE, gammaE, deltaE)
+	#print "Beam Coeffs. X: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaH, betaH, gammaH, deltaH)
+	#print "Beam Coeffs. Y: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaE, betaE, gammaE, deltaE)
 	
 	def BeamPattern(az, alt):
 		zaR = numpy.pi/2 - alt*numpy.pi / 180.0 
@@ -45,7 +45,6 @@ for pol,beamCoeff in zip(('X', 'Y'), (beamDict['fitX'], beamDict['fitY'])):
 		return numpy.sqrt((pE*numpy.cos(azR))**2 + (pH*numpy.sin(azR))**2)
 		
 	if pol == 'X':
-		print "here"
 		beamFuncX = BeamPattern
 	else:
 		beamFuncY = BeamPattern
@@ -95,7 +94,7 @@ def getMatrixLWA(site, src, inverse=False):
 		matrix = numpy.array([[ cosGB, sinGA],
 		                      [-sinGB, cosGA]])
 		matrix /= cosGA*cosGB + sinGA*sinGB
-			
+		
 	# Done
 	return matrix
 
