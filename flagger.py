@@ -16,7 +16,7 @@ from lsl.statistics import robust
 from lsl.correlator import uvUtils
 
 
-def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
+def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
 	"""
 	Given an array of frequencies and a 2-D (time by frequency) data set, 
 	flag channels that appear to deviate from the median bandpass.  Returns
@@ -33,8 +33,9 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 	spec = numpy.median(spec, axis=0)
 	smth = spec*0.0
 	
-	# Calculate the median window size - the target is 250 kHz in frequency
-	winSize = int(250e3/(freq[1]-freq[0]))
+	# Calculate the median window size - the target is determined from the 
+	# 'width' keyword, which is assumed to be in Hz
+	winSize = int(1.0*width/(freq[1]-freq[0]))
 	winSize += ((winSize+1)%2)
 	
 	# Compute the smoothed bandpass model
@@ -42,7 +43,6 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 		mn = max([0, i-winSize/2])
 		mx = min([i+winSize/2+1, smth.size])
 		smth[i] = numpy.median(spec[mn:mx])
-		
 	try:
 		scl = robust.mean(smth)
 		smth /= robust.mean(smth)
@@ -94,7 +94,7 @@ def flag_bandpass_freq(freq, data, clip=3.0, grow=True):
 	return spec, bad
 
 
-def flag_bandpass_time(times, data, clip=3.0):
+def flag_bandpass_time(times, data, width=30.0, clip=3.0):
 	"""
 	Given an array of times and a 2-D (time by frequency) data set, flag
 	times that appear to deviate from the overall drift in power.  Returns
@@ -109,8 +109,9 @@ def flag_bandpass_time(times, data, clip=3.0):
 	drift = numpy.median(drift, axis=1)
 	smth = drift*0.0
 	
-	# Calculate the median window size - the target is 30 seconds in time
-	winSize = int(30.0/(times[1]-times[0]))
+	# Calculate the median window size - the target is determined from the 
+	# 'width' keyword, which is assumed to be in s
+	winSize = int(1.0*width/(times[1]-times[0]))
 	winSize += ((winSize+1)%2)
 	
 	# Compute the smoothed drift model
@@ -119,8 +120,10 @@ def flag_bandpass_time(times, data, clip=3.0):
 		mx = min([i+winSize/2+1, smth.size])
 		smth[i] = numpy.median(drift[mn:mx])
 	try:
+		scl = robust.mean(smth)
 		smth /= robust.mean(smth)
 	except ValueError:
+		scl = numpy.mean(smth)
 		smth /= numpy.mean(smth)
 		
 	# Apply the model and find deviant times
@@ -137,7 +140,7 @@ def flag_bandpass_time(times, data, clip=3.0):
 	return drift, bad
 
 
-def mask_bandpass(antennas, times, freq, data, clip=3.0, grow=True, verbose=False):
+def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3, clip=3.0, grow=True, verbose=False):
 	"""
 	Given a list of antennas, an array of times, and array of frequencies, 
 	and a 3-D (time by baseline by frequency) data set, flag RFI and return 
@@ -182,8 +185,8 @@ def mask_bandpass(antennas, times, freq, data, clip=3.0, grow=True, verbose=Fals
 		##
 		## Part 1 - Initial flagging with flag_bandpass_freq() and flag_bandpass_time()
 		##
-		bp, flagsF = flag_bandpass_freq(freq, subpower, clip=clip, grow=grow)
-		drift, flagsT = flag_bandpass_time(times, subpower, clip=clip)
+		bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow)
+		drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip)
 		
 		## Build up a numpy.ma version of the data using the flags we just found
 		try:
