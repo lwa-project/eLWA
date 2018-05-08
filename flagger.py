@@ -274,8 +274,8 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
 			cross.append(i)
 			
 	# Average the power over frequency
-	power = power.mean(axis=2)
-	
+	power = numpy.ma.mean(power, axis=2)
+
 	# Average the uvw coordinates over time and frequency
 	uvw = uvw.mean(axis=0).mean(axis=1)
 	

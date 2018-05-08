@@ -14,6 +14,9 @@ import time
 import numpy
 import getopt
 import pyfits
+from datetime import datetime
+
+from lsl.astro import utcjd_to_unix
 
 from flagger import *
 
@@ -86,7 +89,8 @@ def main(args):
 		## Baseline list
 		bls = uvdata.data['BASELINE']
 		## Time of each integration
-		obsdates = uvdata.data['TIME']
+		obsdates = uvdata.data['DATE']
+		obstimes = uvdata.data['TIME']
 		## Source list
 		srcs = uvdata.data['SOURCE']
 		## Band information
@@ -112,7 +116,7 @@ def main(args):
 		
 		# Find unique baselines, times, and sources to work with
 		ubls = numpy.unique(bls)
-		utimes = numpy.unique(obsdates)
+		utimes = numpy.unique(obstimes)
 		usrc = numpy.unique(srcs)
 		
 		# Find unique scans to work on
@@ -136,7 +140,11 @@ def main(args):
 			match = range(block[0],block[1]+1)
 			
 			bbls = numpy.unique(bls[match])
-			times = obsdates[match] * 86400.0
+			times = obstimes[match] * 86400.0
+			scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
+			scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
+			print '    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S'))
+			
 			for b,offset in enumerate(fqoffsets):
 				print '    IF #%i' % (b+1,)
 				crd = uvw[match,:]
@@ -148,7 +156,7 @@ def main(args):
 				crd.shape = (crd.shape[0]/nBL, nBL, 1, 3)
 				visXX.shape = (visXX.shape[0]/nBL, nBL, visXX.shape[1])
 				visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
-				print '      Scan contains %i times, %i baselines, %i channels' % visXX.shape
+				print '      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape
 			
 				antennas = []
 				for j in xrange(nBL):
@@ -166,9 +174,11 @@ def main(args):
 				visYY = numpy.ma.array(visYY, mask=maskYY)
 			
 				print '      Flagging spurious correlations'
-				visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
-				visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
-			
+				for p in xrange(2):
+					print '        Pass #%i' % (p+1,)
+					visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
+					visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
+					
 				print '      Cleaning masks'
 				visXX.mask = cleanup_mask(visXX.mask)
 				visYY.mask = cleanup_mask(visYY.mask)
@@ -185,7 +195,7 @@ def main(args):
 				mask[match,b,:,2] = submask
 				mask[match,b,:,3] = submask
 			
-				print '      Statistics for this scan'
+				print '      Statistics for this can/IF'
 				print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,b,:,0].sum()/mask[match,b,:,0].size,)
 				print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,b,:,1].sum()/mask[match,b,:,0].size,)
 				print '      -> XY/YX   - %.1f%% flagged' % (100.0*mask[match,b,:,2].sum()/mask[match,b,:,0].size,)
@@ -193,7 +203,7 @@ def main(args):
 				
 		# Convert the masks into a format suitable for writing to a FLAG table
 		print "  Building FLAG table"
-		obsdates.shape = (obsdates.shape[0]/nBL, nBL)
+		obstimes.shape = (obstimes.shape[0]/nBL, nBL)
 		mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
 		ants, times, bands, chans, pols = [], [], [], [], []
 		for i in xrange(nBL):
@@ -206,25 +216,25 @@ def main(args):
 				maskYY = mask[:,i,b,:,1]
 				maskXY = mask[:,i,b,:,2]
 			
-				flagsXX, _ = create_flag_groups(obsdates[:,i], freq+offset, maskXX)
-				flagsYY, _ = create_flag_groups(obsdates[:,i], freq+offset, maskYY)
-				flagsXY, _ = create_flag_groups(obsdates[:,i], freq+offset, maskXY)
+				flagsXX, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXX)
+				flagsYY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskYY)
+				flagsXY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXY)
 			
 				for flag in flagsXX:
 					ants.append( (ant1,ant2) )
-					times.append( (obsdates[flag[0],i], obsdates[flag[1],i]) )
+					times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
 					bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
 					chans.append( (flag[2]+1, flag[3]+1) )
 					pols.append( (1, 0, 0, 0) )
 				for flag in flagsYY:
 					ants.append( (ant1,ant2) )
-					times.append( (obsdates[flag[0],i], obsdates[flag[1],i]) )
+					times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
 					bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
 					chans.append( (flag[2]+1, flag[3]+1) )
 					pols.append( (0, 1, 0, 0) )
 				for flag in flagsXY:
 					ants.append( (ant1,ant2) )
-					times.append( (obsdates[flag[0],i], obsdates[flag[1],i]) )
+					times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
 					bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
 					chans.append( (flag[2]+1, flag[3]+1) )
 					pols.append( (0, 0, 1, 1) )
@@ -238,7 +248,7 @@ def main(args):
 		c3 = pyfits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
 		c4 = pyfits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
 		c5 = pyfits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-		c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32))
+		c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
 		c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
 		c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
 		c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(['FLAGIDI.PY' for i in xrange(nFlags)]))
