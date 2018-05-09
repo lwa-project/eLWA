@@ -31,8 +31,8 @@ flagIDI.py [OPTIONS] <fits_file> [<fits_file> [...]]
 Options:
 -h, --help          Display this help information
 -s, --sdm           Read in the provided VLA SDM for additional flags
--p, --passes        Number of passes to make through the spurious 
-                    correlation sub-routine (default = 2)
+-p, --scf-passes    Number of passes to make through the spurious 
+                    correlation sub-routine (default = 2, 0 disables)
 """
 	
 	if exitCode is not None:
@@ -50,7 +50,7 @@ def parseConfig(args):
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:p:", ["help", "sdm=", "passes="])
+		opts, args = getopt.getopt(args, "hs:p:", ["help", "sdm=", "scf-passes="])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -62,7 +62,7 @@ def parseConfig(args):
 			usage(exitCode=0)
 		elif opt in ('-s', '--sdm'):
 			config['sdm'] = value
-		elif opt in ('-p', '--passes'):
+		elif opt in ('-p', '--scf-passes'):
 			config['passes'] = int(value, 10)
 		else:
 			assert False
@@ -71,7 +71,7 @@ def parseConfig(args):
 	config['args'] = args
 	
 	# Validate
-	if config['passes'] < 1:
+	if config['passes'] < 0:
 		raise RuntimeError("Invalid number of spurious correlation passes: %i" % config['passes'])
 		
 	# Return configuration
