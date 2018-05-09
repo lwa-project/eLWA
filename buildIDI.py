@@ -252,7 +252,7 @@ def main(args):
 	visYX = dataDict['vis1YX'].astype(numpy.complex64)
 	visYY = dataDict['vis1YY'].astype(numpy.complex64)
 	dataDict.close()
-			
+	
 	print "Antennas:"
 	for ant in antennas:
 		print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
@@ -263,11 +263,11 @@ def main(args):
 	if config['freqDecimation'] > 1:
 		if nChan % config['freqDecimation'] != 0:
 			raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, config['freqDecimation'], nChan%config['freqDecimation']))
-
+			
 		nChan /= config['freqDecimation']
 		freq.shape = (freq.size/config['freqDecimation'], config['freqDecimation'])
 		freq = freq.mean(axis=1)
-	
+		
 	# Figure out the visibility conjugation problem in LSL, pre-1.1.4
 	conjugateVis = False
 	if float(fitsidi.__version__) < 0.9:
@@ -296,7 +296,7 @@ def main(args):
 			## Moving sources cannot have their names changed
 			pass
 		os.unlink(tempConfig)
-
+		
 		tStart = dataDict['tStart'].item()
 		tInt = dataDict['tInt'].item()
 		visXX = dataDict['vis1XX'].astype(numpy.complex64)
@@ -372,7 +372,7 @@ def main(args):
 			fits.setFrequency(freq)
 			fits.setGeometry(stations.lwa1, [a for a in antennas if a.pol == 0])
 			print "Opening %s for writing" % outname
-
+			
 		if i % 10 == 0:
 			print i
 			

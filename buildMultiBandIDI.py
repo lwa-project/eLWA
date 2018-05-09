@@ -282,11 +282,11 @@ def main(args):
 	if config['freqDecimation'] > 1:
 		if nChan % config['freqDecimation'] != 0:
 			raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, config['freqDecimation'], nChan%config['freqDecimation']))
-
+			
 		nChan /= config['freqDecimation']
 		freq.shape = (freq.size/config['freqDecimation'], config['freqDecimation'])
 		freq = freq.mean(axis=1)
-	
+		
 	# Figure out the visibility conjugation problem in LSL, pre-1.1.4
 	conjugateVis = False
 	if float(fitsidi.__version__) < 0.9:
@@ -327,7 +327,7 @@ def main(args):
 		
 		## Load in the integration - upper band
 		dataDict = numpy.load(highname)
-
+		
 		tStartH = dataDict['tStart'].item()
 		tIntH = dataDict['tInt'].item()
 		visXXH = dataDict['vis1XX'].astype(numpy.complex64)
@@ -412,7 +412,7 @@ def main(args):
 			fits.setFrequency(freqH)
 			fits.setGeometry(stations.lwa1, [a for a in antennas if a.pol == 0])
 			print "Opening %s for writing" % outname
-
+			
 		if i % 10 == 0:
 			print i
 			
