@@ -32,7 +32,9 @@ Options:
 -h, --help          Display this help information
 -s, --sdm           Read in the provided VLA SDM for additional flags
 -p, --scf-passes    Number of passes to make through the spurious 
-                    correlation sub-routine (default = 2, 0 disables)
+                    correlation sub-routine (default = 0 = disabled,
+                    >0 enables)
+-f, --force         Force overwriting of existing FITS-IDI files
 """
 	
 	if exitCode is not None:
@@ -45,12 +47,13 @@ def parseConfig(args):
 	config = {}
 	# Command line flags - default values
 	config['sdm'] = None
-	config['passes'] = 2
+	config['passes'] = 0
+	config['force'] = False
 	config['args'] = []
 	
 	# Read in and process the command line flags
 	try:
-		opts, args = getopt.getopt(args, "hs:p:", ["help", "sdm=", "scf-passes="])
+		opts, args = getopt.getopt(args, "hs:p:f", ["help", "sdm=", "scf-passes=", "force"])
 	except getopt.GetoptError, err:
 		# Print help information and exit:
 		print str(err) # will print something like "option -a not recognized"
@@ -64,6 +67,8 @@ def parseConfig(args):
 			config['sdm'] = value
 		elif opt in ('-p', '--scf-passes'):
 			config['passes'] = int(value, 10)
+		elif opt in ('-f', '--force'):
+			config['force'] = True
 		else:
 			assert False
 			
@@ -320,19 +325,34 @@ def main(args):
 		
 		# Save
 		print "  Saving to disk"
+		## What to call it
 		outname = os.path.basename(filename)
 		outname, outext = os.path.splitext(outname)
 		outname = '%s_flagged%s' % (outname, outext)
+		## Does it already exist or not
+		if os.path.exists(outname):
+			if not config['force']:
+				yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+			else:
+				yn = 'y'
+				
+			if yn not in ('n', 'N'):
+				os.unlink(outname)
+			else:
+				raise RuntimeError("Output file '%s' already exists" % outname)
+		## Open and create a new primary HDU
 		hdulist2 = pyfits.open(outname, mode='append')
 		primary =	pyfits.PrimaryHDU()
 		for key in hdulist[0].header:
 			primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
 		hdulist2.append(primary)
 		hdulist2.flush()
+		## Copy the extensions over to the new file
 		for hdu in hdulist[1:]:
 			hdulist2.append(hdu)
 			hdulist2.flush()
 		hdulist2.close()
+		hdulist.close()
 		print "  -> Flagged FITS IDI file is '%s'" % outname
 		print "  Finished in %.3f s" % (time.time()-t0,)
 
