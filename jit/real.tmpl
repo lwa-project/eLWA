@@ -53,7 +53,7 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 	long nActFFT;
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, nActFFT)
+		#pragma omp parallel default(shared) private(in, out, i, j, k, cleanFactor, nActFFT)
 	#endif
 	{
 		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
@@ -165,7 +165,7 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 	memset(nActFFT, 0, sizeof(long)*{{nStand}});
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor, value)
+		#pragma omp parallel default(shared) private(in, out, i, j, k, cleanFactor, value)
 	#endif
 	{
 		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
@@ -291,7 +291,7 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 	#endif
 	
 	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(in, i, j, k, cleanFactor)
+		#pragma omp parallel default(shared) private(in, out, i, j, k, cleanFactor)
 	#endif
 	{
 		in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}});
