@@ -72,7 +72,7 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
 					in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 					
 					{%- if ClipLevel != 0 -%}
-					if( absf(in[k]) >= {{ClipLevel}} ) {
+					if( fabsf(in[k]) >= {{ClipLevel}} ) {
 						cleanFactor = 0.0;
 					}
 					{%- endif %}
@@ -182,7 +182,7 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
 					in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 					
 					{%- if ClipLevel != 0 -%}
-					if( absf(in[k]) >= {{ClipLevel}} ) {
+					if( fabsf(in[k]) >= {{ClipLevel}} ) {
 						cleanFactor = 0.0;
 					}
 					{%- endif %}
@@ -310,7 +310,7 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
 				in[k] = (float) *(a + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 				
 				{%- if ClipLevel != 0 -%}
-				if( absf(in[k]) >= {{ClipLevel}} ) {
+				if( fabsf(in[k]) >= {{ClipLevel}} ) {
 					cleanFactor = 0.0;
 				}
 				{%- endif %}
@@ -518,7 +518,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 				in[k] = (float) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} + k);
 				
 				{%- if ClipLevel != 0 -%}
-				if( absf(in[k]) >= {{ClipLevel}} ) {
+				if( fabsf(in[k]) >= {{ClipLevel}} ) {
 					cleanFactor = 0.0;
 				}
 				{%- endif %}
