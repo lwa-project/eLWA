@@ -22,7 +22,7 @@ from flagger import *
 
 
 def usage(exitCode=None):
-	print """flagDRV.py - Flag the DTV pilot carriers in FITS-IDI files
+	print """flagDTV.py - Flag the DTV pilot carriers in FITS-IDI files
 
 Usage:
 flagDTV.py [OPTIONS] <fits_file> [<fits_file> [...]]
