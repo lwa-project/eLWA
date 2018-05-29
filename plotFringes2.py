@@ -18,6 +18,8 @@ import getopt
 import tempfile
 from datetime import datetime
 
+from scipy.stats import scoreatpercentile as percentile
+
 from lsl.statistics import robust
 from lsl.misc.mathutil import to_dB
 
@@ -253,7 +255,9 @@ def main(args):
 		ax.set_ylim((dTimes[0], dTimes[-1]))
 		
 		ax = fig2.add_subplot(nRow, nCol, k+1)
-		ax.imshow( numpy.abs(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest')
+		amp = numpy.abs(vis)
+		vmin, vmax = percentile(amp, 1), percentile(amp, 99)
+		ax.imshow(amp, extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
 		ax.axis('auto')
 		ax.set_xlabel('Frequency [MHz]')
 		ax.set_ylabel('Elapsed Time [s]')
