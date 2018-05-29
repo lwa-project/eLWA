@@ -12,13 +12,13 @@ import os
 import struct
 from xml.etree import ElementTree
 
-from lsl.astro import MJD_OFFSET
+from lsl.astro import utcjd_to_unix, MJD_OFFSET
 
 
-__version__ = '0.2'
+__version__ = '0.3'
 __revision__ = '$Rev$'
-__all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'getAntennas', 'getFlags', 'filterFlags',
-           'getRequantizerGains', 'filterRequantizerGains', 
+__all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'getAntennas', 
+		 'getFlags', 'filterFlags', 'getRequantizerGains', 'filterRequantizerGains', 
            '__version__', '__revision__', '__all__']
 
 
@@ -37,6 +37,14 @@ def vla_to_utcjd(timetag):
 	"""
 	
 	return vla_to_utcmjd(timetag) + MJD_OFFSET
+
+
+def vla_to_unix(timetag):
+	"""
+	Convert a VLA timetag in MJD nanoseconds to a UNIX timestamp.
+	"""
+	
+	return utcjd_to_unix( vla_to_utcmjd(timetag) + MJD_OFFSET )
 
 
 def _parse_convert(text):
@@ -296,10 +304,14 @@ if __name__ == "__main__":
 	gains = getRequantizerGains(sys.argv[1])
 	
 	import pylab
-	for ant in ('EA01', 'EA06'):
+	for ant in ('EA20',):
 		gain = numpy.array(gains[ant])
 		
-		pylab.plot(gain[:,0]-gain[0,0], gain[:,2])
-		pylab.plot(gain[:,0]-gain[0,0], gain[:,3])
+		try:
+			norm
+		except NameError:
+			norm = numpy.median(gain[:,3])
+		pylab.plot(gain[:,0]-gain[0,0], gain[:,2]/norm)
+		pylab.plot(gain[:,0]-gain[0,0], gain[:,3]/norm)
 	pylab.show()
 	
