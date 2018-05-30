@@ -314,6 +314,7 @@ def main(args):
 		except AttributeError:
 			## Moving sources cannot have their names changed
 			pass
+		blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
 		os.unlink(tempConfig)
 		
 		tStartL = dataDict['tStart'].item()
