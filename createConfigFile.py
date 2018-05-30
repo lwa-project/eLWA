@@ -425,6 +425,11 @@ def main(args):
 	for input in toPurge:
 		del corrConfig['inputs'][corrConfig['inputs'].index(input)]
 		
+	# Sort the inputs based on the antenna name - this puts LWA1 first, 
+	# LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
+	# EA01, EA02, etc.
+	corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else x['antenna']))
+	
 	# VDIF/DRX warning check/report
 	if vdifRefFile is not None and isDRX and not drxFound:
 		sys.stderr.write("WARNING: DRX files provided but none overlapped with VDIF data")
