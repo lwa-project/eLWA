@@ -244,7 +244,8 @@ def main(args):
 		flags.header['TABREV'] = (2, 'table format revision number')
 		for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
 			flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
-			
+		flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
+		
 		# Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
 		## Find old tables
 		toRemove = []

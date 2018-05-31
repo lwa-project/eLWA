@@ -205,12 +205,13 @@ def main(args):
 				visXX = numpy.ma.array(visXX, mask=maskXX)
 				visYY = numpy.ma.array(visYY, mask=maskYY)
 				
-				print '      Flagging spurious correlations'
-				for p in xrange(config['passes']):
-					print '        Pass #%i' % (p+1,)
-					visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
-					visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
-					
+				if config['passes'] > 0:
+					print '      Flagging spurious correlations'
+					for p in xrange(config['passes']):
+						print '        Pass #%i' % (p+1,)
+						visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
+						visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
+						
 				print '      Cleaning masks'
 				visXX.mask = cleanup_mask(visXX.mask)
 				visYY.mask = cleanup_mask(visYY.mask)
@@ -305,7 +306,11 @@ def main(args):
 		flags.header['TABREV'] = (2, 'table format revision number')
 		for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
 			flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
-			
+		flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
+		if config['sdm'] is not None:
+			flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(config['sdm']))
+		flags.header['HISTORY'] = '%i spurious correlation passes used' % config['passes']
+		
 		# Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
 		## Find old tables
 		toRemove = []
