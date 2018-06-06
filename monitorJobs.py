@@ -206,7 +206,7 @@ def main(args):
 								if process.find('superPulsarCorrelator.py') != -1:
 									active += ' - pulsar'
 									
-						info = '%s%s @ %i; %s per integration, %s remaining' % (configfile, etag, pid, speed, remaining)
+						info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
 						
 					else:
 						try:
