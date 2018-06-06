@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Run a collection of correlation jobs on the LWAUCF
+Run a collection of pulsar binning mode correlation jobs on the LWAUCF
 
 $Rev$
 $LastChangedBy$
@@ -20,11 +20,11 @@ import subprocess
 
 
 def usage(exitCode=None):
-	print """launchJobs.py - Given a collection of superCorrelator.py configuration files, 
+	print """launchPulsarJobs.py - Given a collection of superPulsarCorrelator.py configuration files, 
 process the runs and aggregate the results.
 
 Usage:
-launchJobs.py [OPTIONS] config [config [...]]
+launchPulsarJobs.py [OPTIONS] config [config [...]]
 
 Options:
 -h, --help                Display this help information
@@ -135,6 +135,20 @@ def check_for_other_instances(quiet=True):
 	return True if status == 0 else False
 
 
+def configfile_is_pulsar(configfile, quiet=True):
+	gcmd = ['grep', 'Polyco', configfile]
+	
+	DEVNULL = None
+	if quiet:
+		DEVNULL = open(os.devnull, 'wb')
+	p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
+	status = p.wait()
+	if quiet:
+		DEVNULL.close()
+		
+	return True if status == 0 else False
+
+
 def configfile_is_lwa_only(configfile, quiet=True):
 	gcmd = ['grep', '-e VDIF', '-e GUPPI', configfile]
 	
@@ -182,10 +196,20 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
 		print "WARNING: failed to create directory on %s - %s" % (node, os.path.basename(configfile))
 		return False
 		
+	# Find the polyco file to use from the configuration file
+	p = subprocess.Popen(['grep', 'Polyco', configfile], stdout=subprocess.PIPE)
+	polyfile, err = p.communicate()
+	try:
+		polyfile = polyfile.split(None, 1)[1].strip().rstrip()
+		polyfile = os.path.join(os.path.dirname(configfile), polyfile)
+	except IndexError:
+		print "WARNING: failed to find polyco file on %s - %s" % (node, os.path.basename(configfile))
+		return False
+		
 	# Copy the software over
 	if softwareDir is None:
 		softwareDir = os.path.dirname(__file__)
-	for filename in ['buffer.py', 'guppi.py', 'jones.py', 'superCorrelator.py', 'utils.py', 'jit']:
+	for filename in ['buffer.py', 'guppi.py', 'jones.py', 'superPulsarCorrelator.py', 'utils.py', 'jit']:
 		filename = os.path.join(softwareDir, filename)
 		code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
 	if code != 0:
@@ -193,7 +217,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
 		return False
 		
 	# Copy the configuration over
-	for filename in [configfile,]:
+	for filename in [configfile, polyfile]:
 		code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
 	if code != 0:
 		print "WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile))
@@ -212,9 +236,9 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
 	elif options.find('-w 2') != -1 or options.find('-w2') != -1:
 		outname += 'H'
 	logfile = outname+".log"
-	code += run_command('./superCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
+	code += run_command('./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
 	if code != 0:
-		print "WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile))
+		print "WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile))
 		return False
 		
 	# Gather the results
@@ -302,6 +326,9 @@ def main(args):
 	## Build the configfile/correlation options/results directory sets
 	jobs = []
 	for configfile in configfiles:
+		if not configfile_is_pulsar(configfile):
+			continue
+			
 		if config['both'] and configfile_is_lwa_only(configfile):
 			coptions = config['options']
 			coptions = coptions.replace('-w 1', '').replace('-w1', '')

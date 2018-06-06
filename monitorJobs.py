@@ -51,7 +51,7 @@ def get_directories(node):
 
 
 def get_processes(node):
-	status, processes, errors = run_command('ps aux | grep superCorrelator | grep bash | grep -v grep | grep -v ssh', node=node)
+	status, processes, errors = run_command('ps aux | grep -e superCorrelator -e superPulsarCorrelator | grep bash | grep -v grep | grep -v ssh', node=node)
 	if status != 0:
 		processes = []
 	else:
@@ -132,7 +132,7 @@ def main(args):
 				                'complete': {}}
 				status[node]['dirnames'] = dirnames
 				
-				## Get running superCorrelator.py processes
+				## Get running superCorrelator.py/superPulsarCorrelator.py processes
 				status[node]['processes'] = get_processes(node)
 				
 				## For each process, get the configuration file being
@@ -203,8 +203,10 @@ def main(args):
 						for process in entry['processes']:
 							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
 								pid = int(process.split(None)[1], 10)
-								
-						info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
+								if process.find('superPulsarCorrelator.py') != -1:
+									active += ' - pulsar'
+									
+						info = '%s%s @ %i; %s per integration, %s remaining' % (configfile, etag, pid, speed, remaining)
 						
 					else:
 						try:
