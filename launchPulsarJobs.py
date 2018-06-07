@@ -236,7 +236,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
 	elif options.find('-w 2') != -1 or options.find('-w2') != -1:
 		outname += 'H'
 	logfile = outname+".log"
-	code += run_command('./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
+	code += run_command('PYTHONPATH=/usr/local/presto/lib/python ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
 	if code != 0:
 		print "WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile))
 		return False

@@ -162,7 +162,12 @@ def main(args):
 						filename = filename.strip().rstrip()
 						_, ext = os.path.splitext(filename)
 						if ext == '.npz':
-							nNPZ += 1
+							if filename.find('-vis2-bin') == -1:
+								## Standard files
+								nNPZ += 1
+							elif filename.find('-vis2-bin000') != -1:
+								## Binning mode files - we only want one bin
+								nNPZ += 1
 						elif ext == '.log':
 							logname = filename
 						elif ext[:7] == '.config':
@@ -201,11 +206,14 @@ def main(args):
 							active += ' - complete'
 						pid = 0
 						for process in entry['processes']:
+							if process.find('bash -c') != -1:
+								continue
 							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
 								pid = int(process.split(None)[1], 10)
 								if process.find('superPulsarCorrelator.py') != -1:
 									active += ' - pulsar'
-									
+								break
+								
 						info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
 						
 					else:
