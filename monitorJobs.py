@@ -206,14 +206,12 @@ def main(args):
 							active += ' - complete'
 						pid = 0
 						for process in entry['processes']:
-							if process.find('bash -c') != -1:
-								continue
 							if process.split('>', 1)[0].rsplit(None, 1)[1] == configfile:
 								pid = int(process.split(None)[1], 10)
 								if process.find('superPulsarCorrelator.py') != -1:
-									active += ' - pulsar'
-								break
-								
+									if active.find('pulsar') == -1:
+										active += ' - pulsar'
+										
 						info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
 						
 					else:
