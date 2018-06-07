@@ -10,7 +10,9 @@ $LastChangedDate$
 
 import os
 import re
+import time
 import ephem
+import fcntl
 import numpy
 from datetime import datetime
 
@@ -26,11 +28,11 @@ from lsl.misc.beamformer import calcDelay
 import guppi
 
 
-__version__ = '0.4'
+__version__ = '0.5'
 __revision__ = '$Rev$'
-__all__ = ['EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 'multiColumnPrint', 
-		 'parseTimeString', 'nsround', 'readCorrelatorConfiguration', 'getBetterTime', 
-		 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCo', 'PolyCos', 
+__all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
+           'multiColumnPrint', 'parseTimeString', 'nsround', 'readCorrelatorConfiguration', 
+           'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCos', 
 		 '__version__', '__revision__', '__all__']
 
 
@@ -47,73 +49,37 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 	    "3C295,f|J,14:11:20.47,+52:12:09.5,1", ]
 
 
-def _topo2baryMJD(src, observer):
-	"""
-	Given an EnhancedFixedBody instance, use TEMPO to determine an 
-	interpolating function that maps topocentric time to barycentric time.  
-	"""
-	
-	from residuals import read_residuals
-	
-	# Source position
-	ra = str(src.a_ra)
-	dec = str(src.a_dec)
-	
-	# Observatory for the observation - fixed on LWA1 until I can figure out how to do better
-	obs = 'LW'
-	
-	# Topocentric times to compute the barycentric times for
-	# NOTE:  This includes padding at the end for the fitting in TEMPO
-	if type(observer) is ephem.Observer:
-		topoMJD = observer.date + (astro.DJD_OFFSET - astro.MJD_OFFSET)
-	elif type(observer) is ephem.Date:
-		topoMJD = observer + (astro.DJD_OFFSET - astro.MJD_OFFSET)
-	else:
-		topoMJD = observer
-	topoMJD = topoMJD + numpy.linspace(0, 0.1, 11)
-	
-	# Write the TEMPO file for the conversion from topocentric to barycentric times
-	fh = open('bary.tmp', 'w')
-	fh.write("""C  Header Section
-  HEAD                   
-  PSR                 bary
-  NPRNT                  2
-  P0                   1.0 1
-  P1                   0.0
-  CLK            UTC(NIST)
-  PEPOCH           %19.13f
-  COORD              J2000
-  RA                    %s
-  DEC                   %s
-  DM                   0.0
-  EPHEM              DE200
-C  TOA Section (uses ITAO Format)
-C  First 8 columns must have + or -!
-  TOA\n""" % (topoMJD[0], ra, dec))
-	for t in topoMJD:
-		fh.write("topocen+ %19.13f  0.00     0.0000  0.000000  %s\n" % (t, obs))
-	fh.close()
-	
-	# Run TEMPO
-	status = os.system('tempo bary.tmp > barycorr.out')
-	if status != 0:
-		## This didn't work, skipping
-		print "WARNING: Could not run TEMPO, skipping conversion function calculation"
-		baryMJD = topoMJD[0]
-	else:
-		## Read in the barycentric times
-		resids = read_residuals()
-		baryMJD = resids.bary_TOA[0]
+class InterProcessLock(object):
+	def __init__(self, name):
+		self.name = name
+		self.fh = open("%s.lock" % self.name, 'w+')
+		self.locked = False
 		
-	# Cleanup
-	for filename in ('bary.tmp', 'bary.par', 'barycorr.out', 'resid2.tmp', 'tempo.lis', 'matrix.tmp'):
-		try:
-			os.unlink(filename)
-		except OSError:
-			pass
+	def __del__(self):
+		self.unlock()
+		self.fh.close()
+		
+	def lock(self, block=True):	
+		while not self.locked:
+			try:
+				fcntl.flock(self.fh, fcntl.LOCK_EX)
+				self.locked = True
+			except IOError as e:
+				if e.errno != errno.EAGAIN:
+					raise
+				if not block:
+					break
+				time.sleep(0.01)
+				
+		return self.locked
+		
+	def unlock(self):
+		if not self.locked:
+			return False
 			
-	# Return
-	return baryMJD
+		fcntl.flock(self.fh, fcntl.LOCK_UN)
+		self.locked = False
+		return True
 
 
 class EnhancedFixedBody(ephem.FixedBody):
@@ -134,10 +100,10 @@ class EnhancedFixedBody(ephem.FixedBody):
 					setattr(self, attr, value)
 					
 	def __setattr__(self, name, value):
-		# Validate that the _polycos attribute is set to a PolyCo or PolyCos instance
+		# Validate that the _polycos attribute is set to a PolyCos instance
 		if name == '_polycos':
-			if type(value) not in (PolyCo, PolyCos):
-				raise ValueError("Must set _polycos with a PolyCo or PolyCos instance")
+			if type(value) != PolyCos:
+				raise ValueError("Must set _polycos with a PolyCos instance")
 				
 		# Set the attribute if everything is ok
 		super(self.__class__, self).__setattr__(name, value)
@@ -162,21 +128,27 @@ class EnhancedFixedBody(ephem.FixedBody):
 		else:
 			super(self.__class__, self).compute(when, epoch=epoch)
 			
-		# If there are polycos, compute the phase and frequency as well
+		# Compute the pulsar parameters - if applicable
+		self.compute_pulsar(when)
+		
+	def compute_pulsar(self, mjd, mjdf=0.0):
+		"""
+		Compute the pulsar paramaters (if avaliable) with higher precision.
+		"""
+		
 		if getattr(self, '_polycos', None) is not None:
-			## We can only really do this if we have an observer so
-			## that we can move to the barycenter
-			if type(when) is ephem.Observer:
-				mjd = _topo2baryMJD(self, when)
-				self.dm = self._polycos.getDM(mjd)
-				self.phase = self._polycos.getPhase(mjd)
-				self.frequency = self._polycos.getFrequency(mjd)
-				self.period = 1.0/self.frequency
-			else:
-				delattr(self, 'dm')
-				delattr(self, 'phase')
-				delattr(self, 'frequency')
-				delattr(self, 'period')
+			if type(mjd) is ephem.Observer:
+				mjd = mjd.date + (astro.DJD_OFFSET - astro.MJD_OFFSET)
+				mjdf = 0.0
+			elif type(mjd) is ephem.Date:
+				mjd = mjd + (astro.DJD_OFFSET - astro.MJD_OFFSET)
+				mjdf = 0.0
+				
+			self.dm = self._polycos.getDM(mjd, mjdf)
+			self.phase = self._polycos.getPhase(mjd, mjdf)
+			self.frequency = self._polycos.getFrequency(mjd, mjdf)
+			self.doppler = self._polycos.getDoppler(mjd, mjdf)
+			self.period = 1.0/self.frequency
 
 
 class EnhancedSun(ephem.Sun):
@@ -392,7 +364,7 @@ def readCorrelatorConfiguration(filename):
 			raise ValueError("Unknown source '%s'" % sources[0]['name'])
 	refSource.duration = sources[0]['duration']
 	try:
-		refSource._polycos = PolyCos(sources[0]['polyco'])
+		refSource._polycos = PolyCos(sources[0]['polyco'], psrname=refSource.name.replace('PSR', '').replace('_', ''))
 	except KeyError:
 		pass
 		
@@ -612,224 +584,47 @@ def parseLWAMetaData(filename):
 	return t, d
 
 
-class PolyCo(object):
-	"""
-	Class for working with a pulsar PolyCo entry.
-	"""
-	
-	def __init__(self, filename=None):
-		if filename is not None:
-			self.readFromFile(filename)
-			
-	def readFromFile(self, filename):
-		"""
-		Given a filename or open filehandle, read in that file and populate 
-		the PolyCo instance with everything needed to get the pulsar phase 
-		or frequency as a function of MJD.
-		"""
-		
-		# Figure out what to do
-		needToClose = False
-		if type(filename) is not file:
-			fh = open(filename, 'r')
-			needToClose = True
-		else:
-			fh = filename
-			
-		# Go through the file line-by-line
-		## First line
-		line1 = fh.readline()
-		if len(line1) < 3:
-			raise IOError("readline() returned an empty string")
-		name    = line1[ 0:10].lstrip().rstrip()
-		date    = line1[10:20].lstrip().rstrip()
-		time    = line1[20:31].lstrip().rstrip()
-		tMid    = line1[31:51].lstrip().rstrip()
-		DM      = line1[51:72].lstrip().rstrip()
-		dShift  = line1[73:79].lstrip().rstrip()
-		fitRMS  = line1[79:86].lstrip().rstrip()
-		## Second line
-		line2 = fh.readline()
-		rPhase  = line2[ 0:20].lstrip().rstrip()
-		rFreq   = line2[20:38].lstrip().rstrip()
-		obsCode = line2[38:43].lstrip().rstrip()
-		span    = line2[43:49].lstrip().rstrip()
-		nCoeff  = line2[49:54].lstrip().rstrip()
-		obsFreq = line2[54:75].lstrip().rstrip()
-		binPhs  = line2[75:80].lstrip().rstrip()
-		## Third and remaining lines
-		coeffs = []
-		for i in xrange(int(nCoeff)/3 + (0 if int(nCoeff)%3==0 else 1)):
-			line = fh.readline()
-			coeff1 = line[ 0:25].lstrip().rstrip()
-			coeff2 = line[25:50].lstrip().rstrip()
-			coeff3 = line[50:75].lstrip().rstrip()
-			coeffs.append( coeff1 )
-			coeffs.append( coeff2 )
-			coeffs.append( coeff3 )
-			
-		if needToClose:
-			fh.close()
-			
-		# Make what we've just read in useful
-		## Type conversions - line 1
-		while len(time) < 7:
-			time = "0"+time
-		self.date    = datetime.strptime("%s %s" % (date, time), "%d-%b-%y %H%M%S.%f")
-		self.tMid    = float(tMid)
-		self.DM      = float(DM)
-		self.dShift  = float(dShift)*1e-4
-		self.fitRMS  = 10**float(fitRMS)
-		## Type conversions - line 2
-		self.rPhase  = float(rPhase)
-		self.rFreq   = float(rFreq)
-		self.obsCode = obsCode
-		self.span    = float(span)
-		self.nCoeff  = int(nCoeff, 10)
-		self.obsFreq = float(obsFreq)*1e6
-		self.binPhs  = float(binPhs) if binPhs != '' else 0.0
-		## Type conversions - coefficients
-		self.coeffs = [float(c.replace('D', 'E')) for c in coeffs]
-		
-		# Fill in additional information about the valid MJD range
-		self.validMinMJD = self.tMid - self.span/1440/2
-		self.validMaxMJD = self.tMid + self.span/1440/2
-		
-	def getDM(self, mjd):
-		"""
-		Given a MJD value, return the dispersion measure of the pulsar in 
-		pc cm^{-3}.
-		"""
-		
-		# Are we ready to go?
-		if getattr(self, 'tMid', None) is None:
-			raise RuntimeError("Need to populated from a .polyco file before using")
-			
-		# Is the MJD valid for this polyco?
-		if mjd < self.validMinMJD or mjd > self.validMaxMJD:
-			raise ValueError("PolyCo is only valid for MJD %.6f to %.6f" % (self.validMinMJD, self.validMaxMJD))
-			
-		return self.DM
-		
-	def getPhase(self, mjd):
-		"""
-		Given a MJD value, compute the phase of the pulsar.
-		"""
-		
-		# Are we ready to go?
-		if getattr(self, 'tMid', None) is None:
-			raise RuntimeError("Need to populated from a .polyco file before using")
-			
-		# Is the MJD valid for this polyco?
-		if mjd < self.validMinMJD or mjd > self.validMaxMJD:
-			raise ValueError("PolyCo is only valid for MJD %.6f to %.6f" % (self.validMinMJD, self.validMaxMJD))
-			
-		# Get the time difference and compute
-		dt = (mjd - self.tMid)*1440.0
-		phase = self.rPhase + dt*60.0*self.rFreq
-		for i,c in enumerate(self.coeffs):
-			phase += c*dt**i
-			
-		return phase
-		
-	def getFrequency(self, mjd):
-		"""
-		Given a MJD value, compute the frequency of the pulsar in Hz.
-		"""
-		
-		# Are we ready to go?
-		if getattr(self, 'tMid', None) is None:
-			raise RuntimeError("Need to populated from a .polyco file before using")
-			
-		# Is the MJD valid for this polyco?
-		if mjd < self.validMinMJD or mjd > self.validMaxMJD:
-			raise ValueError("PolyCo is only valid for MJD %.6f to %.6f" % (self.validMinMJD, self.validMaxMJD))
-			
-		# Get the time difference and compute
-		dt = (mjd - self.tMid)*1440.0
-		freq = self.rFreq + 0.0
-		for i,c in enumerate(self.coeffs):
-			if i == 0:
-				continue
-			freq += i*c*dt**(i-1)/60.0
-			
-		return freq
-
-
 class PolyCos(object):
 	"""
 	Class for working with pulsar PolyCos files.
 	"""
 	
-	def __init__(self, filename=None):
-		if filename is not None:
-			self.readFromFile(filename)
+	def __init__(self, filename, psrname=None):
+		if psrname is None:
+			psrname = os.path.basename(filename)
+			psrname = os.path.split('_', 1)[0]
 			
-	def readFromFile(self, filename):
-		"""
-		Given a filename or open filehandle, read in that file and populate 
-		the PolyCos instance with everything needed to get the pulsar phase 
-		or frequency as a function of MJD.
-		"""
+		from polycos import polycos
 		
-		# Figure out what to do
-		needToClose = False
-		if type(filename) is not file:
-			fh = open(filename, 'r')
-			needToClose = True
-		else:
-			fh = filename
-			
-		# Load in all of the coefficient sets
-		m, p = [], []
-		while True:
-			try:
-				c = PolyCo(fh)
-				m.append( c.tMid )
-				p.append( c )
-			except IOError:
-				break
-				
-		# Populate the instance with data
-		self.tMids = numpy.array(m)
-		self.polyCos = p
+		self._polycos_base = polycos(psrname, filename)
 		
-	def getDM(self, mjd):
+	def getDM(self, mjd, mjdf=0.0):
 		"""
 		Given a MJD value, return the dispersion measure of the pulsar in 
 		pc cm^{-3}.
 		"""
 		
-		# Are we ready to go?
-		if getattr(self, 'tMids', None) is None:
-			raise RuntimeError("Need to populated from a .polycos file before using")
-			
-		# Find the best polynomial to use
-		best = numpy.argmin( numpy.abs(self.tMids - mjd) )
-		return self.polyCos[best].getDM(mjd)
+		goodpoly = self._polycos_base.select_polyco(mjd, mjdf)
+		return self._polycos_base.polycos[goodpoly].DM
 		
-	def getPhase(self, mjd):
+	def getPhase(self, mjd, mjdf=0.0):
 		"""
 		Given a MJD value, compute the phase of the pulsar.
 		"""
 		
-		# Are we ready to go?
-		if getattr(self, 'tMids', None) is None:
-			raise RuntimeError("Need to populated from a .polycos file before using")
-			
-		# Find the best polynomial to use
-		best = numpy.argmin( numpy.abs(self.tMids - mjd) )
-		return self.polyCos[best].getPhase(mjd)
+		return self._polycos_base.get_phase(mjd, mjdf)
 		
-	def getFrequency(self, mjd):
+	def getFrequency(self, mjd, mjdf=0.0):
 		"""
 		Given a MJD value, compute the frequency of the pulsar in Hz.
 		"""
 		
-		# Are we ready to go?
-		if getattr(self, 'tMids', None) is None:
-			raise RuntimeError("Need to populated from a .polycos file before using")
-			
-		# Find the best polynomial to use
-		best = numpy.argmin( numpy.abs(self.tMids - mjd) )
-		return self.polyCos[best].getFrequency(mjd)
+		return self._polycos_base.get_freq(mjd, mjdf)
+		
+	def getDoppler(self, mjd, mjdf=0.0):
+		"""
+		Given a MJD value, return the approximate topocentric Doppler shift of the 
+		pulsar (~1 + vObs/c).
+		"""
+		
+		return 1.0 + self._polycos_base.get_voverc(mjd, mjdf)

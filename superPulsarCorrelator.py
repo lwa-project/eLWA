@@ -517,6 +517,19 @@ def main(args):
 	print "Phase coverage per bin: %.3f" % (profileBins[1]-profileBins[0],)
 	print " "
 	
+	pulsarDM, pulsarDoppler = refSrc.dm, refSrc.doppler
+	oFreq = numpy.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
+	oFreq = numpy.fft.fftshift(oFreq)*pulsarDoppler
+	tDelay = dispDelay(oFreq, pulsarDM)
+	tDiff = numpy.diff(tDelay)
+	while abs(tDiff.max()) > tSub:
+		vdifLFFT *= 2
+		drxLFFT *= 2
+		oFreq = numpy.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
+		oFreq = numpy.fft.fftshift(oFreq)*pulsarDoppler
+		tDelay = dispDelay(oFreq, pulsarDM)
+		tDiff = numpy.diff(tDelay)
+		
 	subIntTimes = [[] for i in xrange(nProfileBins)]
 	subIntCount = [0 for i in xrange(nProfileBins)]
 	subIntWeight = [0 for i in xrange(nProfileBins)]
@@ -529,6 +542,7 @@ def main(args):
 	done = False
 	oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
 	delayStepApplied = False
+	currentDM, currentDoppler = -1.0, -1.0
 	for i in xrange(nChunks):
 		wallTime = time.time()
 		
@@ -742,6 +756,7 @@ def main(args):
 		for j in xrange(nSub):
 			## Select the data to work with
 			tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0]
+			tSubIntB = (tStartB[0][0], tStartB[0][1] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0])
 			#tVSub    = tV[j*nSampV:(j+1)*nSampV]
 			tDSub    = tD[j*nSampD:(j+1)*nSampD]
 			dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
@@ -959,20 +974,24 @@ def main(args):
 			svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
 			svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
 			
+			# Get a most precise representation of the current time
+			mjdi = tSubIntB[0] / 86400 + 40587		
+			mjdf = (tSubIntB[0] % 86400 + tSubIntB[1]) / 86400.0
+			
 			# Determine the pulsar phase as a function of frequency
+			refSrc.compute_pulsar(mjdi, mjdf)
 			currentPeriod = refSrc.period
 			## Dispersion
-			try:
-				phaseDispersion = tDisp / currentPeriod
-			except NameError:
-				tDisp = dispDelay(sfreqXX, refSrc.dm)
-				phaseDispersion = tDisp / currentPeriod
-			phaseDispersion -= numpy.floor(phaseDispersion)
+			if currentDM != refSrc.dm or currentDoppler != refSrc.doppler:
+				currentDM = refSrc.dm*1.0
+				currentDoppler = refSrc.doppler*1.0
+				tDisp = dispDelay(sfreqXX*currentDoppler, currentDM)
+			phaseDispersion = tDisp / currentPeriod
+			phaseDispersion %= 1.0
 			## Folding
 			phaseProfile = refSrc.phase
-			phaseProfile -= int(phaseProfile)
 			## Combined
-			profilePhase = (phaseProfile - phaseDispersion) % 1
+			profilePhase = (phaseProfile - phaseDispersion) % 1.0
 			
 			## Map the phases to bins
 			bestBins = {}
@@ -983,10 +1002,10 @@ def main(args):
 				except KeyError:
 					bestBins[bestBin] = [b,]
 					
-			summary = [None for i in profileBins[:-2]]
-			for bestBin in bestBins:
-				summary[bestBin] = (len(bestBins[bestBin]), subIntCount[bestBin])
-			print summary
+			#summary = [None for i in profileBins[:-2]]
+			#for bestBin in bestBins:
+			#	summary[bestBin] = (len(bestBins[bestBin]), subIntCount[bestBin])
+			#print summary
 			
 			### Accumulate
 			for bestBin in bestBins:
@@ -1039,8 +1058,8 @@ def main(args):
 						if fileCount[0] == 1:
 							print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
 						if (fileCount[0]-1) % 25 == 0:
-							print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/sum(fileCount),)
-							etc = (nInt - sum(fileCount)) * (time.time() - wallStart)/sum(fileCount)
+							print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),)
+							etc = (nInt - max(fileCount)) * (time.time() - wallStart)/max(fileCount)
 							eth = int(etc/60.0) / 60
 							etm = int(etc/60.0) % 60
 							ets = etc % 60
@@ -1054,7 +1073,7 @@ def main(args):
 	etm = int(etc/60.0) % 60
 	ets = etc % 60
 	print "Processing finished after %i:%02i:%04.1f" % (eth, etm, ets)
-	print "Average time per integration was %.3f s" % (etc/sum(fileCount),)
+	print "Average time per integration was %.3f s" % (etc/max(fileCount),)
 	for f in fh:
 		f.close()
 
