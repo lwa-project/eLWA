@@ -285,7 +285,7 @@ def main(args):
 	winSize += ((winSize+1)%2)
 	for i in xrange(smth.size):
 		mn = max([0, i-winSize/2])
-		mx = min([i+winSize, smth.size])
+		mx = min([i+winSize/2+1, smth.size])
 		smth[i] = numpy.median(spec[mn:mx])
 	smth /= robust.mean(smth)
 	bp = spec / smth
