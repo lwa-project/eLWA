@@ -13,8 +13,78 @@ import re
 import sys
 import time
 import shlex
+import getopt
 import subprocess
 from datetime import datetime
+
+
+def usage(exitCode=None):
+    print """monitorJobs.py - Monitor a collection of nodes for eLWA correlator activity
+
+Usage:
+monitorJobs.py [OPTIONS]
+
+Options:
+-h, --help                Display this help information
+-n, --nodes               Comma seperated lists of nodes to use 
+                          (Default = current)
+
+NOTE:  The -n/--nodes option also supports numerical node ranges using the 
+    '~' character to indicate a decimal range.  For example, 'lwaucf1~2'
+    is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also
+    be combined with other comma separated entries to specify more complex
+    node lists.
+"""
+    
+    if exitCode is not None:
+        sys.exit(exitCode)
+    else:
+        return True
+
+
+def parseConfig(args):
+    config = {}
+    # Command line flags - default values
+    config['nodes'] = ['localhost',]
+    
+    # Read in and process the command line flags
+    try:
+        opts, args = getopt.getopt(args, "hn:", ["help", "nodes="])
+    except getopt.GetoptError, err:
+        # Print help information and exit:
+        print str(err) # will print something like "option -a not recognized"
+        usage(exitCode=2)
+        
+    # Setup the node range parser
+    _rangeRE=re.compile('^(?P<hostbase>[a-zA-Z\-]*?)(?P<start>[0-9]+)~(?P<stop>[0-9]+)')
+    
+    # Work through opts
+    for opt, value in opts:
+        if opt in ('-h', '--help'):
+            usage(exitCode=0)
+        elif opt in ('-n', '--nodes'):
+            ## First pass - break into sets using commas
+            temp = [v.strip().rstrip() for v in value.split(',')]
+            ## Second pass - look for the range character, ~, and expand
+            config['nodes'] = []
+            for t in temp:
+                mtch = _rangeRE.search(t)
+                if mtch is None:
+                    config['nodes'].append( t )
+                else:
+                    hostbase = mtch.group('hostbase')
+                    start = int(mtch.group('start'), 10)
+                    stop = int(mtch.group('stop'), 10)
+                    config['nodes'].extend( ['%s%i' % (hostbase, i) for i in xrange(start, stop+1)] )
+        else:
+            assert False
+            
+    # Validate
+    if len(config['nodes']) < 1:
+        raise RuntimeError('Invalid list of nodes')
+        
+    # Return configuration
+    return config
 
 
 def run_command(cmd, node=None, cwd=None, quiet=False):
@@ -107,14 +177,15 @@ def get_logfile_speed(node, logname):
 
 
 def main(args):
+    # Parse the command line
+    config = parseConfig(args)
+    
     while True:
         try:
             t0 = time.time()
             
             status = {}
-            for i in xrange(6):
-                node = 'lwaucf%i' % (i+1,)
-                
+            for node in config['nodes']:
                 ## Find out which directories exist
                 dirnames = get_directories(node)
                 if len(dirnames) == 0:
