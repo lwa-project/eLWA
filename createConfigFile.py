@@ -123,9 +123,16 @@ def main(args):
         filenames = [os.path.join(filenames[0], filename) for filename in os.listdir(filenames[0])]
         filenames.sort()
         
+    # Convert the filenames to absolute paths
+    filenames = [os.path.abspath(filename) for filename in filenames]
+        
     # Open the database connection to NRAO to find the antenna locations
-    db = database('params')
-    
+    try:
+        db = database('params')
+    except Exception as e:
+        print "WARNING: %s" % str(e)
+        db = None
+        
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     sources = []
     metadata = {}
@@ -387,8 +394,11 @@ def main(args):
         fh.close()
         
     # Close out the connection to NRAO
-    db.close()
-    
+    try:
+        db.close()
+    except AttributeError:
+        pass
+        
     # Choose a VDIF reference file, if there is one, and mark whether or 
     # not DRX files were found
     vdifRefFile = None
