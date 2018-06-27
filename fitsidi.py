@@ -618,7 +618,7 @@ class IDI(object):
                         array=numpy.array([[ant.polA['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed A polarization parameters
         c10 = pyfits.Column(name='POLCALA', format='%iE' % (2*nBand), 
-                        array=numpy.array([[ant.polA['Cal'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
+                        array=numpy.concatenate([[ant.polA['Cal'],]*nBand for ant in self.array[0]['ants']], axis=1).astype(numpy.float32))
         # Feed B polarization label
         c11 = pyfits.Column(name='POLTYB', format='A1', 
                         array=numpy.array([ant.polB['Type'] for ant in self.array[0]['ants']]))
@@ -627,7 +627,7 @@ class IDI(object):
                         array=numpy.array([[ant.polB['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed B polarization parameters
         c13 = pyfits.Column(name='POLCALB', format='%iE' % (2*nBand), 
-                        array=numpy.array([[ant.polB['Cal'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
+                        array=numpy.concatenate([[ant.polB['Cal'],]*nBand for ant in self.array[0]['ants']], axis=1).astype(numpy.float32))
                         
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13])
@@ -679,19 +679,19 @@ class IDI(object):
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 1)
         c10 = pyfits.Column(name='BREAL_1', format='%iE' % (self.nChan*nBand),
-                        array=numpy.ones((self.nAnt,nBand,self.nChan), dtype=numpy.float32))
+                        array=numpy.ones((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 1)
         c11 = pyfits.Column(name='BIMAG_1', format='%iE' % (self.nChan*nBand),
-                        array=numpy.zeros((self.nAnt,nBand,self.nChan), dtype=numpy.float32))
+                        array=numpy.zeros((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
         # Reference antenna number (pol. 2)
         c12 = pyfits.Column(name='REFANT_2', format='1J',
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 2)
         c13 = pyfits.Column(name='BREAL_2', format='%iE' % (self.nChan*nBand),
-                        array=numpy.ones((self.nAnt,nBand,self.nChan), dtype=numpy.float32))
+                        array=numpy.ones((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 2)
         c14 = pyfits.Column(name='BIMAG_2', format='%iE' % (self.nChan*nBand),
-                        array=numpy.zeros((self.nAnt,nBand,self.nChan), dtype=numpy.float32))
+                        array=numpy.zeros((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
                         
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13, c14])
