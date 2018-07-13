@@ -59,6 +59,12 @@ class InterProcessLock(object):
         self.unlock()
         self.fh.close()
         
+    def __enter__(self):
+        self.lock()
+        
+    def __exit__(self, type, value, tb):
+        self.unlock()
+        
     def lock(self, block=True):	
         while not self.locked:
             try:
