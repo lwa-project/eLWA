@@ -130,7 +130,8 @@ def main(args):
     try:
         db = database('params')
     except Exception as e:
-        print "WARNING: %s" % str(e)
+        sys.stderr.write("WARNING: %s" % str(e))
+        sys.stderr.flush()
         db = None
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
@@ -190,9 +191,9 @@ def main(args):
                 sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
                 sys.stderr.flush()
                 
-    # Setup what we need to write out a configration file
+    # Setup what we need to write out a configuration file
     corrConfig = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
-                'inputs': []}
+                  'inputs': []}
     
     metadata = {}
     for filename in filenames:
@@ -226,7 +227,7 @@ def main(args):
                 else:
                     raise RuntimeError("Unknown LWA site '%s'" % site)
                     
-                ## Move into the LWA1 coodinate system
+                ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
@@ -234,17 +235,29 @@ def main(args):
                 enz[1] *= -1
                 
                 ## Read in the first few frames to get the start time
-                frames = [drx.readFrame(fh) for i in xrange(32)]
+                frames = [drx.readFrame(fh) for i in xrange(1024)]
+                streams = []
                 for frame in frames:
-                    beam, tune, _ = frame.parseID()
+                    beam, tune, pol = frame.parseID()
                     if tune == 1:
                         freq1 = frame.getCentralFreq()
                     else:
                         freq2 = frame.getCentralFreq()
+                    if (beam, tune, pol) not in streams:
+                        streams.append( (beam, tune, pol) )
                 tStart = datetime.utcfromtimestamp(frames[0].getTime())
-                
+                tStartAlt = datetime.utcfromtimestamp(frames[-1].getTime() \
+                                                      - 1023/len(streams)*4096/frames[-1].getSampleRate())
+                tStartDiff = tStart - tStartAlt
+                if abs(tStartDiff) > timedelta(microseconds=10000):
+                    sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))
+                    sys.stderr.flush()
+                    tStart = tStartAlt
+                ### ^ Adjustment to the start time to deal with occasional problems
+                ###   with stale data in the DR buffers at LWA-SV
+                    
                 ## Read in the last few frames to find the end time
-                fh.seek(os.path.getsize(filename) - 32*drx.FrameSize)
+                fh.seek(os.path.getsize(filename) - 1024*drx.FrameSize)
                 backed = 0
                 while backed < 2*drx.FrameSize:
                     try:
@@ -265,10 +278,10 @@ def main(args):
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
-                                        'antenna': sitename, 'pols': 'X, Y', 
-                                        'location': (enz[0], enz[1], enz[2]), 
-                                        'clockoffset': (off, off), 'fileoffset': 0, 
-                                        'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
+                                              'antenna': sitename, 'pols': 'X, Y', 
+                                              'location': (enz[0], enz[1], enz[2]), 
+                                              'clockoffset': (off, off), 'fileoffset': 0, 
+                                              'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
                                         
             except Exception as e:
                 sys.stderr.write("ERROR reading DRX file: %s\n" % str(e))
@@ -301,7 +314,7 @@ def main(args):
                 #print "  Pad: %s" % pad
                 #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
                 
-                ## Move into the LWA1 coodinate system
+                ## Move into the LWA1 coordinate system
                 ### relative to ECEF
                 xyz = numpy.array([x,y,z])
                 xyz += VLA_ECEF
@@ -316,10 +329,10 @@ def main(args):
                 corrConfig['source']['ra2000'] = header['RA_STR']
                 corrConfig['source']['dec2000'] = header['DEC_STR']
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
-                                        'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-                                        'location': (enz[0], enz[1], enz[2]),
-                                        'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-                                        'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+                                              'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
+                                              'location': (enz[0], enz[1], enz[2]),
+                                              'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
                 sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
@@ -352,7 +365,7 @@ def main(args):
                 #print "  Pad: %s" % pad
                 #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
                 
-                ## Move into the LWA1 coodinate system
+                ## Move into the LWA1 coordinate system
                 ### relative to ECEF
                 xyz = numpy.array([x,y,z])
                 xyz += VLA_ECEF
@@ -369,10 +382,10 @@ def main(args):
                 corrConfig['source']['ra2000'] = header['RA_STR']
                 corrConfig['source']['dec2000'] = header['DEC_STR']
                 corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
-                                        'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-                                        'location': (enz[0], enz[1], enz[2]),
-                                        'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
-                                        'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+                                              'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
+                                              'location': (enz[0], enz[1], enz[2]),
+                                              'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
                 sys.stderr.write("ERROR reading GUPPI file: %s\n" % str(e))
@@ -476,7 +489,7 @@ def main(args):
         dur = source['stop'] - source['start']
         dur = dur.total_seconds()
         
-        ## Small correction for the first scan to compenstate for stale data at LWA-SV
+        ## Small correction for the first scan to compensate for stale data at LWA-SV
         if lwasvFound and s == 0:
             startOffset += 10.0
             dur -= 10.0
@@ -490,7 +503,7 @@ def main(args):
                 outname += str(s+1)
             fh = open(outname, 'w')
             
-        ## Preample
+        ## Preamble
         fh.write("# Created\n")
         fh.write("#  on %s\n" % datetime.now())
         fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
@@ -529,6 +542,9 @@ def main(args):
                 metaname = metadata[os.path.basename(input['file'])]
                 fh.write("  MetaData     %s\n" % metaname)
             except KeyError:
+                if input['type'] == 'DRX':
+                    sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(input['file']), s+1))
+                    sys.stderr.flush()
                 pass
             fh.write("  Type         %s\n" % input['type'])
             fh.write("  Antenna      %s\n" % input['antenna'])
