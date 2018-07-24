@@ -237,6 +237,7 @@ def main(args):
                 ## Read in the first few frames to get the start time
                 frames = [drx.readFrame(fh) for i in xrange(1024)]
                 streams = []
+                freq1, freq2 = 0.0, 0.0
                 for frame in frames:
                     beam, tune, pol = frame.parseID()
                     if tune == 1:
@@ -267,14 +268,17 @@ def main(args):
                     except errors.syncError:
                         backed += 1
                         fh.seek(-drx.FrameSize-1, 1)
-                frames = [drx.readFrame(fh) for i in xrange(32)]
-                for frame in frames:
-                    beam, tune, _ = frame.parseID()
-                    if tune == 1:
-                        freq1 = frame.getCentralFreq()
-                    else:
-                        freq2 = frame.getCentralFreq()
-                tStop = datetime.utcfromtimestamp(frames[-1].getTime())
+                for i in xrange(32):
+                    try:
+                        frame = drx.readFrame(fh)
+                        beam, tune, _ = frame.parseID()
+                        if tune == 1:
+                            freq1 = frame.getCentralFreq()
+                        else:
+                            freq2 = frame.getCentralFreq()
+                    except errors.syncError:
+                        continue
+                tStop = datetime.utcfromtimestamp(frame.getTime())
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
