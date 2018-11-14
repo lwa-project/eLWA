@@ -18,13 +18,20 @@ from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
 
-from flagger import *
+from sdm import getFlags, filterFlags
 
 
 def main(args):
     # Parse the command line
     filenames = args.filename
     
+    # Parse the SDM, if provided
+    sdm_flags = []
+    flags = getFlags(args.sdm)
+    for flag in flags:
+        flag['antennaId'] = flag['antennaId'].replace('EA', 'LWA0')
+        sdm_flags.append( flag )
+            
     for filename in filenames:
         t0 = time.time()
         print "Working on '%s'" % os.path.basename(filename)
@@ -79,93 +86,6 @@ def main(args):
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
-        # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
-        
-        # Find unique scans to work on
-        blocks = []
-        for src in usrc:
-            valid = numpy.where( src == srcs )[0]
-            
-            blocks.append( [valid[0],valid[0]] )
-            for v in valid[1:]:
-                if v == blocks[-1][1] + 1:
-                    blocks[-1][1] = v
-                else:
-                    blocks.append( [v,v] )
-        blocks.sort()
-        
-        # Build up the mask
-        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
-        for i,block in enumerate(blocks):
-            tS = time.time()
-            print '  Working on scan %i of %i' % (i+1, len(blocks))
-            match = range(block[0],block[1]+1)
-            
-            bbls = numpy.unique(bls[match])
-            times = obstimes[match] * 86400.0
-            scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
-            scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
-            print '    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S'))
-            
-            for b,offset in enumerate(fqoffsets):
-                print '    IF #%i' % (b+1,)
-                crd = uvw[match,:]
-                visXX = flux[match,b,:,0]
-                visYY = flux[match,b,:,1]
-                
-                nBL = len(bbls)
-                times = times[0::nBL]
-                crd.shape = (crd.shape[0]/nBL, nBL, 1, 3)
-                visXX.shape = (visXX.shape[0]/nBL, nBL, visXX.shape[1])
-                visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
-                print '      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape
-                
-                if visXX.shape[0] < 5:
-                    print '        Too few integrations, skipping'
-                    continue
-                    
-                antennas = []
-                for j in xrange(nBL):
-                    ant1, ant2 = (bbls[j]>>8)&0xFF, bbls[j]&0xFF
-                    if ant1 not in antennas:
-                        antennas.append(ant1)
-                    if ant2 not in antennas:
-                        antennas.append(ant2)
-                        
-                print '      Flagging baselines'
-                maskXX = mask_bandpass(antennas, times, freq+offset, visXX)
-                maskYY = mask_bandpass(antennas, times, freq+offset, visYY)
-                
-                visXX = numpy.ma.array(visXX, mask=maskXX)
-                visYY = numpy.ma.array(visYY, mask=maskYY)
-                
-                if args.scf_passes > 0:
-                    print '      Flagging spurious correlations'
-                    for p in xrange(args.scf_passes):
-                        print '        Pass #%i' % (p+1,)
-                        visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
-                        visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
-                        
-                print '      Cleaning masks'
-                visXX.mask = cleanup_mask(visXX.mask)
-                visYY.mask = cleanup_mask(visYY.mask)
-                
-                print '      Saving polarization masks'
-                submask = visXX.mask
-                submask.shape = (len(match), flux.shape[2])
-                mask[match,b,:,0] = submask
-                submask = visYY.mask
-                submask.shape = (len(match), flux.shape[2])
-                mask[match,b,:,1] = submask
-                
-                print '      Statistics for this scan/IF'
-                print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,b,:,0].sum()/mask[match,b,:,0].size,)
-                print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,b,:,1].sum()/mask[match,b,:,0].size,)
-                print '      -> Elapsed - %.3f s' % (time.time()-tS,)
-                
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
@@ -179,39 +99,32 @@ def main(args):
                 pols.append( row['PFLAGS'] )
                 reas.append( row['REASON'] )
                 sevs.append( row['SEVERITY'] )
-        ## New Flags
-        obsdates.shape = (obsdates.shape[0]/nBL, nBL)
-        obstimes.shape = (obstimes.shape[0]/nBL, nBL)
-        mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
-        for i in xrange(nBL):
-            ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
-            if i % 100 == 0 or i+1 == nBL:
-                print "    Baseline %i of %i" % (i+1, nBL)
                 
-            for b,offset in enumerate(fqoffsets):
-                maskXX = mask[:,i,b,:,0]
-                maskYY = mask[:,i,b,:,1]
+        # Filter the SDM flags for what is relevant for this file
+        fileStart = obsdates[ 0] + obstimes[ 0]
+        fileStop  = obsdates[-1] + obstimes[-1]
+        sub_sdm_flags = filterFlags(sdm_flags, fileStart, fileStop)
+        
+        # Add in the SDM flags
+        nSubSDM = len(sub_sdm_flags)
+        for i,flag in enumerate(sub_sdm_flags):
+            if i % 100 == 0 or i+1 == nSubSDM:
+                print "    SDM %i of %i" % (i+1, nSubSDM)
                 
-                flagsXX, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXX)
-                flagsYY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskYY)
-                
-                for flag in flagsXX:
-                    ants.append( (ant1,ant2) )
-                    times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
-                    chans.append( (flag[2]+1, flag[3]+1) )
-                    pols.append( (1, 0, 1, 1) )
-                    reas.append( 'FLAGIDI.PY' )
-                    sevs.append( -1 )
-                for flag in flagsYY:
-                    ants.append( (ant1,ant2) )
-                    times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
-                    chans.append( (flag[2]+1, flag[3]+1) )
-                    pols.append( (0, 1, 1, 1) )
-                    reas.append( 'FLAGIDI.PY' )
-                    sevs.append( -1 )
-                    
+            try:
+                ant1 = antLookup[flag['antennaId']]
+            except KeyError:
+                continue
+            tStart = max([flag['startTime'] - obsdates[0,0], obstimes[ 0,0]])
+            tStop  = min([flag['endTime']   - obsdates[0,0], obstimes[-1,0]])
+            ants.append( (ant1,0) )
+            times.append( (tStart, tStop) )
+            bands.append( [1 for j in xrange(nBand)] )
+            chans.append( (0, 0) )
+            pols.append( (1, 1, 1, 1) )
+            reas.append( 'FLAGSDM.PY' )
+            sevs.append( -1 )
+            
         ## Build the FLAG table
         print '    FITS HDU'
         ### Columns
@@ -280,15 +193,13 @@ def main(args):
 if __name__ == "__main__":
     numpy.seterr(all='ignore')
     parser = argparse.ArgumentParser(
-        description='Flag RFI in FITS-IDI files', 
+        description='Flag FITS-IDI files using the flags contained in a VLA SDM', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument('sdm', type=str, 
+                        help='VLA SDM used for flagging')
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
-    parser.add_argument('-s', '--sdm', type=str, 
-                        help='read in the provided VLA SDM for additional flags')
-    parser.add_argument('-p', '--scf-passes', type=int, default=0, 
-                        help='number of passes to make through the spurious correlation sub-routine')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
