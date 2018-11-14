@@ -190,6 +190,10 @@ def main(args):
                 visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
                 print '      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape
                 
+                if visXX.shape[0] < 5:
+                    print '        Too few integrations, skipping'
+                    continue
+                    
                 antennas = []
                 for j in xrange(nBL):
                     ant1, ant2 = (bbls[j]>>8)&0xFF, bbls[j]&0xFF
