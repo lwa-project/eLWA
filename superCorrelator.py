@@ -714,25 +714,28 @@ def main(args):
         nSampD = int(srate[-1]*tSub)
         
         #tV = i*tRead + numpy.arange(dataV.shape[1]-max(vdifOffsets), dtype=numpy.float64)/srate[ 0]
-        tD = i*tRead + numpy.arange(dataD.shape[1]-max(drxOffsets), dtype=numpy.float64)/srate[-1]
-        
+        if nDRXInputs > 0:
+            tD = i*tRead + numpy.arange(dataD.shape[1]-max(drxOffsets), dtype=numpy.float64)/srate[-1]
+            
         # Loop over sub-integrations
         for j in xrange(nSub):
             ## Select the data to work with
             tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0]
             #tVSub    = tV[j*nSampV:(j+1)*nSampV]
-            tDSub    = tD[j*nSampD:(j+1)*nSampD]
+            if nDRXInputs > 0:
+                tDSub    = tD[j*nSampD:(j+1)*nSampD]
             dataVSub = dataV[:,j*nSampV:(j+1)*nSampV]
             #if dataVSub.shape[1] != tVSub.size:
             #	dataVSub = dataVSub[:,:tVSub.size]
             #if tVSub.size == 0:
             #	continue
             dataDSub = dataD[:,j*nSampD:(j+1)*nSampD]
-            if dataDSub.shape[1] != tDSub.size:
-                dataDSub = dataDSub[:,:tDSub.size]
-            if tDSub.size == 0:
-                continue
-                
+            if nDRXInputs > 0:
+                if dataDSub.shape[1] != tDSub.size:
+                    dataDSub = dataDSub[:,:tDSub.size]
+                if tDSub.size == 0:
+                    continue
+                    
             ## Update antennas for any delay steps
             for k in xrange(len(delaySteps)):
                 if delaySteps[k] is None:
