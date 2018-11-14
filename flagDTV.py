@@ -12,8 +12,8 @@ import os
 import sys
 import time
 import numpy
-import getopt
 import pyfits
+import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
@@ -21,57 +21,9 @@ from lsl.astro import utcjd_to_unix
 from flagger import *
 
 
-def usage(exitCode=None):
-    print """flagDTV.py - Flag the DTV pilot carriers in FITS-IDI files
-
-Usage:
-flagDTV.py [OPTIONS] <fits_file> [<fits_file> [...]]
-
-Options:
--h, --help          Display this help information
--f, --force         Force overwriting of existing FITS-IDI files
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hf", ["help", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filenames = config['args']
+    filenames = args.filename
     
     for filename in filenames:
         t0 = time.time()
@@ -80,6 +32,10 @@ def main(args):
         hdulist = pyfits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
+        fgdata = None
+        for hdu in hdulist[1:]:
+            if hdu.header['EXTNAME'] == 'FLAG':
+                fgdata = hdu
         uvdata = hdulist['UV_DATA']
         
         # Verify we can flag this data
@@ -192,10 +148,21 @@ def main(args):
                 
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
+        ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
+        ## Old flags
+        if fgdata is not None:
+            for row in fgdata.data:
+                ants.append( row['ANTS'] )
+                times.append( row['TIMERANG'] )
+                bands.append( row['BANDS'] )
+                chans.append( row['CHANS'] )
+                pols.append( row['PFLAGS'] )
+                reas.append( row['REASON'] )
+                sevs.append( row['SEVERITY'] )
+        ## New Flags
         obsdates.shape = (obsdates.shape[0]/nBL, nBL)
         obstimes.shape = (obstimes.shape[0]/nBL, nBL)
         mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
-        ants, times, bands, chans, pols = [], [], [], [], []
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
@@ -214,12 +181,16 @@ def main(args):
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
+                    reas.append( 'FLAGDTV.PY' )
+                    sevs.append( -1 )
                 for flag in flagsYY:
                     ants.append( (ant1,ant2) )
                     times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
+                    reas.append( 'FLAGDTV.PY' )
+                    sevs.append( -1 )
                     
         ## Build the FLAG table
         print '    FITS HDU'
@@ -233,34 +204,20 @@ def main(args):
         c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
         c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
         c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(['FLAGDTV.PY' for i in xrange(nFlags)]))
-        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32)-1)
+        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
+        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = pyfits.new_table(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
-        flags.header['EXTVER'] = (1, 'table instance number') 
+        flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
         flags.header['TABREV'] = (2, 'table format revision number')
         for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
             flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
         flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
         
-        # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
-        ## Find old tables
-        toRemove = []
-        for hdu in hdulist:
-            try:
-                if hdu.header['EXTNAME'] == 'FLAG':
-                    toRemove.append( hdu )
-            except KeyError:
-                pass
-        ## Remove old tables
-        for hdu in toRemove:
-            ver = hdu.header['EXTVER']
-            del hdulist[hdulist.index(hdu)]
-            print "  WARNING: removing old FLAG table - version %i" % ver
-        ## Insert the new table right before UV_DATA
+        # Insert the new table right before UV_DATA
         hdulist.insert(-1, flags)
         
         # Save
@@ -271,7 +228,7 @@ def main(args):
         outname = '%s_flagged%s' % (outname, outext)
         ## Does it already exist or not
         if os.path.exists(outname):
-            if not config['force']:
+            if not args.force:
                 yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
@@ -299,5 +256,14 @@ def main(args):
 
 if __name__ == "__main__":
     numpy.seterr(all='ignore')
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='Flag the DTV pilot carriers in FITS-IDI files', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to process')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwriting of existing FITS-IDI files')
+    args = parser.parse_args()
+    main(args)
     

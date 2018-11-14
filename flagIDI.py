@@ -12,8 +12,8 @@ import os
 import sys
 import time
 import numpy
-import getopt
 import pyfits
+import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
@@ -22,76 +22,14 @@ from sdm import getFlags, filterFlags
 from flagger import *
 
 
-def usage(exitCode=None):
-    print """flagIDI.py - Flag RFI in FITS-IDI files
-
-Usage:
-flagIDI.py [OPTIONS] <fits_file> [<fits_file> [...]]
-
-Options:
--h, --help          Display this help information
--s, --sdm           Read in the provided VLA SDM for additional flags
--p, --scf-passes    Number of passes to make through the spurious 
-                    correlation sub-routine (default = 0 = disabled,
-                    >0 enables)
--f, --force         Force overwriting of existing FITS-IDI files
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['sdm'] = None
-    config['passes'] = 0
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hs:p:f", ["help", "sdm=", "scf-passes=", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-s', '--sdm'):
-            config['sdm'] = value
-        elif opt in ('-p', '--scf-passes'):
-            config['passes'] = int(value, 10)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if config['passes'] < 0:
-        raise RuntimeError("Invalid number of spurious correlation passes: %i" % config['passes'])
-        
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filenames = config['args']
+    filenames = args.filename
     
     # Parse the SDM, if provided
     sdm_flags = []
-    if config['sdm'] is not None:
-        flags = getFlags(config['sdm'])
+    if args.sdm is not None:
+        flags = getFlags(args.sdm)
         for flag in flags:
             flag['antennaId'] = flag['antennaId'].replace('EA', 'LWA0')
             sdm_flags.append( flag )
@@ -103,6 +41,10 @@ def main(args):
         hdulist = pyfits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
+        fgdata = None
+        for hdu in hdulist[1:]:
+            if hdu.header['EXTNAME'] == 'FLAG':
+                fgdata = hdu
         uvdata = hdulist['UV_DATA']
         
         # Verify we can flag this data
@@ -209,9 +151,9 @@ def main(args):
                 visXX = numpy.ma.array(visXX, mask=maskXX)
                 visYY = numpy.ma.array(visYY, mask=maskYY)
                 
-                if config['passes'] > 0:
+                if args.scf_passes > 0:
                     print '      Flagging spurious correlations'
-                    for p in xrange(config['passes']):
+                    for p in xrange(args.scf_passes):
                         print '        Pass #%i' % (p+1,)
                         visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
                         visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
@@ -235,10 +177,21 @@ def main(args):
                 
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
+        ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
+        ## Old flags
+        if fgdata is not None:
+            for row in fgdata.data:
+                ants.append( row['ANTS'] )
+                times.append( row['TIMERANG'] )
+                bands.append( row['BANDS'] )
+                chans.append( row['CHANS'] )
+                pols.append( row['PFLAGS'] )
+                reas.append( row['REASON'] )
+                sevs.append( row['SEVERITY'] )
+        ## New Flags
         obsdates.shape = (obsdates.shape[0]/nBL, nBL)
         obstimes.shape = (obstimes.shape[0]/nBL, nBL)
         mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
-        ants, times, bands, chans, pols = [], [], [], [], []
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
@@ -257,12 +210,16 @@ def main(args):
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
+                    reas.append( 'FLAGIDI.PY' )
+                    sevs.append( -1 )
                 for flag in flagsYY:
                     ants.append( (ant1,ant2) )
                     times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
+                    reas.append( 'FLAGIDI.PY' )
+                    sevs.append( -1 )
                     
         # Filter the SDM flags for what is relevant for this file
         fileStart = obsdates[ 0,0] + obstimes[ 0,0]
@@ -286,6 +243,8 @@ def main(args):
             bands.append( [1 for j in xrange(nBand)] )
             chans.append( (0, 0) )
             pols.append( (1, 1, 1, 1) )
+            reas.append( 'SDMFLAG' )
+            sevs.append( -1 )
             
         ## Build the FLAG table
         print '    FITS HDU'
@@ -299,37 +258,23 @@ def main(args):
         c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
         c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
         c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(['FLAGIDI.PY' for i in xrange(nFlags)]))
-        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32)-1)
+        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
+        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = pyfits.new_table(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
-        flags.header['EXTVER'] = (1, 'table instance number') 
+        flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
         flags.header['TABREV'] = (2, 'table format revision number')
         for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
             flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
         flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
-        if config['sdm'] is not None:
-            flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(config['sdm']))
-        flags.header['HISTORY'] = '%i spurious correlation passes used' % config['passes']
+        if args.sdm is not None:
+            flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(args.sdm))
+        flags.header['HISTORY'] = '%i spurious correlation passes used' % args.scf_passes
         
-        # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
-        ## Find old tables
-        toRemove = []
-        for hdu in hdulist:
-            try:
-                if hdu.header['EXTNAME'] == 'FLAG':
-                    toRemove.append( hdu )
-            except KeyError:
-                pass
-        ## Remove old tables
-        for hdu in toRemove:
-            ver = hdu.header['EXTVER']
-            del hdulist[hdulist.index(hdu)]
-            print "  WARNING: removing old FLAG table - version %i" % ver
-        ## Insert the new table right before UV_DATA
+        # Insert the new table right before UV_DATA
         hdulist.insert(-1, flags)
         
         # Save
@@ -340,7 +285,7 @@ def main(args):
         outname = '%s_flagged%s' % (outname, outext)
         ## Does it already exist or not
         if os.path.exists(outname):
-            if not config['force']:
+            if not args.force:
                 yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
@@ -368,5 +313,18 @@ def main(args):
 
 if __name__ == "__main__":
     numpy.seterr(all='ignore')
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='Flag RFI in FITS-IDI files', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='filename to process')
+    parser.add_argument('-s', '--sdm', type=str, 
+                        help='read in the provided VLA SDM for additional flags')
+    parser.add_argument('-p', '--scf-passes', type=int, default=0, 
+                        help='number of passes to make through the spurious correlation sub-routine')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwriting of existing FITS-IDI files')
+    args = parser.parse_args()
+    main(args)
     
