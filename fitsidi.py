@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 
+# Python3 compatiability
+from __future__ import print_function
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 """
 Module for writing correlator output to a FITS IDI file.  The classes and 
 functions defined in this module are based heavily off the lwda_fits library.
@@ -11,6 +17,9 @@ functions defined in this module are based heavily off the lwda_fits library.
     
 .. versionchanged:: 1.1.4
     Fixed a conjugation problem in the visibilities saved to a FITS-IDI file
+
+.. versionchanged:: 1.2.2
+    Added support for writing multiple IFs to the same FITS-IDI file
 """
 
 import os
@@ -25,6 +34,7 @@ from datetime import datetime
 from lsl import astro
 from lsl.misc import geodesy
 from lsl.common import constants
+from lsl.misc.total_sorting import cmp_to_total
 
 try:
     from collections import OrderedDict
@@ -35,18 +45,18 @@ except ImportError:
 __version__ = '0.9'
 __revision__ = '$Rev$'
 __all__ = ['IDI', 'AIPS', 'ExtendedIDI', 'StokesCodes', 'NumericStokes', 
-           '__version__', '__revision__', '__all__']
+        '__version__', '__revision__', '__all__']
 
 
 IDIVersion = (3, 0)
 
 StokesCodes = { 'I':  1,  'Q': 2,   'U':  3,  'V':  4, 
-                'RR': -1, 'LL': -2, 'RL': -3, 'LR': -4, 
-                'XX': -5, 'YY': -6, 'XY': -7, 'YX': -8}
+            'RR': -1, 'LL': -2, 'RL': -3, 'LR': -4, 
+            'XX': -5, 'YY': -6, 'XY': -7, 'YX': -8}
 
 NumericStokes = { 1: 'I',   2: 'Q',   3: 'U',   4: 'V', 
-                 -1: 'RR', -2: 'LL', -3: 'RL', -4: 'LR', 
-                 -5: 'XX', -6: 'YY', -7: 'XY', -8: 'YX'}
+            -1: 'RR', -2: 'LL', -3: 'RL', -4: 'LR', 
+            -5: 'XX', -6: 'YY', -7: 'XY', -8: 'YX'}
 
 
 def mergeBaseline(ant1, ant2, shift=16):
@@ -107,6 +117,7 @@ class IDI(object):
             self.sideBand = 1
             self.baseBand = 0
             
+    @cmp_to_total
     class _UVData(object):
         """
         Represents one UV visibility data set for a given observation time.
@@ -126,8 +137,8 @@ class IDI(object):
             polarization code.
             """
             
-            sID = self.obsTime*10000000 + abs(self.pol)
-            yID =    y.obsTime*10000000 + abs(   y.pol)
+            sID = (self.obsTime, abs(self.pol))
+            yID = (y.obsTime,    abs(y.pol)   )
             
             if sID > yID:
                 return 1
@@ -348,13 +359,37 @@ class IDI(object):
                 
         # If the mapper has been enabled, tell the user about it
         if enableMapper and self.verbose:
-            print "FITS IDI: stand ID mapping enabled"
+            print("FITS IDI: stand ID mapping enabled")
             for key, value in mapper.iteritems():
-                print "FITS IDI:  stand #%i -> mapped #%i" % (key, value)
+                print("FITS IDI:  stand #%i -> mapped #%i" % (key, value))
                 
         self.nAnt = len(ants)
         self.array.append( {'center': [arrayX, arrayY, arrayZ], 'ants': ants, 'mapper': mapper, 'enableMapper': enableMapper, 'inputAnts': antennas} )
         
+    def addComment(self, comment):
+        """
+        Add a comment to data.
+        
+        .. versionadded:: 1.2.4
+        """
+        
+        try:
+            self._comments.append( comment )
+        except AttributeError:
+            self._comments = [comment,]
+            
+    def addHistory(self, history):
+        """
+        Add a history entry to the data.
+        
+        .. versionadded:: 1.2.4
+        """
+        
+        try:
+            self._history.append( history )
+        except AttributeError:
+            self._history = [history,]
+            
     def addDataSet(self, obsTime, intTime, baselines, visibilities, pol='XX', source='z'):
         """
         Create a UVData object to store a collection of visibilities.
@@ -383,15 +418,25 @@ class IDI(object):
         correct order.
         """
         
+        # Validate
+        if self.nStokes == 0:
+            raise RuntimeError("No polarization setups defined")
+        if len(self.freq) == 0:
+            raise RuntimeError("No frequency setups defined")
+        if self.nAnt == 0:
+            raise RuntimeError("No array geometry defined")
+        if len(self.data) == 0:
+            raise RuntimeError("No visibility data defined")
+            
         # Sort the data set
         self.data.sort()
         
         self._writePrimary()
         self._writeGeometry()
         self._writeFrequency()
-        self._writeSource()
         self._writeAntenna()
         self._writeBandpass()
+        self._writeSource()
         self._writeData()
         
         # Clear out the data section
@@ -455,6 +500,20 @@ class IDI(object):
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
+        # Write the comments and history
+        try:
+            for comment in self._comments:
+                primary.header['comment'] = comment
+            del self._comments
+        except AttributeError:
+            pass
+        try:
+            for hist in self._history:
+                primary.header['history'] = hist
+            del self._history
+        except AttributeError:
+            pass
+            
         self.FITS.append(primary)
         self.FITS.flush()
         
@@ -548,7 +607,7 @@ class IDI(object):
         """
         Define the Frequency table (group 1, table 3).
         """
-            
+        
         nBand = len(self.freq)
         
         # Frequency setup number
@@ -614,20 +673,20 @@ class IDI(object):
         c8 = pyfits.Column(name='POLTYA', format='A1', 
                         array=numpy.array([ant.polA['Type'] for ant in self.array[0]['ants']]))
         # Feed A orientation in degrees
-        c9 = pyfits.Column(name='POLAA', format='%iE' % nBand, 
+        c9 = pyfits.Column(name='POLAA', format='%iE' % nBand,  unit='DEGREES', 
                         array=numpy.array([[ant.polA['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed A polarization parameters
         c10 = pyfits.Column(name='POLCALA', format='%iE' % (2*nBand), 
-                        array=numpy.concatenate([[ant.polA['Cal'],]*nBand for ant in self.array[0]['ants']], axis=1).astype(numpy.float32))
+                        array=numpy.concatenate([[ant.polA['Cal'],]*nBand for ant in self.array[0]['ants']]).astype(numpy.float32))
         # Feed B polarization label
         c11 = pyfits.Column(name='POLTYB', format='A1', 
                         array=numpy.array([ant.polB['Type'] for ant in self.array[0]['ants']]))
         # Feed B orientation in degrees
-        c12 = pyfits.Column(name='POLAB', format='%iE' % nBand, 
+        c12 = pyfits.Column(name='POLAB', format='%iE' % nBand,  unit='DEGREES', 
                         array=numpy.array([[ant.polB['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed B polarization parameters
         c13 = pyfits.Column(name='POLCALB', format='%iE' % (2*nBand), 
-                        array=numpy.concatenate([[ant.polB['Cal'],]*nBand for ant in self.array[0]['ants']], axis=1).astype(numpy.float32))
+                        array=numpy.concatenate([[ant.polB['Cal'],]*nBand for ant in self.array[0]['ants']]).astype(numpy.float32))
                         
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13])
@@ -803,42 +862,42 @@ class IDI(object):
         c5 = pyfits.Column(name='FREQID', format='1J', 
                         array=(numpy.zeros((nSource,), dtype=numpy.int32)+self.freq[0].id))
         # Stokes I flux density in Jy
-        c6 = pyfits.Column(name='IFLUX', format='%iE' % nBand, 
+        c6 = pyfits.Column(name='IFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c7 = pyfits.Column(name='QFLUX', format='%iE' % nBand, 
+        c7 = pyfits.Column(name='QFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c8 = pyfits.Column(name='UFLUX', format='%iE' % nBand, 
+        c8 = pyfits.Column(name='UFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c9 = pyfits.Column(name='VFLUX', format='%iE' % nBand, 
+        c9 = pyfits.Column(name='VFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Spectral index
         c10 = pyfits.Column(name='ALPHA', format='%iE' % nBand, 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Frequency offset in Hz
-        c11 = pyfits.Column(name='FREQOFF', format='%iE' % nBand, 
+        c11 = pyfits.Column(name='FREQOFF', format='%iE' % nBand, unit='HZ', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Mean equinox and epoch
         c12 = pyfits.Column(name='EQUINOX', format='A8',
                         array=numpy.array(('J2000',)).repeat(nSource))
-        c13 = pyfits.Column(name='EPOCH', format='1D', 
+        c13 = pyfits.Column(name='EPOCH', format='1D', unit='YEARS', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64) + 2000.0)
         # Apparent right ascension in degrees
-        c14 = pyfits.Column(name='RAAPP', format='1D', 
+        c14 = pyfits.Column(name='RAAPP', format='1D', unit='DEGREES', 
                         array=numpy.array(raList))
         # Apparent declination in degrees
-        c15 = pyfits.Column(name='DECAPP', format='1D', 
+        c15 = pyfits.Column(name='DECAPP', format='1D', unit='DEGREES', 
                         array=numpy.array(decList))
         # Right ascension at mean equinox in degrees
-        c16 = pyfits.Column(name='RAEPO', format='1D', 
+        c16 = pyfits.Column(name='RAEPO', format='1D', unit='DEGREES', 
                         array=numpy.array(raPoList))
         # Declination at mean equinox in degrees
-        c17 = pyfits.Column(name='DECEPO', format='1D', 
+        c17 = pyfits.Column(name='DECEPO', format='1D', unit='DEGREES', 
                         array=numpy.array(decPoList))
         # Systemic velocity in m/s
-        c18 = pyfits.Column(name='SYSVEL', format='%iD' % nBand, 
+        c18 = pyfits.Column(name='SYSVEL', format='%iD' % nBand, unit='M/SEC', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float64))
         # Velocity type
         c19 = pyfits.Column(name='VELTYP', format='A8', 
@@ -847,16 +906,16 @@ class IDI(object):
         c20 = pyfits.Column(name='VELDEF', format='A8', 
                         array=numpy.array(('OPTICAL',)).repeat(nSource))
         # Line rest frequency in Hz
-        c21 = pyfits.Column(name='RESTFREQ', format='%iD' % nBand, 
+        c21 = pyfits.Column(name='RESTFREQ', format='%iD' % nBand, unit='HZ', 
                         array=(numpy.zeros((nSource,nBand), dtype=numpy.float64) + [f.bandFreq+self.refVal for f in self.freq]))
         # Proper motion in RA in degrees/day
-        c22 = pyfits.Column(name='PMRA', format='1D', 
+        c22 = pyfits.Column(name='PMRA', format='1D', unit='DEG/DAY', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64))
         # Proper motion in Dec in degrees/day
-        c23 = pyfits.Column(name='PMDEC', format='1D', 
+        c23 = pyfits.Column(name='PMDEC', format='1D', unit='DEG/DAY', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64))
         # Parallax of source in arc sec.
-        c24 = pyfits.Column(name='PARALLAX', format='1E', 
+        c24 = pyfits.Column(name='PARALLAX', format='1E', unit='ARCSEC', 
                         array=numpy.zeros((nSource,), dtype=numpy.float32))
                         
         # Define the collection of columns
@@ -975,7 +1034,7 @@ class IDI(object):
                 try:
                     matrix *= 0.0
                 except NameError:
-                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand,), dtype=numpy.complex64)
+                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
                     
             # Save the visibility data in the right order
             # NOTE:  This is this conjugate since there seems to be a convention mis-match
@@ -988,7 +1047,6 @@ class IDI(object):
                 
         nBaseline = len(blineList)
         nSource = len(nameList)
-        nBand = len(self.freq)
         
         # Visibility Data
         c1 = pyfits.Column(name='FLUX', format='%iE' % (2*self.nStokes*self.nChan*nBand), unit='UNCALIB', 
@@ -1027,8 +1085,8 @@ class IDI(object):
         c12 = pyfits.Column(name='GATEID', format='1J', 
                         array=numpy.zeros((nBaseline,), dtype=numpy.int32))
         # Weights
-        c13 = pyfits.Column(name='WEIGHT', format='%iE' % (self.nStokes*nBand), 
-                        array=numpy.ones((nBaseline, self.nStokes*nBand), dtype=numpy.float32))
+        c13 = pyfits.Column(name='WEIGHT', format='%iE' % (self.nStokes*self.nChan*nBand), 
+                        array=numpy.ones((nBaseline, self.nStokes*self.nChan*nBand), dtype=numpy.float32))
                         
         colDefs = pyfits.ColDefs([c6, c7, c8, c3, c4, c2, c11, c9, c10, c5, 
                         c13, c12, c1])
@@ -1135,7 +1193,7 @@ class IDI(object):
         antennaID = antenna.field('NOSTA')
         antennaPos = iter(antenna.field('STABXYZ'))
         for id in antennaID:
-            antennaGeo[id] = antennaPos.next()
+            antennaGeo[id] = next(antennaPos)
             
         # Return
         return (arrayGeo, antennaGeo)
