@@ -411,7 +411,7 @@ def main(args):
     wallStart = time.time()
     done = False
     oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
-    delayStepApplied = False
+    delayStepApplied = [False for step in delaySteps]
     for i in xrange(nChunks):
         wallTime = time.time()
         
@@ -661,7 +661,7 @@ def main(args):
                     antennas[2*k+0].cable.clockOffset += step
                     antennas[2*k+1].cable.clockOffset += step
                     ## Update the delay step flag
-                    delayStepApplied = True
+                    delayStepApplied[k] = True
                 ## Clenup so we don't re-apply the step at the next iteration
                 if nextStep+1 < delaySteps[k][0].size:
                     ### There are still more we can apply
@@ -872,7 +872,7 @@ def main(args):
                             vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
                             tStart=numpy.mean(subIntTimes), tInt=tDump,
                             delayStepApplied=delayStepApplied)
-                delayStepApplied = False
+                delayStepApplied = [False for step in delaySteps]
                 ### CD = correlator dump
                 print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
                 if fileCount == 1:

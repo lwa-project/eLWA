@@ -73,7 +73,8 @@ def main(args):
         try:
             for entry in hdulist[0].header['HISTORY']:
                 if entry[:13] == 'Delay step at':
-                    delaysteps.append( float(entry.rsplit(None, 1)[1]) )
+                    _, ant, timestamp = entry.rsplit(None, 2)
+                    delaysteps.append( (int(ant, 10), float(timestamp)) )
         except KeyError:
             pass
         if len(delaysteps) == 0:
@@ -94,22 +95,19 @@ def main(args):
                 pols.append( row['PFLAGS'] )
                 reas.append( row['REASON'] )
                 sevs.append( row['SEVERITY'] )
-        
+                
         # Add in the delay step flags for the LWA baselines
-        for step in delaysteps:
+        for ant1,step in delaysteps:
             tStart = astro.unix_to_utcjd(step) - obsdates[0]
             tStop = astro.unix_to_utcjd(step+1.0) - obsdates[0]
-            for an in antLookup:
-                ant1 = antLookup[an]
-                if ant1 > 50:
-                    ants.append( (ant1,0) )
-                    times.append( (tStart, tStop) )
-                    bands.append( [1 for j in xrange(nBand)] )
-                    chans.append( (0, 0) )
-                    pols.append( (1, 1, 1, 1) )
-                    reas.append( 'FLAGDELAYSTEP.PY' )
-                    sevs.append( -1 )
-                    
+            ants.append( (ant1,0) )
+            times.append( (tStart, tStop) )
+            bands.append( [1 for j in xrange(nBand)] )
+            chans.append( (0, 0) )
+            pols.append( (1, 1, 1, 1) )
+            reas.append( 'FLAGDELAYSTEP.PY' )
+            sevs.append( -1 )
+            
         ## Build the FLAG table
         print '    FITS HDU'
         ### Columns

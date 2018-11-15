@@ -237,9 +237,11 @@ def main(args):
         visYXL = dataDict['vis1YX'].astype(numpy.complex64)
         visYYL = dataDict['vis1YY'].astype(numpy.complex64)
         try:
-            delayStepApplied = dataDict['delayStepApplied'].item()
+            delayStepAppliedL = dataDict['delayStepApplied']
+            if len(delayStepAppliedL) == 1:
+                delayStepAppliedL = [True if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
         except KeyError:
-            delayStepApplied = False
+            delayStepAppliedL = [False for ant in antennas if ant.pol == 0]
             
         dataDict.close()
         
@@ -253,9 +255,11 @@ def main(args):
         visYXH = dataDict['vis1YX'].astype(numpy.complex64)
         visYYH = dataDict['vis1YY'].astype(numpy.complex64)
         try:
-            delayStepApplied |= dataDict['delayStepApplied'].item()
+            delayStepAppliedH = dataDict['delayStepApplied']
+            if len(delayStepAppliedH) == 1:
+                delayStepAppliedH = [True if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
         except KeyError:
-            delayStepApplied |= False
+            delayStepAppliedH = [False for ant in antennas if ant.pol == 0]
             
         dataDict.close()
         
@@ -266,6 +270,8 @@ def main(args):
         visXY = numpy.concatenate([visXYL, visXYH], axis=1)
         visYX = numpy.concatenate([visYXL, visYXH], axis=1)
         visYY = numpy.concatenate([visYYL, visYYH], axis=1)
+        
+        delayStepApplied = [dsl or dsh for dsl,dsh in zip(delayStepAppliedL, delayStepAppliedH)]
         
         if args.decimate > 1:
             visXX.shape = (visXX.shape[0], visXX.shape[1]/args.decimate, args.decimate)
@@ -339,9 +345,10 @@ def main(args):
             print i
             
         ## Save any delay step information
-        if delayStepApplied:
-            fits.addHistory("Delay step at %f" % tStart)
-            
+        for step,ant in zip(delayStepApplied, [ant for ant in antennas if ant.pol == 0]):
+            if step:
+                fits.addHistory("Delay step at %i %f" % (ant.stand.id, tStart))
+                
         ## Update the observation
         observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
         refSrc.compute(observer)
