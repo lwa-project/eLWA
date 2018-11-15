@@ -18,7 +18,7 @@ from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
 
-from sdm import getFlags, filterFlags
+from sdm import get_flags, filter_flags
 
 
 def main(args):
@@ -27,7 +27,7 @@ def main(args):
     
     # Parse the SDM, if provided
     sdm_flags = []
-    flags = getFlags(args.sdm)
+    flags = get_flags(args.sdm)
     for flag in flags:
         flag['antennaId'] = flag['antennaId'].replace('EA', 'LWA0')
         sdm_flags.append( flag )
@@ -103,7 +103,7 @@ def main(args):
         # Filter the SDM flags for what is relevant for this file
         fileStart = obsdates[ 0] + obstimes[ 0]
         fileStop  = obsdates[-1] + obstimes[-1]
-        sub_sdm_flags = filterFlags(sdm_flags, fileStart, fileStop)
+        sub_sdm_flags = filter_flags(sdm_flags, fileStart, fileStop)
         
         # Add in the SDM flags
         nSubSDM = len(sub_sdm_flags)

@@ -15,10 +15,10 @@ from xml.etree import ElementTree
 from lsl.astro import utcjd_to_unix, MJD_OFFSET
 
 
-__version__ = '0.3'
+__version__ = '0.4'
 __revision__ = '$Rev$'
-__all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'getAntennas', 
-        'getFlags', 'filterFlags', 'getRequantizerGains', 'filterRequantizerGains', 
+__all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'get_antennas', 
+        'get_flags', 'filter_flags', 'get_requantizer_gains', 'filter_requantizer_gains', 
         '__version__', '__revision__', '__all__']
 
 
@@ -92,7 +92,7 @@ def _parse_compound(text):
         return output
 
 
-def getAntennas(filename):
+def get_antennas(filename):
     """
     Parse the Antenna.xml file in a VLA SDM set and return a dictionary
     of antenna information.
@@ -128,12 +128,12 @@ def getAntennas(filename):
     return ants
 
 
-def getFlags(filename, skipSubreflector=True, skipFocus=True):
+def get_flags(filename, skipSubreflector=True, skipFocus=True):
     """
     Parse the Flag.xml file in a VLA SDM set and return a list of flags
     that are not of type 'SUBREFLECTOR_ERROR' or 'FOCUS_ERROR'.  This
     list of flags has the antenna IDs converted to names via the 
-    getAntennas() function.
+    get_antennas() function.
     """
     
     # If we are given a directory, assume that it is an SDM set and 
@@ -147,7 +147,7 @@ def getFlags(filename, skipSubreflector=True, skipFocus=True):
             
     # Grab the antenna name mapper information
     antname = os.path.join(os.path.dirname(filename), 'Antenna.xml')
-    ants = getAntennas(antname)
+    ants = get_antennas(antname)
     
     # Open up the XML file
     tree = ElementTree.parse(filename)
@@ -181,9 +181,9 @@ def getFlags(filename, skipSubreflector=True, skipFocus=True):
     return flags
 
 
-def filterFlags(flags, startJD, stopJD):
+def filter_flags(flags, startJD, stopJD):
     """
-    Given a list of flags returned by getFlags() and a start and stop JD, 
+    Given a list of flags returned by get_flags() and a start and stop JD, 
     filter the list to exclude flags that do not apply to that time range.
     """
     
@@ -191,11 +191,11 @@ def filterFlags(flags, startJD, stopJD):
     return filter(f, flags)
 
 
-def getRequantizerGains(filename):
+def get_requantizer_gains(filename):
     """
     Parse the SysPower.bin file in a VLA SDM set and return a dictionary of
     requantizer gains as a function of time.  This dictionary is indexed with
-    the antenna IDs converted to names via the getAntennas() function.  Each
+    the antenna IDs converted to names via the get_antennas() function.  Each
     dictionary value is is a list of the requantizer gains with each gain
     being stored as a four-element list of [JD start, JD stop, gain0, gain1].
     """
@@ -211,7 +211,7 @@ def getRequantizerGains(filename):
             
     # Grab the antenna name mapper information
     antname = os.path.join(os.path.dirname(filename), 'Antenna.xml')
-    ants = getAntennas(antname)
+    ants = get_antennas(antname)
     
     # Open the file and begin parsing
     fh = open(filename, 'rb')
@@ -284,9 +284,9 @@ def getRequantizerGains(filename):
     return final
 
 
-def filterRequantizerGains(gains, startJD, stopJD):
+def filter_requantizer_gains(gains, startJD, stopJD):
     """
-    Given a dictionary of requantizer gains returned by getRequantizerGains()
+    Given a dictionary of requantizer gains returned by get_requantizer_gains()
     and a start and stop JD, filter the list to exclude gains that do not 
     apply to that time range.
     """
@@ -301,7 +301,7 @@ def filterRequantizerGains(gains, startJD, stopJD):
 if __name__ == "__main__":
     import sys
     import numpy
-    gains = getRequantizerGains(sys.argv[1])
+    gains = get_requantizer_gains(sys.argv[1])
     
     import pylab
     for ant in ('EA20',):
