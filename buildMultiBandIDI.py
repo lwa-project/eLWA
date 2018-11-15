@@ -241,7 +241,7 @@ def main(args):
             try:
                 len(delayStepAppliedL)
             except TypeError:
-                delayStepAppliedL = [True if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
+                delayStepAppliedL = [delayStepAppliedL if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
         except KeyError:
             delayStepAppliedL = [False for ant in antennas if ant.pol == 0]
             
@@ -261,7 +261,7 @@ def main(args):
             try:
                 len(delayStepAppliedH)
             except TypeError:
-                delayStepAppliedH = [True if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
+                delayStepAppliedH = [delayStepAppliedH if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
         except KeyError:
             delayStepAppliedH = [False for ant in antennas if ant.pol == 0]
             
