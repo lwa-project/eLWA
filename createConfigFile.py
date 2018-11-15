@@ -14,7 +14,7 @@ import os
 import sys
 import ephem
 import numpy
-import getopt
+import argparse
 from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
@@ -24,70 +24,6 @@ from lsl.common.mcs import mjdmpm2datetime
 import guppi
 from utils import *
 from get_vla_ant_pos import database
-
-
-def usage(exitCode=None):
-    print """createConfigFile.py - Given a collection of LWA/VLA data files, or a directory
-containing LWA/VLA data files, generate a configuration file for 
-superCorrelator.py.
-
-Usage:
-createConfigFile.py [OPTIONS] file [file [...]]
-or 
-createConfigFile.py [OPTIONS] directory
-
-Options:
--h, --help                  Display this help information
--l, --lwa1-offset           LWA1 clock offset (default = 0)
--s, --lwasv-offset          LWA-SV clock offset (default = 0)
--o, --output                Write the configuration to the specified file
-                            (default = standard out)
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['output'] = None
-    config['lwa1Offset'] = 0.0
-    config['lwasvOffset'] = 0.0
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hl:s:o:", ["help", "lwa1-offset=", "lwasv-offset=", "output="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--lwa1-offset'):
-            config['lwa1Offset'] = value
-        elif opt in ('-s', '--lwasv-offset'):
-            config['lwasvOffset'] = value
-        elif opt in ('-o','--output'):
-            config['output'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if len(args) < 1:
-        raise RuntimeError("Must supply at least one filename")
-        
-    # Return configuration
-    return config
 
 
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9)) 
@@ -114,8 +50,7 @@ LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(
 
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filenames = config['args']
+    filenames = args.filename
     
     # Check if the first argument on the command line is a directory.  If so, 
     # use what is in that directory
@@ -220,10 +155,10 @@ def main(args):
                 ## Get the location so that we can set site-specific parameters
                 if sitename == 'LWA1':
                     xyz = LWA1_ECEF
-                    off = config['lwa1Offset']
+                    off = args.lwa1_offset
                 elif sitename == 'LWA-SV':
                     xyz = LWASV_ECEF
-                    off = config['lwasvOffset']
+                    off = args.lwasv_offset
                 else:
                     raise RuntimeError("Unknown LWA site '%s'" % site)
                     
@@ -499,10 +434,10 @@ def main(args):
             dur -= 10.0
             
         ## Setup
-        if config['output'] is None:
+        if args.output is None:
             fh = sys.stdout
         else:
-            outname = config['output']
+            outname = args.output
             if len(sources) > 1:
                 outname += str(s+1)
             fh = open(outname, 'w')
@@ -563,5 +498,19 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='given a collection of LWA/VLA data files, or a directory containing LWA/VLA/eLWA data files, generate a configuration file for superCorrelator.py',
+        epilog="If 'filename' is a directory, only the first argument is used to find data files.", 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+', 
+                        help='file or directory name to process')
+    parser.add_argument('-l', '--lwa1-offset', type=str, default=0.0, 
+                        help='LWA1 clock offset')
+    parser.add_argument('-s', '--lwasv-offset', type=str, default=0.0, 
+                        help='LWA-SV clock offset')
+    parser.add_argument('-o', '--output', type=str, 
+                        help='write the configuration to the specified file')
+    args = parser.parse_args()
+    main(args)
     
