@@ -16,7 +16,7 @@ import math
 import time
 import ephem
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl import astro
@@ -35,100 +35,6 @@ import guppi
 import jones
 from utils import *
 from buffer import VDIFFrameBuffer, GUPPIFrameBuffer
-
-
-def usage(exitCode=None):
-    print """superCorrelator.py - The next generation of correlator
-
-Usage:
-superCorrelator.py [OPTIONS] <config_file>
-
-Options:
--h, --help                  Display this help information
--q, --quiet                 Disable verbose time tag information
--l, --fft-length            Set FFT length (default = 512)
--s, --skip                  Amount of time in to skip into the files (seconds; 
-                            default = 0 s)
--u, --subint-time           Sub-integration time for the data (seconds; 
-                            default = 0.010 s)
--t, --dump-time             Correlator dump time for saving the visibilties
-                            (seconds; default = 1 s)
--d, --duration              Duration of the file to correlate (seconds; 
-                            default = 0 -> everything)
--g, --tag                   Tag to use for the output file (default = first eight
-                            characters of the first input file)
--j, --jit                   Enable experimental just-in-time optimizations 
-                            (default = no and you should keep it that way)
--w, --which                 For LWA-only observations, which tuning to use for
-                            correlation (1 or 2; default = auto-select)
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['verbose'] = True
-    config['readTime'] = 1.0
-    config['subTime'] = 0.010
-    config['dumpTime'] = 1.0
-    config['LFFT'] = 512
-    config['skip'] = 0.0
-    config['duration'] = 0.0
-    config['tag'] = None
-    config['withJIT'] = False
-    config['which'] = None
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hql:u:t:s:d:g:jw:", ["help", "quiet", "fft-length=", "subint-time=", "dump-time=", "skip=", "duration=", "tag=", "jit", "which="])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        elif opt in ('-r', '--read-time'):
-            config['readTime'] = float(value)
-        elif opt in ('-u', '--subint-time'):
-            config['subTime'] = float(value)
-        elif opt in ('-t', '--dump-time'):
-            config['dumpTime'] = float(value)
-        elif opt in ('-s', '--skip'):
-            config['skip'] = float(value)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-g', '--tag'):
-            config['tag'] = value
-        elif opt in ('-j', '--jit'):
-            config['withJIT'] = True
-        elif opt in ('-w', '--which'):
-            config['which'] = int(value, 10)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if config['which'] is not None:
-        if config['which'] not in (1, 2):
-            raise RuntimeError("Invalid LWA tuning: %i" % config['which'])
-            
-    # Return configuration
-    return config
 
 
 def bestFreqUnits(freq):
@@ -167,17 +73,14 @@ def bestFreqUnits(freq):
 
 
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    
     # Select the multirate module to use
-    if config['withJIT']:
+    if args.jit:
         from jit import multirate
     else:
         import multirate
         
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
     
     # Build up the station
     site = stations.lwa1
@@ -189,11 +92,13 @@ def main(args):
     observer = site.getObserver()
     
     # Parse the correlator configuration
-    refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(config['args'][0])
-    config['duration'] = refSrc.duration
+    refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(args.filename)
+    if args.duration == 0.0:
+        args.duration = refSrc.duration
+    args.duration = min([args.duration, refSrc.duration])
     
     # Get the raw configuration
-    fh = open(config['args'][0], 'r')
+    fh = open(args.filename, 'r')
     rawConfig = fh.readlines()
     fh.close()
     
@@ -254,7 +159,7 @@ def main(args):
         elif readers[i] is drx:
             beampols.append( 4 if antennas[2*i].stand.id == 51 else 4 )	# CHANGE THIS FOR SINGLE TUNING LWA-SV DATA
             
-        skip = config['skip'] + foffset
+        skip = args.skip + foffset
         if skip != 0:
             print "Skipping forward %.3f s" % skip
             print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
@@ -381,7 +286,7 @@ def main(args):
         print "Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime)
         
     # Set integration time
-    tRead = config['readTime']
+    tRead = 1.0
     nFrames = int(round(tRead*srate[-1]/readers[-1].DataLength))
     tRead = nFrames*readers[-1].DataLength/srate[-1]
     
@@ -399,8 +304,8 @@ def main(args):
     tFileV = nFramesFile[ 0] / beampols[ 0] * readers[ 0].DataLength / srate[ 0]
     tFileD = nFramesFile[-1] / beampols[-1] * readers[-1].DataLength / srate[-1]
     tFile = min([tFileV, tFileD])
-    if config['duration'] > 0.0:
-        duration = config['duration']
+    if args.duration > 0.0:
+        duration = args.duration
         duration = tRead * int(round(duration / tRead))
         tFile = duration
         
@@ -418,11 +323,11 @@ def main(args):
         beginDates.append( datetime.utcfromtimestamp(junkFrame.getTime()) )
         
     # Set the output base filename
-    if config['tag'] is None:
+    if args.tag is None:
         outbase = os.path.basename(filenames[0])
         outbase = os.path.splitext(outbase)[0][:8]
     else:
-        outbase = config['tag']
+        outbase = args.tag
         
     # Report
     for i in xrange(len(filenames)):
@@ -480,8 +385,8 @@ def main(args):
     vdifPivot = 1
     if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
         vdifPivot = 2
-    if nVDIFInputs == 0 and config['which'] is not None:
-        vdifPivot = config['which']
+    if nVDIFInputs == 0 and args.which != 0:
+        vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
         print "VDIF appears to correspond to tuning #%i in DRX" % vdifPivot
     elif nDRXInputs:
@@ -489,9 +394,9 @@ def main(args):
     print " "
     
     nChunks = int(tFile/tRead)
-    tSub = config['subTime']
+    tSub = args.subint_time
     tSub = tRead / int(round(tRead/tSub))
-    tDump = config['dumpTime']
+    tDump = args.dump_time
     tDump = tSub * int(round(tDump/tSub))
     nDump = int(tDump / tSub)
     tDump = nDump * tSub
@@ -657,7 +562,7 @@ def main(args):
             
         # Time tag alignment (sample based)
         ## Initial time tags for each stream and the relative start time for each stream
-        if config['verbose']:
+        if args.verbose:
             ### TT = time tag
             print 'TT - Start', tStartB
         tStartMin = min([sec for sec,frac in tStartB])
@@ -667,7 +572,7 @@ def main(args):
         offsets = []
         for j in xrange(nVDIFInputs+nDRXInputs):
             offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
-        if config['verbose']:
+        if args.verbose:
             print 'TT - Offsets', offsets
             
         ## Roll the data to apply the sample offsets and then trim the ends to get rid 
@@ -696,12 +601,12 @@ def main(args):
         
         ## Apply the corrections to the original time tags and report on the sub-sample
         ## residuals
-        if config['verbose']:
+        if args.verbose:
             print 'TT - Adjusted', tStartB
         tStartMinSec  = min([sec  for sec,frac in tStartB])
         tStartMinFrac = min([frac for sec,frac in tStartB])
         tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
-        if config['verbose']:
+        if args.verbose:
             print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
         for k in xrange(len(tStartRel)):
             antennas[2*k+0].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
@@ -992,5 +897,30 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='the next generation of correlator for LWA/VLA/eLWA data', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+    parser.add_argument('filename', type=str, 
+                        help='configuration file to process')
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false', default=True, 
+                        help='disable verbose time tag information')
+    parser.add_argument('-l', '--fft-length', type=int, default=512, 
+                        help='set FFT length')
+    parser.add_argument('-s', '--skip', type=float, default=0.0, 
+                        help='amount of time in seconds to skip into the files')
+    parser.add_argument('-u', '--subint-time', type=float, default=0.010, 
+                        help='sub-integration time in seconds for the data')
+    parser.add_argument('-t', '--dump-time', type=float, default=1.0, 
+                        help='correlator dump time in seconds for saving the visibilties')
+    parser.add_argument('-d', '--duration', type=float, default=0.0, 
+                        help='duration in seconds of the file to correlate; 0 = everything')
+    parser.add_argument('-g', '--tag', type=str, 
+                        help='tag to use for the output file')
+    parser.add_argument('-j', '--jit', action='store_true', 
+                        help='enable experimental just-in-time optimizations')
+    parser.add_argument('-w', '--which', type=int, default=0, 
+                        help='for LWA-only observations, which tuning to use for correlation; 0 = auto-select')
+    args = parser.parse_args()
+    main(args)
     
