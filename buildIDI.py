@@ -221,7 +221,9 @@ def main(args):
         visYY = dataDict['vis1YY'].astype(numpy.complex64)
         try:
             delayStepApplied = dataDict['delayStepApplied']
-            if len(delayStepApplied) == 1:
+            try:
+                len(delayStepApplied)
+            except TypeError:
                 delayStepApplied = [True if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
         except KeyError:
             delayStepApplied = [False for ant in antennas if ant.pol == 0]
