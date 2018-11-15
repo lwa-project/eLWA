@@ -578,8 +578,7 @@ def parseLWAMetaData(filename):
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)
     d = numpy.array(d)
-    t += 1.0					# BAM command are applied 1s after they are sent
-    d0 = d[0]					# Get the initial offset
+    d0 = d[0]				# Get the initial offset
     d = numpy.diff(d)			# We want the relative delay change between steps
     if site == stations.lwa1:
         d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
