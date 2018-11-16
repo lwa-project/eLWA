@@ -392,7 +392,7 @@ if __name__ == "__main__":
                         help='write linear polarization data')
     pgroup.add_argument('-c', '--circular', action='store_true', 
                         help='convert to circular polarization')
-    pgroup.add_argument('-k', '--stokes ', action='store_true', 
+    pgroup.add_argument('-k', '--stokes', action='store_true', 
                         help='convert to Stokes parameters')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
