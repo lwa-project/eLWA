@@ -12,8 +12,8 @@ $LastChangedDate$
 import os
 import sys
 import numpy
-import getopt
 import pyfits
+import argparse
 from datetime import datetime
 
 from scipy.stats import scoreatpercentile as percentile
@@ -23,93 +23,37 @@ from lsl.astro import utcjd_to_unix
 from matplotlib import pyplot as plt
 
 
-def usage(exitCode=None):
-    print """plotFringesIDI.py - Given a FITS-IDI file, create plots of the visibilities
-
-Usage:
-plotFringesIDI.py [OPTIONS] fits
-
-Options:
--h, --help                  Display this help information
--r, --ref-ant               Limit plots to baselines containing the reference 
-                            antenna (default = plot everything)
--b, --baseline              Limit plots to the specified baseline in 'ANT-ANT' 
-                            format
--x, --xx                    Plot XX data (default)
--z, --xy                    Plot XY data
--w, --yx                    Plot YX data
--y, --yy                    Plot YY data
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['refAnt'] = None
-    config['baseline'] = None
-    config['polToPlot'] = 'XX'
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hr:b:xzwy", ["help", "ref-ant=", "baseline=", "xx", "xy", "yx", "yy"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-r', '--ref-ant'):
-            config['refAnt'] = int(value, 10)
-        elif opt in ('-b', '--baseline'):
-            config['baseline'] = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in value.split(',')]]
-        elif opt in ('-x', '--xx'):
-            config['polToPlot'] = 'XX'
-        elif opt in ('-z', '--xy'):
-            config['polToPlot'] = 'XY'
-        elif opt in ('-w', '--yx'):
-            config['polToPlot'] = 'YX'
-        elif opt in ('-y', '--yy'):
-            config['polToPlot'] = 'YY'
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Fill the baseline list with the conjugates, if needed
-    if config['baseline'] is not None:
-        newBaselines = []
-        for pair in config['baseline']:
-            newBaselines.append( (pair[1],pair[0]) )
-        config['baseline'].extend(newBaselines)
-        
-    # Validate
-    if len(config['args']) != 1:
-        raise RuntimeError("Must provide at a single FITS-IDI file to plot")
-        
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filename = config['args'][0]
+    # Parse the command line
+    ## Baseline list
+    if args.baseline is not None:
+        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in arg.baseline.split(',')]]
+        ## Fill the baseline list with the conjugates, if needed
+        newBaselines = []
+        for pair in args.baseline:
+            newBaselines.append( (pair[1],pair[0]) )
+        args.baseline.extend(newBaselines)
+    ## Polarization
+    if args.xx:
+        args.polToPlot = 'XX'
+    elif args.xy:
+        args.polToPlot = 'XY'
+    elif args.yx:
+        args.polToPlot = 'YX'
+    elif args.yy:
+        args.polToPlot = 'YY'
+    filename = args.filename
     
     print "Working on '%s'" % os.path.basename(filename)
     # Open the FITS IDI file and access the UV_DATA extension
     hdulist = pyfits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
+    fgdata = None
+    for hdu in hdulist[1:]:
+            if hdu.header['EXTNAME'] == 'FLAG':
+                fgdata = hdu
     uvdata = hdulist['UV_DATA']
     
     # Verify we can flag this data
@@ -163,18 +107,39 @@ def main(args):
     times = utcjd_to_unix(obsdates + obstimes)
     times = numpy.unique(times)
     
+    # Build a mask
+    mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+    if fgdata is not None:
+        for row in fgdata.data:
+            ant1, ant2 = row['ANTS']
+            if ant1 == ant2:
+                continue
+            tStart, tStop = row['TIMERANG']
+            cStart, cStop = row['CHANS']
+            if cStop == 0:
+                cStop = -1
+            if ant2 == 0:
+                btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
+                                      & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+            else:
+                btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
+                                      & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+            for b,v in enumerate(row['BANDS']):
+                for p,w in enumerate(row['PFLAGS']):
+                    mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
+                    
     plot_bls = []
     cross = []
     for i in xrange(len(ubls)):
         bl = ubls[i]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
         if ant1 != ant2:
-            if config['baseline'] is not None:
-                if (ant1,ant2) in config['baseline']:
+            if args.baseline is not None:
+                if (ant1,ant2) in args.baseline:
                     plot_bls.append( bl )
                     cross.append( i )
-            elif config['refAnt'] is not None:
-                if ant1 == config['refAnt'] or ant2 == config['refAnt']:
+            elif args.ref_ant is not None:
+                if ant1 == args.ref_ant or ant2 == args.ref_ant:
                     plot_bls.append( bl )
                     cross.append( i )
             else:
@@ -199,27 +164,28 @@ def main(args):
         bl = plot_bls[b]
         valid = numpy.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF
-        vis = flux[valid,0,:,polMapper[config['polToPlot']]]
-        dTimes = obstimes[valid]*86400.0
+        vis = numpy.ma.array(flux[valid,0,:,polMapper[args.polToPlot]], mask=mask[valid,0,:,polMapper[args.polToPlot]])
+        dTimes = obsdates[valid] + obstimes[valid]
         dTimes -= dTimes[0]
+        dTimes *= 86400.0
         
         ax = fig1.add_subplot(nRow, nCol, k+1)
-        ax.imshow(numpy.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+        ax.imshow(numpy.ma.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         ax = fig2.add_subplot(nRow, nCol, k+1)
-        amp = numpy.abs(vis)
+        amp = numpy.ma.abs(vis)
         vmin, vmax = percentile(amp, 1), percentile(amp, 99)
         ax.imshow(amp, extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
@@ -227,7 +193,7 @@ def main(args):
         ax.plot(freq/1e6, numpy.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
-        ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
@@ -235,7 +201,7 @@ def main(args):
         ax.set_ylim((-180, 180))
         ax.set_xlabel('Elapsed Time [s]')
         ax.set_ylabel('Mean Vis. Phase [deg]')
-        ax.set_title("%i,%i - %s" % (i,j,config['polToPlot']))
+        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
         ax.set_xlim((dTimes[0], dTimes[-1]))
         
         k += 1
@@ -249,5 +215,25 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='given a FITS-IDI file, create plots of the visibilities', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to process')
+    parser.add_argument('-r', '--ref-ant', type=int, 
+                        help='limit plots to baselines containing the reference antenna')
+    parser.add_argument('-b', '--baseline', type=str, 
+                        help="limit plots to the specified baseline in 'ANT-ANT' format")
+    pgroup = parser.add_mutually_exclusive_group(required=False)
+    pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
+                        help='plot XX data')
+    pgroup.add_argument('-z', '--xy', action='store_true', 
+                        help='plot XY data')
+    pgroup.add_argument('-w', '--yx', action='store_true', 
+                        help='plot YX data')
+    pgroup.add_argument('-y', '--yy', action='store_true', 
+                        help='plot YY data')
+    args = parser.parse_args()
+    main(args)
     
