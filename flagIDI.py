@@ -197,7 +197,8 @@ def main(args):
                 
                 for flag in flagsXX:
                     ants.append( (ant1,ant2) )
-                    times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
+                    times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
+                                   obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
@@ -205,7 +206,8 @@ def main(args):
                     sevs.append( -1 )
                 for flag in flagsYY:
                     ants.append( (ant1,ant2) )
-                    times.append( (obstimes[flag[0],i], obstimes[flag[1],i]) )
+                    times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
+                                   obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )

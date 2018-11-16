@@ -120,7 +120,7 @@ def main(args):
             ants.append( (ant1,0) )
             times.append( (tStart, tStop) )
             bands.append( [1 for j in xrange(nBand)] )
-            chans.append( (0, 0) )
+            chans.append( (1, 0) )
             pols.append( (1, 1, 1, 1) )
             reas.append( 'FLAGSDM.PY' )
             sevs.append( -1 )
