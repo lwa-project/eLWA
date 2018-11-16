@@ -115,6 +115,11 @@ def main(args):
             if ant1 == ant2:
                 continue
             tStart, tStop = row['TIMERANG']
+            band = row['BANDS']
+            try:
+                len(band)
+            except TypeError:
+                band = [band,]
             cStart, cStop = row['CHANS']
             if cStop == 0:
                 cStop = -1
@@ -124,7 +129,7 @@ def main(args):
             else:
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
                                       & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
-            for b,v in enumerate(row['BANDS']):
+            for b,v in enumerate(band):
                 for p,w in enumerate(row['PFLAGS']):
                     mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
                     
@@ -197,7 +202,7 @@ def main(args):
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
-        ax.plot(dTimes, numpy.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
+        ax.plot(dTimes, numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
         ax.set_ylim((-180, 180))
         ax.set_xlabel('Elapsed Time [s]')
         ax.set_ylabel('Mean Vis. Phase [deg]')

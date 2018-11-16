@@ -94,7 +94,11 @@ def main(args):
             for row in fgdata.data:
                 ants.append( row['ANTS'] )
                 times.append( row['TIMERANG'] )
-                bands.append( row['BANDS'] )
+                try:
+                    len(row['BANDS'])
+                    bands.append( row['BANDS'] )
+                except TypeError:
+                    bands.append( [row['BANDS'],] )
                 chans.append( row['CHANS'] )
                 pols.append( row['PFLAGS'] )
                 reas.append( row['REASON'] )

@@ -16,7 +16,7 @@ import pyfits
 import argparse
 from datetime import datetime
 
-from lsl.astro import utcjd_to_unix
+from lsl.astro import unix_to_utcjd
 
 from flagger import *
 
@@ -90,7 +90,11 @@ def main(args):
             for row in fgdata.data:
                 ants.append( row['ANTS'] )
                 times.append( row['TIMERANG'] )
-                bands.append( row['BANDS'] )
+                try:
+                    len(row['BANDS'])
+                    bands.append( row['BANDS'] )
+                except TypeError:
+                    bands.append( [row['BANDS'],] )
                 chans.append( row['CHANS'] )
                 pols.append( row['PFLAGS'] )
                 reas.append( row['REASON'] )
@@ -98,8 +102,8 @@ def main(args):
                 
         # Add in the delay step flags for the LWA baselines
         for ant1,step in delaysteps:
-            tStart = astro.unix_to_utcjd(step) - obsdates[0]
-            tStop = astro.unix_to_utcjd(step+1.0) - obsdates[0]
+            tStart = unix_to_utcjd(step) - obsdates[0]
+            tStop = unix_to_utcjd(step+1.0) - obsdates[0]
             ants.append( (ant1,0) )
             times.append( (tStart, tStop) )
             bands.append( [1 for j in xrange(nBand)] )
