@@ -123,7 +123,10 @@ def main(args):
             cStart, cStop = row['CHANS']
             if cStop == 0:
                 cStop = -1
-            if ant2 == 0:
+            if ant1 == 0 and ant2 == 0:
+                btmask = numpy.where( ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+            elif ant1 == 0 or ant2 == 0:
+                ant1 = max([ant1, ant2])
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
                                       & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
             else:
