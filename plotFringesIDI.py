@@ -111,7 +111,8 @@ def main(args):
     mask = numpy.zeros(flux.shape, dtype=numpy.bool)
     if fgdata is not None and not args.drop:
         reltimes = obsdates - obsdates[0] + obstimes
-        mintimes = reltimes - inttimes / 2.0
+        maxtimes = reltimes + inttimes / 2.0 / 86400.0
+        mintimes = reltimes - inttimes / 2.0 / 86400.0
         
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
@@ -127,14 +128,14 @@ def main(args):
             if cStop == 0:
                 cStop = -1
             if ant1 == 0 and ant2 == 0:
-                btmask = numpy.where( ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             elif ant1 == 0 or ant2 == 0:
                 ant1 = max([ant1, ant2])
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
-                                      & ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             else:
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
-                                      & ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             for b,v in enumerate(band):
                 for p,w in enumerate(row['PFLAGS']):
                     mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
@@ -201,7 +202,7 @@ def main(args):
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
         ax = fig3.add_subplot(nRow, nCol, k+1)
-        ax.plot(freq/1e6, numpy.abs(vis.mean(axis=0)))
+        ax.plot(freq/1e6, numpy.ma.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
         ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))

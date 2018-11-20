@@ -208,7 +208,7 @@ def main(args):
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
         ax = fig3.add_subplot(nRow, nCol, k+1)
-        ax.plot(freq/1e6, numpy.abs(vis.mean(axis=0)))
+        ax.plot(freq/1e6, numpy.ma.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
         ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
