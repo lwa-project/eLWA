@@ -136,9 +136,6 @@ def main(args):
         for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
             flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
         flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
-        if args.sdm is not None:
-            flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(args.sdm))
-        flags.header['HISTORY'] = '%i spurious correlation passes used' % args.scf_passes
         
         # Insert the new table right before UV_DATA
         hdulist.insert(-1, flags)
