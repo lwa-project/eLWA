@@ -139,21 +139,22 @@ def main(args):
             
         visToPlot[i,:,:] = cvis
         
-        try:
-            delayStepApplied = dataDict['delayStepApplied']
+        if not args.drop:
             try:
-                len(delayStepApplied)
-            except TypeError:
-                delayStepApplied = [delayStepApplied if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
-        except KeyError:
-            delayStepApplied = [False for ant in antennas if ant.pol == 0]
-        delayStepAppliedBL = []
-        for j in xrange(len(delayStepApplied)):
-            for k in xrange(j, len(delayStepApplied)):
-                delayStepAppliedBL.append( delayStepApplied[j] or delayStepApplied[k] )
-                
-        visToMask[i,:,:] = [[delayStepAppliedBL[c],] for c in cross]
-        
+                delayStepApplied = dataDict['delayStepApplied']
+                try:
+                    len(delayStepApplied)
+                except TypeError:
+                    delayStepApplied = [delayStepApplied if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
+            except KeyError:
+                delayStepApplied = [False for ant in antennas if ant.pol == 0]
+            delayStepAppliedBL = []
+            for j in xrange(len(delayStepApplied)):
+                for k in xrange(j, len(delayStepApplied)):
+                    delayStepAppliedBL.append( delayStepApplied[j] or delayStepApplied[k] )
+                    
+            visToMask[i,:,:] = [[delayStepAppliedBL[c],] for c in cross]
+            
         times[i] = tStart
         
         dataDict.close()
@@ -242,6 +243,8 @@ if __name__ == "__main__":
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
+    parser.add_argument('-d', '--drop', action='store_true', 
+                        help='drop delay step mask when displaying')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
                         help='plot XX data')

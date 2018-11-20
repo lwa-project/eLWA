@@ -109,7 +109,7 @@ def main(args):
     
     # Build a mask
     mask = numpy.zeros(flux.shape, dtype=numpy.bool)
-    if fgdata is not None:
+    if fgdata is not None and not args.drop:
         reltimes = obsdates - obsdates[0] + obstimes
         mintimes = reltimes - inttimes / 2.0
         
@@ -238,6 +238,8 @@ if __name__ == "__main__":
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-i', '--band', type=int, default=1, 
                         help='IF to plot')
+    parser.add_argument('-d', '--drop', action='store_true', 
+                        help='drop FLAG table when displaying')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
                         help='plot XX data')
