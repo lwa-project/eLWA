@@ -113,54 +113,55 @@ def main(args):
             scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
             print '    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S'))
             
+            freq_comb = []
             for b,offset in enumerate(fqoffsets):
-                print '    IF #%i' % (b+1,)
-                crd = uvw[match,:]
-                vis = flux[match,b,:,:]
-                
-                nBL = len(bbls)
-                times = times[0::nBL]
-                crd.shape = (crd.shape[0]/nBL, nBL, 1, 3)
-                vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1], vis.shape[2])
-                print '      Scan/IF contains %i times, %i baselines, %i channels, %i polarizations' % vis.shape
-                
-                if vis.shape[0] < 5:
-                    print '        Too few integrations, skipping'
-                    vis[:,:,:,:] = numpy.nan
-                else:
-                    for j in xrange(nBL):
-                        for k in xrange(nStk):
-                            vis[:,j,:,k] = incoherent(freq+offset, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
-                vis.shape = (vis.shape[0]*vis.shape[1], vis.shape[2], vis.shape[3])
-                flux[match,b,:,:] = vis
-                
-                print '      Saving polarization masks'
-                submask = numpy.where(numpy.isfinite(vis), False, True)
-                submask.shape = (len(match), flux.shape[2], flux.shape[3])
-                mask[match,b,:,:] = submask
-                
-                print '      Statistics for this scan/IF'
-                print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,b,:,0].sum()/mask[match,b,:,0].size,)
-                print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,b,:,1].sum()/mask[match,b,:,0].size,)
-                print '      -> Elapsed - %.3f s' % (time.time()-tS,)
-                
+                freq_comb.append( freq + offset)
+            freq_comb = numpy.concatenate(freq_comb)
+            
+            vis = flux[match,:,:,:]
+            nBL = len(bbls)
+            vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
+            print '      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape
+            
+            if vis.shape[0] < 5:
+                print '        Too few integrations, skipping'
+                vis[:,:,:,:] = numpy.nan
+            else:
+                for j in xrange(nBL):
+                    for k in xrange(nStk):
+                        vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
+            vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]/len(fqoffsets), vis.shape[3])
+            
+            flux[match,:,:,:] = vis
+            
+            print '      Saving polarization masks'
+            submask = numpy.where(numpy.isfinite(vis), False, True)
+            submask.shape = (len(match), flux.shape[1], flux.shape[2], flux.shape[3])
+            mask[match,:,:,:] = submask
+            
+            print '      Statistics for this scan'
+            print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,)
+            print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,)
+            print '      -> Elapsed - %.3f s' % (time.time()-tS,)
+            
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
-        ## Old flags
-        if fgdata is not None:
-            for row in fgdata.data:
-                ants.append( row['ANTS'] )
-                times.append( row['TIMERANG'] )
-                try:
-                    len(row['BANDS'])
-                    bands.append( row['BANDS'] )
-                except TypeError:
-                    bands.append( [row['BANDS'],] )
-                chans.append( row['CHANS'] )
-                pols.append( row['PFLAGS'] )
-                reas.append( row['REASON'] )
-                sevs.append( row['SEVERITY'] )
+        if not args.drop:
+            ## Old flags
+            if fgdata is not None:
+                for row in fgdata.data:
+                    ants.append( row['ANTS'] )
+                    times.append( row['TIMERANG'] )
+                    try:
+                        len(row['BANDS'])
+                        bands.append( row['BANDS'] )
+                    except TypeError:
+                        bands.append( [row['BANDS'],] )
+                    chans.append( row['CHANS'] )
+                    pols.append( row['PFLAGS'] )
+                    reas.append( row['REASON'] )
+                    sevs.append( row['SEVERITY'] )
         ## New Flags
         obsdates.shape = (obsdates.shape[0]/nBL, nBL)
         obstimes.shape = (obstimes.shape[0]/nBL, nBL)
@@ -222,7 +223,24 @@ def main(args):
         flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
         flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
         
-        # Insert the new table right before UV_DATA
+        # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
+        if args.drop:
+            ## Reset the EXTVER on the new FLAG table
+            flags.header['EXTVER'] = (1, 'table instance number')
+            ## Find old tables 
+            toRemove = [] 
+            for hdu in hdulist: 
+                try: 
+                    if hdu.header['EXTNAME'] == 'FLAG': 
+                        toRemove.append( hdu ) 
+                except KeyError: 
+                    pass 
+            ## Remove old tables 
+            for hdu in toRemove: 
+                ver = hdu.header['EXTVER'] 
+                del hdulist[hdulist.index(hdu)] 
+                print "  WARNING: removing old FLAG table - version %i" % ver 
+        ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
         # Save
@@ -276,6 +294,8 @@ if __name__ == "__main__":
                         help='dispersion measure to correct for in pc / cm^3')
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
+    parser.add_argument('-d', '--drop', action='store_true', 
+                        help='drop all existing FLAG tables')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
