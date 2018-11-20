@@ -175,7 +175,7 @@ def main(args):
         bl = plot_bls[b]
         valid = numpy.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF
-        vis = numpy.ma.array(flux[valid,0,:,polMapper[args.polToPlot]], mask=mask[valid,0,:,polMapper[args.polToPlot]])
+        vis = numpy.ma.array(flux[valid,args.band-1,:,polMapper[args.polToPlot]], mask=mask[valid,args.band-1,:,polMapper[args.polToPlot]])
         dTimes = obsdates[valid] + obstimes[valid]
         dTimes -= dTimes[0]
         dTimes *= 86400.0
@@ -236,6 +236,8 @@ if __name__ == "__main__":
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
+    parser.add_argument('-i', '--band', type=int, default=1, 
+                        help='IF to plot')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
                         help='plot XX data')
