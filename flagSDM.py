@@ -89,21 +89,22 @@ def main(args):
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
-        ## Old flags
-        if fgdata is not None:
-            for row in fgdata.data:
-                ants.append( row['ANTS'] )
-                times.append( row['TIMERANG'] )
-                try:
-                    len(row['BANDS'])
-                    bands.append( row['BANDS'] )
-                except TypeError:
-                    bands.append( [row['BANDS'],] )
-                chans.append( row['CHANS'] )
-                pols.append( row['PFLAGS'] )
-                reas.append( row['REASON'] )
-                sevs.append( row['SEVERITY'] )
-                
+        if not args.drop:
+            ## Old flags
+            if fgdata is not None:
+                for row in fgdata.data:
+                    ants.append( row['ANTS'] )
+                    times.append( row['TIMERANG'] )
+                    try:
+                        len(row['BANDS'])
+                        bands.append( row['BANDS'] )
+                    except TypeError:
+                        bands.append( [row['BANDS'],] )
+                    chans.append( row['CHANS'] )
+                    pols.append( row['PFLAGS'] )
+                    reas.append( row['REASON'] )
+                    sevs.append( row['SEVERITY'] )
+                    
         # Filter the SDM flags for what is relevant for this file
         fileStart = obsdates[ 0] + obstimes[ 0]
         fileStop  = obsdates[-1] + obstimes[-1]
@@ -156,7 +157,24 @@ def main(args):
         if args.sdm is not None:
             flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(args.sdm))
         
-        # Insert the new table right before UV_DATA
+        # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
+        if args.drop:
+            ## Reset the EXTVER on the new FLAG table
+            flags.header['EXTVER'] = (1, 'table instance number')
+            ## Find old tables 
+            toRemove = [] 
+            for hdu in hdulist: 
+                try: 
+                    if hdu.header['EXTNAME'] == 'FLAG': 
+                        toRemove.append( hdu ) 
+                except KeyError: 
+                    pass 
+            ## Remove old tables 
+            for hdu in toRemove: 
+                ver = hdu.header['EXTVER'] 
+                del hdulist[hdulist.index(hdu)] 
+                print "  WARNING: removing old FLAG table - version %i" % ver 
+        ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
         # Save
@@ -203,6 +221,8 @@ if __name__ == "__main__":
                         help='VLA SDM used for flagging')
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
+    parser.add_argument('-d', '--drop', action='store_true', 
+                        help='drop all existing FLAG tables')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
