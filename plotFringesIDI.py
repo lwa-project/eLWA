@@ -74,7 +74,7 @@ def main(args):
     ## Time of each integration
     obsdates = uvdata.data['DATE']
     obstimes = uvdata.data['TIME']
-    
+    inttimes = uvdata.data['INTTIM']
     ## Source list
     srcs = uvdata.data['SOURCE']
     ## Band information
@@ -110,6 +110,9 @@ def main(args):
     # Build a mask
     mask = numpy.zeros(flux.shape, dtype=numpy.bool)
     if fgdata is not None:
+        reltimes = obsdates - obsdates[0] + obstimes
+        mintimes = reltimes - inttimes / 2.0
+        
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
             if ant1 == ant2 and ant1 != 0:
@@ -124,14 +127,14 @@ def main(args):
             if cStop == 0:
                 cStop = -1
             if ant1 == 0 and ant2 == 0:
-                btmask = numpy.where( ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+                btmask = numpy.where( ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
             elif ant1 == 0 or ant2 == 0:
                 ant1 = max([ant1, ant2])
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
-                                      & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+                                      & ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
             else:
                 btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
-                                      & ( ((obsdates+obstimes-obsdates[0]) >= tStart) & ((obsdates+obstimes-obsdates[0]) <= tStop) ) )[0]
+                                      & ( (reltimes >= tStart) & (mintimes <= tStop) ) )[0]
             for b,v in enumerate(band):
                 for p,w in enumerate(row['PFLAGS']):
                     mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
