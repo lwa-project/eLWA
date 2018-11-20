@@ -500,18 +500,17 @@ class IDI(object):
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
-        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
-        
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['comment'] = comment
+                primary.header['COMMENT'] = comment
             del self._comments
         except AttributeError:
             pass
+        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['history'] = hist
+                primary.header['HISTORY'] = hist
             del self._history
         except AttributeError:
             pass
@@ -1281,18 +1280,17 @@ class AIPS(IDI):
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
-        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
-        
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['comment'] = comment
+                primary.header['COMMENT'] = comment
             del self._comments
         except AttributeError:
             pass
+        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['history'] = hist
+                primary.header['HISTORY'] = hist
             del self._history
         except AttributeError:
             pass
@@ -1358,18 +1356,17 @@ class ExtendedIDI(IDI):
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
-        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
-        
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['comment'] = comment
+                primary.header['COMMENT'] = comment
             del self._comments
         except AttributeError:
             pass
+        primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['history'] = hist
+                primary.header['HISTORY'] = hist
             del self._history
         except AttributeError:
             pass
