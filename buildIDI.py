@@ -295,6 +295,7 @@ def main(args):
                 fits.setStokes(['XX', 'XY', 'YX', 'YY'])
             fits.setFrequency(freq)
             fits.setGeometry(stations.lwa1, [a for a in antennas if a.pol == 0])
+            fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
             print "Opening %s for writing" % outname
             
         if i % 10 == 0:
