@@ -32,7 +32,7 @@ def main(args):
     # Parse the command line
     ## Baseline list
     if args.baseline is not None:
-        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in arg.baseline.split(',')]]
+        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in args.baseline.split(',')]]
         ## Fill the baseline list with the conjugates, if needed
         newBaselines = []
         for pair in args.baseline:

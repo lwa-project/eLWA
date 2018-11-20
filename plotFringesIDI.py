@@ -28,7 +28,7 @@ def main(args):
     # Parse the command line
     ## Baseline list
     if args.baseline is not None:
-        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in arg.baseline.split(',')]]
+        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in args.baseline.split(',')]]
         ## Fill the baseline list with the conjugates, if needed
         newBaselines = []
         for pair in args.baseline:
@@ -112,7 +112,7 @@ def main(args):
     if fgdata is not None:
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
-            if ant1 == ant2:
+            if ant1 == ant2 and ant1 != 0:
                 continue
             tStart, tStop = row['TIMERANG']
             band = row['BANDS']
