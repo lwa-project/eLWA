@@ -191,53 +191,69 @@ def main(args):
         bl = plot_bls[b]
         valid = numpy.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF
-        vis = numpy.ma.array(flux[valid,args.band-1,:,polMapper[args.polToPlot]], mask=mask[valid,args.band-1,:,polMapper[args.polToPlot]])
         dTimes = obsdates[valid] + obstimes[valid]
         dTimes -= dTimes[0]
         dTimes *= 86400.0
         
-        ax = fig1.add_subplot(nRow, nCol, k+1)
-        ax.imshow(numpy.ma.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
-        ax.axis('auto')
-        ax.set_xlabel('Frequency [MHz]')
-        ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-        ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
-        ax.set_ylim((dTimes[0], dTimes[-1]))
-        
-        ax = fig2.add_subplot(nRow, nCol, k+1)
-        amp = numpy.ma.abs(vis)
-        vmin, vmax = percentile(amp, 1), percentile(amp, 99)
-        ax.imshow(amp, extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
-        ax.axis('auto')
-        ax.set_xlabel('Frequency [MHz]')
-        ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-        ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
-        ax.set_ylim((dTimes[0], dTimes[-1]))
-                
-        ax = fig3.add_subplot(nRow, nCol, k+1)
-        ax.plot(freq/1e6, numpy.ma.abs(vis.mean(axis=0)))
-        ax.set_xlabel('Frequency [MHz]')
-        ax.set_ylabel('Mean Vis. Amp. [lin.]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-        ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
-        
-        ax = fig4.add_subplot(nRow, nCol, k+1)
-        ax.plot(dTimes, numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
-        ax.set_ylim((-180, 180))
-        ax.set_xlabel('Elapsed Time [s]')
-        ax.set_ylabel('Mean Vis. Phase [deg]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-        ax.set_xlim((dTimes[0], dTimes[-1]))
-        
+        ax1, ax2, ax3, ax4 = None, None, None, None
+        for band,offset in enumerate(fqoffsets):
+            frq = freq + offset
+            vis = numpy.ma.array(flux[valid,band,:,polMapper[args.polToPlot]], mask=mask[valid,band,:,polMapper[args.polToPlot]])
+            
+            ax1 = fig1.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax1)
+            ax1.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+            ax1.axis('auto')
+            ax1.set_xlabel('Frequency [MHz]')
+            if band == 0:
+                ax1.set_ylabel('Elapsed Time [s]')
+            ax1.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax1.set_xlim((frq[0]/1e6, frq[-1]/1e6))
+            ax1.set_ylim((dTimes[0], dTimes[-1]))
+            
+            ax2 = fig2.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax2)
+            amp = numpy.ma.abs(vis)
+            vmin, vmax = percentile(amp, 1), percentile(amp, 99)
+            ax2.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
+            ax2.axis('auto')
+            ax2.set_xlabel('Frequency [MHz]')
+            if band == 0:
+                ax2.set_ylabel('Elapsed Time [s]')
+            ax2.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax2.set_xlim((frq[0]/1e6, frq[-1]/1e6))
+            ax2.set_ylim((dTimes[0], dTimes[-1]))
+                    
+            ax3 = fig3.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax3)
+            ax3.plot(frq/1e6, numpy.ma.abs(vis.mean(axis=0)))
+            ax3.set_xlabel('Frequency [MHz]')
+            if band == 0:
+                ax3.set_ylabel('Mean Vis. Amp. [lin.]')
+            ax3.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax3.set_xlim((frq[0]/1e6, frq[-1]/1e6))
+            
+            ax4 = fig4.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax4)
+            ax4.plot(dTimes, numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
+            ax4.set_ylim((-180, 180))
+            ax4.set_xlabel('Elapsed Time [s]')
+            if band == 0:
+                ax4.set_ylabel('Mean Vis. Phase [deg]')
+            ax4.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax4.set_xlim((dTimes[0], dTimes[-1]))
+            
+            if band > 0:
+                for ax in (ax1, ax2, ax3, ax4):
+                    plt.setp(ax.get_yticklabels(), visible=False)
+            if band < nBand-1:
+                for ax in (ax1, ax2, ax3, ax4):
+                    xticks = ax.xaxis.get_major_ticks()
+                    xticks[-1].label1.set_visible(False)
+                    
         k += 1
         
-    fig1.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig2.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig3.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig4.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    
+    for f in (fig1, fig2, fig3, fig4):
+        f.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
+        if nBand > 1:
+            f.subplots_adjust(wspace=0.0)
+            
     plt.show()
 
 
@@ -252,8 +268,6 @@ if __name__ == "__main__":
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
-    parser.add_argument('-i', '--band', type=int, default=1, 
-                        help='IF to plot')
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
     pgroup = parser.add_mutually_exclusive_group(required=False)
