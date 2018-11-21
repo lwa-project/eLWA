@@ -284,8 +284,16 @@ def main(args):
         ## Open and create a new primary HDU
         hdulist2 = pyfits.open(outname, mode='append')
         primary =	pyfits.PrimaryHDU()
+        processed = []
         for key in hdulist[0].header:
-            primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
+            if key in ('COMMENT', 'HISTORY'):
+                if key not in processed:
+                    parts = str(hdulist[0].header[key]).split('\n')
+                    for part in parts:
+                        primary.header[key] = part
+                    processed.append(key)
+            else:
+                primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
         hdulist2.append(primary)
         hdulist2.flush()
         ## Copy the extensions over to the new file
