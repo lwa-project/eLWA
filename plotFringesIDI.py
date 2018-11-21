@@ -169,10 +169,10 @@ def main(args):
         freq = freq.mean(axis=1)
         
         flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]/args.decimate, args.decimate, flux.shape[3])
-        flux = flux.mean(axis=2)
+        flux = flux.mean(axis=3)
         
         mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimate, args.decimate, mask.shape[3])
-        mask = mask.mean(axis=2)
+        mask = mask.mean(axis=3)
         
     good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
     
