@@ -99,6 +99,37 @@ def main(args):
                     blocks.append( [v,v] )
         blocks.sort()
         
+        # Create a mask of the old flags, if needed
+        old_flag_mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        if not args.drop and fgdata is not None:
+            reltimes = obsdates - obsdates[0] + obstimes
+            maxtimes = reltimes + inttimes / 2.0 / 86400.0
+            mintimes = reltimes - inttimes / 2.0 / 86400.0
+            
+            for row in fgdata.data:
+                ant1, ant2 = row['ANTS']
+                tStart, tStop = row['TIMERANG']
+                band = row['BANDS']
+                try:
+                    len(band)
+                except TypeError:
+                    band = [band,]
+                cStart, cStop = row['CHANS']
+                if cStop == 0:
+                    cStop = -1
+                if ant1 == 0 and ant2 == 0:
+                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                elif ant1 == 0 or ant2 == 0:
+                    ant1 = max([ant1, ant2])
+                    btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
+                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                else:
+                    btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
+                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                for b,v in enumerate(band):
+                    for p,w in enumerate(row['PFLAGS']):
+                        old_flag_mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
+                        
         # Dedisperse
         mask = numpy.zeros(flux.shape, dtype=numpy.bool)
         for i,block in enumerate(blocks):
@@ -119,18 +150,23 @@ def main(args):
             freq_comb = numpy.concatenate(freq_comb)
             
             vis = flux[match,:,:,:]
+            ofm = old_flag_mask[match,:,:,:]
             nBL = len(bbls)
             vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
+            ofm.shape = (ofm.shape[0]/nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
             print '      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape
             
             if vis.shape[0] < 5:
                 print '        Too few integrations, skipping'
                 vis[:,:,:,:] = numpy.nan
+                ofm[:,:,:,:] = True
             else:
                 for j in xrange(nBL):
                     for k in xrange(nStk):
                         vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
+                        ofm[:,j,:,k] = incoherent(freq_comb, ofm[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=True)
             vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]/len(fqoffsets), vis.shape[3])
+            ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]/len(fqoffsets), ofm.shape[3])
             
             flux[match,:,:,:] = vis
             
@@ -144,24 +180,12 @@ def main(args):
             print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,)
             print '      -> Elapsed - %.3f s' % (time.time()-tS,)
             
+            # Add in the original flag mask
+            mask[match,:,:,:] |= ofm
+            
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
-        if not args.drop:
-            ## Old flags
-            if fgdata is not None:
-                for row in fgdata.data:
-                    ants.append( row['ANTS'] )
-                    times.append( row['TIMERANG'] )
-                    try:
-                        len(row['BANDS'])
-                        bands.append( row['BANDS'] )
-                    except TypeError:
-                        bands.append( [row['BANDS'],] )
-                    chans.append( row['CHANS'] )
-                    pols.append( row['PFLAGS'] )
-                    reas.append( row['REASON'] )
-                    sevs.append( row['SEVERITY'] )
         ## New Flags
         obsdates.shape = (obsdates.shape[0]/nBL, nBL)
         obstimes.shape = (obstimes.shape[0]/nBL, nBL)
@@ -263,8 +287,17 @@ def main(args):
         ## Open and create a new primary HDU
         hdulist2 = pyfits.open(outname, mode='append')
         primary =   pyfits.PrimaryHDU()
+        processed = []
         for key in hdulist[0].header:
-            primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
+            if key in ('COMMENT', 'HISTORY'):
+                if key not in processed:
+                    parts = str(hdulist[0].header[key]).split('\n')
+                    for part in parts:
+                        primary.header[key] = part
+                    processed.append(key)
+            else:
+                primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
+        primary.header['HISTORY'] = 'Dedispersed with %s, revision $Rev$' % os.path.basename(__file__)
         primary.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
         hdulist2.append(primary)
         hdulist2.flush()
@@ -282,7 +315,7 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print "  -> Flagged FITS IDI file is '%s'" % outname
+        print "  -> Dedispersed FITS IDI file is '%s'" % outname
         print "  Finished in %.3f s" % (time.time()-t0,)
 
 
