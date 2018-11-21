@@ -159,6 +159,21 @@ def main(args):
                 cross.append( i )
     nBL = len(cross)
     
+    # Decimation, if needed
+    if args.decimate > 1:
+        if nFreq % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+
+        nFreq /= args.decimate
+        freq.shape = (freq.size/args.decimate, args.decimate)
+        freq = freq.mean(axis=1)
+        
+        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]/args.decimate, args.decimate, flux.shape[3])
+        flux = flux.mean(axis=2)
+        
+        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimate, args.decimate, mask.shape[3])
+        mask = mask.mean(axis=2)
+        
     good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
     
     # NOTE: Assumed linear data
@@ -239,7 +254,7 @@ if __name__ == "__main__":
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-i', '--band', type=int, default=1, 
                         help='IF to plot')
-    parser.add_argument('-d', '--drop', action='store_true', 
+    parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
@@ -250,6 +265,8 @@ if __name__ == "__main__":
                         help='plot YX data')
     pgroup.add_argument('-y', '--yy', action='store_true', 
                         help='plot YY data')
+    parser.add_argument('-d', '--decimate', type=int, default=1, 
+                        help='frequency decimation factor')
     args = parser.parse_args()
     main(args)
     

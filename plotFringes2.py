@@ -243,7 +243,7 @@ if __name__ == "__main__":
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
-    parser.add_argument('-d', '--drop', action='store_true', 
+    parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop delay step mask when displaying')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
