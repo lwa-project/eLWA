@@ -44,8 +44,8 @@ LWASV_ECEF = numpy.array((-1531556.98709475, -5045435.8720832, 3579254.27947458)
 LWASV_LAT =   34.34841153053564 * numpy.pi/180
 LWASV_LON = -106.88582216960029 * numpy.pi/180
 LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
-                        [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
-                        [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
+                         [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
+                         [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
 
 
 def main(args):
@@ -262,6 +262,9 @@ def main(args):
                 sez = numpy.dot(LWA1_ROT, rho)
                 enz = sez[[1,0,2]]
                 enz[1] *= -1
+                
+                ## VLA time offset
+                off = args.vla_offset
                                 
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
@@ -270,7 +273,7 @@ def main(args):
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
                                               'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
                                               'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+                                              'clockoffset': (off, off), 'fileoffset': 0, 
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
@@ -316,6 +319,9 @@ def main(args):
                 ### z offset from pad height to elevation bearing
                 enz[2] += 11.0
                 
+                ## VLA time offset
+                off = args.vla_offset
+                
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -323,7 +329,7 @@ def main(args):
                 corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
                                               'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
                                               'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (0.0, 0.0), 'fileoffset': 0, 
+                                              'clockoffset': (off, off), 'fileoffset': 0, 
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
@@ -498,6 +504,27 @@ def main(args):
 
 
 if __name__ == "__main__":
+    # Helper function for validating the time offset options
+    def time_string(value):
+        try:
+            parseTimeString(value)
+        except Exception as e:
+            msg = "%r does not appear to be a time string"
+            raise argparse.ArgumentTypeError(msg)
+        return value.strip()
+        
+    # Cleanup the command line since argparse has a problem with the negative 
+    # clock offsets
+    for i in xrange(len(sys.argv)):
+        if sys.argv[i][0] == '-':
+            try:
+                time_string(sys.argv[i])
+                ## If we made it this far it looks like we have a time.  
+                ## Protect it with a leading space
+                sys.argv[i] = " %s" % sys.argv[i]
+            except:
+                pass
+                
     parser = argparse.ArgumentParser(
         description='given a collection of LWA/VLA data files, or a directory containing LWA/VLA/eLWA data files, generate a configuration file for superCorrelator.py',
         epilog="If 'filename' is a directory, only the first argument is used to find data files.", 
@@ -505,10 +532,12 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='file or directory name to process')
-    parser.add_argument('-l', '--lwa1-offset', type=str, default=0.0, 
+    parser.add_argument('-l', '--lwa1-offset', type=time_string, default='0.0', 
                         help='LWA1 clock offset')
-    parser.add_argument('-s', '--lwasv-offset', type=str, default=0.0, 
+    parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 
                         help='LWA-SV clock offset')
+    parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
+                        help='VLA clock offset')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
     args = parser.parse_args()
