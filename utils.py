@@ -31,9 +31,9 @@ import guppi
 __version__ = '0.5'
 __revision__ = '$Rev$'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
-        'multiColumnPrint', 'parseTimeString', 'nsround', 'readCorrelatorConfiguration', 
-        'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCos', 
-        '__version__', '__revision__', '__all__']
+           'multiColumnPrint', 'parseTimeString', 'nsround', 'readCorrelatorConfiguration', 
+           'getBetterTime', 'readGUPPIHeader', 'parseLWAMetaData', 'PolyCos', 
+           '__version__', '__revision__', '__all__']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -242,13 +242,15 @@ def multiColumnPrint(items, sep=';  ', width=86):
         print out
 
 
-_timeRE = re.compile('[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>[mun]?s)?[ \t]*')
+_timeRE = re.compile('^[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>(([kmun]?s)|h|m))?[ \t]*$')
 def parseTimeString(value):
     """
     Given a time in the format of "decimal_value unit", convert the string 
     to a floating point time in seconds.  Valid units are:
+      * h  - hours
       * ks - kiloseconds
-      * s - seconds
+      * m  - minutes
+      * s  - seconds
       * ms - milliseconds
       * us - microseconds
       * ns - nanoseconds
@@ -265,8 +267,12 @@ def parseTimeString(value):
         value = float(mtch.group('value'))
         unit = mtch.group('unit')
         if unit is not None:
-            if unit == 'ks':
+            if unit == 'h':
+                value *= 3600.0
+            elif unit == 'ks':
                 value *= 1e3
+            elif unit == 'm':
+                value *= 60.0
             elif unit == 'ms':
                 value *= 1e-3
             elif unit == 'us':
