@@ -304,7 +304,7 @@ def main(args):
                 visRL = visQ + 1j*visU
                 visLR = visQ - 1j*visU
                 visLL = visI - visV
-                r
+                
         if i % args.split == 0:
             ## Clean up the previous file
             try:
