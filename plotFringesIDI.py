@@ -19,6 +19,7 @@ from datetime import datetime
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
+from lsl.writer.fitsidi import NumericStokes
 
 from matplotlib import pyplot as plt
 
@@ -56,12 +57,6 @@ def main(args):
                 fgdata = hdu
     uvdata = hdulist['UV_DATA']
     
-    # Verify we can flag this data
-    if uvdata.header['STK_1'] > 0:
-        raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
-    if uvdata.header['NO_STKD'] < 4:
-        raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
-        
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
     antLookup = {}
@@ -69,6 +64,7 @@ def main(args):
         antLookup[an] = ai
     ## Frequency and polarization setup
     nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
+    stk0 = uvdata.header['STK_1']
     ## Baseline list
     bls = uvdata.data['BASELINE']
     ## Time of each integration
@@ -176,13 +172,18 @@ def main(args):
         
     good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
     
-    # NOTE: Assumed linear data
+    # NOTE: Assumes that the Stokes parameters increment by -1
+    namMapper = {}
+    for i in xrange(nStk):
+        stk = stk0 - i
+        namMapper[i] = NumericStokes[stk]
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
     
     fig1 = plt.figure()
     fig2 = plt.figure()
     fig3 = plt.figure()
     fig4 = plt.figure()
+    fig5 = plt.figure()
     
     k = 0
     nRow = int(numpy.sqrt( len(plot_bls) ))
@@ -195,7 +196,7 @@ def main(args):
         dTimes -= dTimes[0]
         dTimes *= 86400.0
         
-        ax1, ax2, ax3, ax4 = None, None, None, None
+        ax1, ax2, ax3, ax4, ax5 = None, None, None, None, None
         for band,offset in enumerate(fqoffsets):
             frq = freq + offset
             vis = numpy.ma.array(flux[valid,band,:,polMapper[args.polToPlot]], mask=mask[valid,band,:,polMapper[args.polToPlot]])
@@ -206,7 +207,7 @@ def main(args):
             ax1.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax1.set_ylabel('Elapsed Time [s]')
-            ax1.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax1.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
             ax1.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax1.set_ylim((dTimes[0], dTimes[-1]))
             
@@ -218,7 +219,7 @@ def main(args):
             ax2.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax2.set_ylabel('Elapsed Time [s]')
-            ax2.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax2.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
             ax2.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax2.set_ylim((dTimes[0], dTimes[-1]))
                     
@@ -227,29 +228,37 @@ def main(args):
             ax3.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax3.set_ylabel('Mean Vis. Amp. [lin.]')
-            ax3.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+            ax3.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
             ax3.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             
             ax4 = fig4.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax4)
-            ax4.plot(dTimes, numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
-            ax4.set_ylim((-180, 180))
-            ax4.set_xlabel('Elapsed Time [s]')
+            ax4.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+            ax4.set_xlim((-180, 180))
+            ax4.set_xlabel('Mean Vis. Phase [deg]')
             if band == 0:
-                ax4.set_ylabel('Mean Vis. Phase [deg]')
-            ax4.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-            ax4.set_xlim((dTimes[0], dTimes[-1]))
+                ax4.set_ylabel('Elapsed Time [s]')
+            ax4.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax4.set_ylim((dTimes[0], dTimes[-1]))
+            
+            ax5 = fig5.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax5)
+            ax5.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+            ax5.set_xlabel('Mean Vis. Amp. [lin.]')
+            if band == 0:
+                ax5.set_ylabel('Elapsed Time [s]')
+            ax5.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax5.set_ylim((dTimes[0], dTimes[-1]))
             
             if band > 0:
-                for ax in (ax1, ax2, ax3, ax4):
+                for ax in (ax1, ax2, ax3, ax4, ax5):
                     plt.setp(ax.get_yticklabels(), visible=False)
             if band < nBand-1:
-                for ax in (ax1, ax2, ax3, ax4):
+                for ax in (ax1, ax2, ax3, ax4, ax5):
                     xticks = ax.xaxis.get_major_ticks()
                     xticks[-1].label1.set_visible(False)
                     
         k += 1
         
-    for f in (fig1, fig2, fig3, fig4):
+    for f in (fig1, fig2, fig3, fig4, fig5):
         f.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
         if nBand > 1:
             f.subplots_adjust(wspace=0.0)

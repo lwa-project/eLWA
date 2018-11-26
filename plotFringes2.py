@@ -179,6 +179,7 @@ def main(args):
     fig2 = plt.figure()
     fig3 = plt.figure()
     fig4 = plt.figure()
+    fig5 = plt.figure()
     
     k = 0
     nRow = int(numpy.sqrt( len(bls) ))
@@ -215,20 +216,25 @@ def main(args):
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
-        ax.plot(dTimes, numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, linestyle='', marker='+')
-        ax.set_ylim((-180, 180))
-        ax.set_xlabel('Elapsed Time [s]')
-        ax.set_ylabel('Mean Vis. Phase [deg]')
+        ax.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+        ax.set_xlim((-180, 180))
+        ax.set_xlabel('Mean Vis. Phase [deg]')
+        ax.set_ylabel('Elapsed Time [s]')
         ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
-        ax.set_xlim((dTimes[0], dTimes[-1]))
+        ax.set_ylim((dTimes[0], dTimes[-1]))
+        
+        ax = fig5.add_subplot(nRow, nCol, k+1)
+        ax.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+        ax.set_xlabel('Mean Vis. Amp. [lin.]')
+        ax.set_ylabel('Elapsed Time [s]')
+        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_ylim((dTimes[0], dTimes[-1]))
         
         k += 1
         
-    fig1.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig2.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig3.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    fig4.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
-    
+    for f in (fig1, fig2, fig3, fig4, fig5):
+        f.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
+        
     plt.show()
 
 
