@@ -12,87 +12,21 @@ import os
 import sys
 import time
 import numpy
-import getopt
 import pyfits
-
-
-def usage(exitCode=None):
-    print """copyFlagIDI.py - Copy the FLAG tables from one FITS-IDI file to another
-
-Usage:
-copyFlagIDI.py [OPTIONS] <src_fits_file> <dest_fits_file>
-
-Options:
--h, --help          Display this help information
--f, --force         Force overwriting of existing FITS-IDI file
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['force'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hf", ["help", "force"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if len(config['args']) != 2:
-        raise RuntimeError("Must provide a flag source and destination filename")
-        
-    # Return configuration
-    return config
+import argparse
 
 
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    srcname = config['args'][0]
-    dstname = config['args'][1]
+    srcname = args.source_filename
+    dstname = args.filename
     
     # Open
     t0 = time.time()
     srclist = pyfits.open(srcname, mode='readonly')
     dstlist = pyfits.open(dstname, mode='readonly')
     
-    # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
-    ## Find old tables
-    toRemove = []
-    for hdu in dstlist:
-        try:
-            if hdu.header['EXTNAME'] == 'FLAG':
-                toRemove.append( hdu )
-        except KeyError:
-            pass
-    ## Remove old tables
-    for hdu in toRemove:
-        ver = hdu.header['EXTVER']
-        del dstlist[dstlist.index(hdu)]
-        print "  WARNING: removing old FLAG table - version %i" % ver
-    ## Find the new table
+    # Find the FLAG tables to be copied
     toCopy = []
     for hdu in srclist:
         try:
@@ -102,9 +36,11 @@ def main(args):
             pass
     if len(toCopy) == 0:
         raise RuntimeError("No FLAG tables found in '%s'" % os.path.basename(srcname))
-    ## Insert the new table right before UV_DATA
+        
+    # Insert the new tables right before UV_DATA
     for hdu in toCopy:
         dstlist.insert(-1, hdu)
+        dstlist[-2].header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
         dstlist[-2].header['HISTORY'] = 'Copied from \'%s\'' % os.path.basename(srcname)
         
     # Save
@@ -115,7 +51,7 @@ def main(args):
     outname = '%s_flagged%s' % (outname, outext)
     ## Does it already exist or not
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
@@ -127,8 +63,16 @@ def main(args):
     ## Open and create a new primary HDU
     hdulist2 = pyfits.open(outname, mode='append')
     primary =	pyfits.PrimaryHDU()
-    for key in dstlist[0].header:
-        primary.header[key] = (dstlist[0].header[key], dstlist[0].header.comments[key])
+    processed = []
+    for key in hdulist[0].header:
+        if key in ('COMMENT', 'HISTORY'):
+            if key not in processed:
+                parts = str(hdulist[0].header[key]).split('\n')
+                for part in parts:
+                    primary.header[key] = part
+                processed.append(key)
+        else:
+            primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
     hdulist2.append(primary)
     hdulist2.flush()
     ## Copy the extensions over to the new file
@@ -144,5 +88,16 @@ def main(args):
 
 if __name__ == "__main__":
     numpy.seterr(all='ignore')
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='copy the FLAG tables from one FITS-IDI file to another', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('source_filename', type=str, 
+                        help='filename to copy the FLAG tables from')
+    parser.add_argument('filename', type=str, 
+                        help='filename to add the FLAG tables to')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwriting of existing FITS-IDI files')
+    args = parser.parse_args()
+    main(args)
     
