@@ -18,8 +18,8 @@ from lsl.common.paths import data as dataPath
 
 __version__ = '0.3'
 __revision__ = '$Rev$'
-__all__ = ['getLWAAntennaGain', 'getMatrixLWA', 'getMatrixVLA', 'applyMatrix', 
-        '__version__', '__revision__', '__all__']
+__all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 
+           'apply_matrix']
 
 
 beamDict = numpy.load(os.path.join(dataPath, 'lwa1-dipole-emp.npz'))
@@ -50,7 +50,7 @@ for pol,beamCoeff in zip(('X', 'Y'), (beamDict['fitX'], beamDict['fitY'])):
         beamFuncY = BeamPattern
 
 
-def getLWAAntennaGain(site, src):
+def get_lwa_antenna_gain(site, src):
     # Basic location/source parameters
     az, el = src.az, src.alt
     az *= 180/numpy.pi
@@ -63,7 +63,7 @@ def getLWAAntennaGain(site, src):
     return bx, by
 
 
-def getMatrixLWA(site, src, inverse=False):
+def get_matrix_lwa(site, src, inverse=False):
     """
     Given an ephem.Observer instances and an ephem.Body instance, get the 
     Jones matrix for an LWA station for the direction towards the source.
@@ -99,7 +99,7 @@ def getMatrixLWA(site, src, inverse=False):
     return matrix
 
 
-def getMatrixVLA(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00.0')):
+def get_matrix_vla(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00.0')):
     """
     Given an ephem.Observer instances and an ephem.Body instance, get the 
     Jones matrix for the VLA for the direction towards the source.
@@ -135,7 +135,7 @@ def getMatrixVLA(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00.0
     return matrix
 
 
-def applyMatrix(data, matrix):
+def apply_matrix(data, matrix):
     """
     Given a 2-D data streams (inputs by time) and a 2-D Jones matrix, apply 
     the matrix to the data.

@@ -712,16 +712,16 @@ def main(args):
             
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
-                dipoleX, dipoleY = jones.getLWAAntennaGain(observer, refSrc)
+                dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc)
                 dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
                 dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
                 
             ## Get the Jones matrices and apply
             ## NOTE: This moves the LWA into the frame of the VLA
             if nVDIFInputs*nDRXInputs > 0:
-                lwaToSky = jones.getMatrixLWA(observer, refSrc)
-                skyToVLA = jones.getMatrixVLA(observer, refSrc, inverse=True)
-                dataDSub = jones.applyMatrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
+                lwaToSky = jones.get_matrix_lwa(observer, refSrc)
+                skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
+                dataDSub = jones.apply_matrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
                 
             ## Correlate
             delayPadding = multirate.getOptimalDelayPadding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
