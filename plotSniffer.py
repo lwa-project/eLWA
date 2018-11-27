@@ -20,7 +20,7 @@ from datetime import datetime
 from lsl.statistics import robust
 from lsl.misc.mathutil import to_dB
 
-from utils import readCorrelatorConfiguration
+from utils import read_correlator_configuration
 
 from matplotlib import pyplot as plt
 
@@ -143,7 +143,7 @@ def main(args):
     for line in cConfig:
         fh.write('%s\n' % line)
     fh.close()
-    refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
+    refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
     os.unlink(tempConfig)
     
     dataDict.close()

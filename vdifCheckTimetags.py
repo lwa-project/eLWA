@@ -153,7 +153,7 @@ def main(args):
         filename = args[0]
         
     fh = open(filename, 'rb')
-    header = readGUPPIHeader(fh)
+    header = read_guppi_header(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
     nThreads = getThreadCount(fh)
     nFramesFile = os.path.getsize(filename) / vdif.FrameSize

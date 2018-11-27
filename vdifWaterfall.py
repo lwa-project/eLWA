@@ -553,7 +553,7 @@ def main(args):
     # Open the file and find good data (not spectrometer data)
     filename = config['args'][0]
     fh = open(filename, "rb")
-    header = readGUPPIHeader(fh)
+    header = read_guppi_header(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
     nFramesFile = os.path.getsize(filename) / vdif.FrameSize
     

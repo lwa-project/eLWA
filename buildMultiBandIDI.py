@@ -31,7 +31,7 @@ from lsl.correlator.uvUtils import computeUVW
 from lsl.common.constants import c as vLight
 from lsl.common.mcs import datetime2mjdmpm
 
-from utils import readCorrelatorConfiguration
+from utils import read_correlator_configuration
 
 import fitsidi
 
@@ -163,7 +163,7 @@ def main(args):
     for line in cConfig:
         fh.write('%s\n' % line)
     fh.close()
-    refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
+    refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
     os.unlink(tempConfig)
     
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
@@ -218,7 +218,7 @@ def main(args):
         for line in cConfig:
             fh.write('%s\n' % line)
         fh.close()
-        refSrc, junk1, junk2, junk3, junk4, antennas = readCorrelatorConfiguration(tempConfig)
+        refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
             if refSrc.name[:12] == 'ELWA_SESSION':

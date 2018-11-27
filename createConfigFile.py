@@ -230,7 +230,7 @@ def main(args):
             ## VDIF
             try:
                 ## Read in the GUPPI header
-                header = readGUPPIHeader(fh)
+                header = read_guppi_header(fh)
                 
                 ## Read in the first frame
                 vdif.FrameSize = vdif.getFrameSize(fh)
@@ -284,7 +284,7 @@ def main(args):
             ## GUPPI Raw
             try:
                 ## Read in the GUPPI header
-                header = readGUPPIHeader(fh)
+                header = read_guppi_header(fh)
                 
                 ## Read in the first frame
                 guppi.FrameSize = guppi.getFrameSize(fh)
@@ -507,7 +507,7 @@ if __name__ == "__main__":
     # Helper function for validating the time offset options
     def time_string(value):
         try:
-            parseTimeString(value)
+            parse_time_string(value)
         except Exception as e:
             msg = "%r does not appear to be a time string"
             raise argparse.ArgumentTypeError(msg)

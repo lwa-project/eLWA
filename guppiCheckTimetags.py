@@ -31,7 +31,7 @@ def main(args):
         filename = args[0]
         
     fh = open(filename, 'rb')
-    header = readGUPPIHeader(fh)
+    header = read_guppi_header(fh)
     guppi.FrameSize = guppi.getFrameSize(fh)
     nThreads = guppi.getThreadCount(fh)
     nFramesFile = os.path.getsize(filename) / guppi.FrameSize
@@ -99,7 +99,7 @@ def main(args):
             
         station, thread = currFrame.parseID()
         currDate = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
-        print "->", thread, getBetterTime(currFrame), currFrame.header.offset % int(sampleRate) / guppi.DataLength
+        print "->", thread, get_better_time(currFrame), currFrame.header.offset % int(sampleRate) / guppi.DataLength
         currTime = currFrame.header.offset / int(sampleRate)
         currFrame = currFrame.header.offset % int(sampleRate) / guppi.DataLength
         

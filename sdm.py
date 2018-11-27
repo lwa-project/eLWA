@@ -18,8 +18,8 @@ from lsl.astro import utcjd_to_unix, MJD_OFFSET
 __version__ = '0.4'
 __revision__ = '$Rev$'
 __all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'get_antennas', 
-        'get_flags', 'filter_flags', 'get_requantizer_gains', 'filter_requantizer_gains', 
-        '__version__', '__revision__', '__all__']
+           'get_flags', 'filter_flags', 'get_requantizer_gains', 
+           'filter_requantizer_gains']
 
 
 def vla_to_utcmjd(timetag):

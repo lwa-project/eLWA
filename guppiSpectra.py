@@ -82,7 +82,7 @@ def main(args):
     LFFT = config['LFFT']
     
     fh = open(filename, 'rb')
-    header = readGUPPIHeader(fh)
+    header = read_guppi_header(fh)
     guppi.FrameSize = guppi.getFrameSize(fh)
     nFramesFile = os.path.getsize(filename) / guppi.FrameSize
     

@@ -94,7 +94,7 @@ def main(args):
     observer = site.getObserver()
     
     # Parse the correlator configuration
-    refSrc, filenames, metanames, foffsets, readers, antennas = readCorrelatorConfiguration(args.filename)
+    refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
     if args.duration == 0.0:
         args.duration = refSrc.duration
     args.duration = min([args.duration, refSrc.duration])
@@ -134,7 +134,7 @@ def main(args):
             print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clockOffset*1e6, antennas[2*i+1].cable.clockOffset*1e6)
         
         if readers[i] in (vdif, guppi):
-            header = readGUPPIHeader(fh[i])
+            header = read_guppi_header(fh[i])
             readers[i].FrameSize = readers[i].getFrameSize(fh[i])
             
         nFramesFile.append( os.path.getsize(filename) / readers[i].FrameSize )
@@ -216,7 +216,7 @@ def main(args):
         # Parse the metadata to get the delay steps
         delayStep = None
         if readers[i] is drx and metaname is not None:
-            delayStep = parseLWAMetaData(metaname)
+            delayStep = parse_lwa_metadata(metaname)
         delaySteps.append( delayStep )
         
         # Setup the frame buffers
@@ -490,7 +490,7 @@ def main(args):
                         if k == 0:
                             tStart.append( cFrame.getTime() )
                             tStart[-1] += grossOffsets[j]
-                            tStartB.append( getBetterTime(cFrame) )
+                            tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
                             
                             for p in (0,1):
@@ -527,7 +527,7 @@ def main(args):
                         if k == 0:
                             tStart.append( cFrame.getTime() )
                             tStart[-1] += grossOffsets[j]
-                            tStartB.append( getBetterTime(cFrame) )
+                            tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
                             
                             for p in (0,1):
@@ -566,7 +566,7 @@ def main(args):
                         if k == 0:
                             tStart.append( cFrame.getTime() )
                             tStart[-1] += grossOffsets[j]
-                            tStartB.append( getBetterTime(cFrame) )
+                            tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
                             
                             for p in (0,1):
