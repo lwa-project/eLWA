@@ -688,21 +688,21 @@ def main(args):
                 dataDSub = jones.apply_matrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
                 
             ## Correlate
-            delayPadding = multirate.getOptimalDelayPadding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
-                                                            LFFT=drxLFFT, SampleRate=srate[-1], 
-                                                            CentralFreq=cFreqs[-1][vdifPivot-1], 
-                                                            Pol='*', phaseCenter=refSrc)
+            delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
+                                                               LFFT=drxLFFT, SampleRate=srate[-1], 
+                                                               CentralFreq=cFreqs[-1][vdifPivot-1], 
+                                                               Pol='*', phaseCenter=refSrc)
             if nVDIFInputs > 0:
-                freqV, feoV, veoV, deoV = multirate.MRF(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
-                                                        SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
-                                                        Pol='*', phaseCenter=refSrc, 
-                                                        delayPadding=delayPadding)
+                freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
+                                                            SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
+                                                            Pol='*', phaseCenter=refSrc, 
+                                                            delayPadding=delayPadding)
                 
             if nDRXInputs > 0:
-                freqD, feoD, veoD, deoD = multirate.MRF(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-                                                        SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
-                                                        Pol='*', phaseCenter=refSrc, 
-                                                        delayPadding=delayPadding)
+                freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
+                                                            SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
+                                                            Pol='*', phaseCenter=refSrc, 
+                                                            delayPadding=delayPadding)
                 
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
             if nDRXInputs*nVDIFInputs > 0:
@@ -840,10 +840,10 @@ def main(args):
             except NameError:
                 sfreqXX = freqD
                 sfreqYY = freqD
-            svisXX = multirate.MRX(feoX, veoX, feoX, veoX)
-            svisXY = multirate.MRX(feoX, veoX, feoY, veoY)
-            svisYX = multirate.MRX(feoY, veoY, feoX, veoX)
-            svisYY = multirate.MRX(feoY, veoY, feoY, veoY)
+            svisXX = multirate.xengine(feoX, veoX, feoX, veoX)
+            svisXY = multirate.xengine(feoX, veoX, feoY, veoY)
+            svisYX = multirate.xengine(feoY, veoY, feoX, veoX)
+            svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
             
             ## Accumulate
             if subIntCount == 0:

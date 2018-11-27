@@ -27,42 +27,42 @@ from lsl.correlator.fx import noWindow
 
 __version__ = '0.1'
 __revision__ = '$Rev$'
-__all__ = ['justInTimeOptimizer', '__version__', '__revision__', '__all__']
+__all__ = ['JustInTimeOptimizer', '__version__', '__revision__', '__all__']
 
 
 # Setup
-_cacheDir = os.path.dirname( os.path.abspath(__file__) )
+_CACHE_DIR = os.path.dirname( os.path.abspath(__file__) )
 
 
-class justInTimeOptimizer(object):
+class JustInTimeOptimizer(object):
     # Mappings
     ## Real or complex
-    _callMapping = {'int8': 'real', 
-                    'int16': 'real', 
-                    'int32': 'real', 
-                    'int64': 'real', 
-                    'float32': 'real', 
-                    'float64': 'real', 
-                    'complex64': 'cplx', 
-                    'complex128': 'cplx'}
+    _call_mapping = {'int8': 'real', 
+                     'int16': 'real', 
+                     'int32': 'real', 
+                     'int64': 'real', 
+                     'float32': 'real', 
+                     'float64': 'real', 
+                     'complex64': 'cplx', 
+                     'complex128': 'cplx'}
     ## NumPy NPY_??? type
-    _numpyMapping = {'int8': 'INT8', 
-                     'int16': 'INT16', 
-                     'int32': 'INT32', 
-                     'int64': 'INT64', 
-                     'float32': 'FLOAT32', 
-                     'float64': 'FLOAT32', 
-                     'complex64': 'COMPLEX64', 
-                     'complex128': 'COMPLEX128'}
+    _numpy_mapping = {'int8': 'INT8', 
+                      'int16': 'INT16', 
+                      'int32': 'INT32', 
+                      'int64': 'INT64', 
+                      'float32': 'FLOAT32', 
+                      'float64': 'FLOAT32', 
+                      'complex64': 'COMPLEX64', 
+                      'complex128': 'COMPLEX128'}
     ## C type for accessing the NumPy Array
-    _ctypeMapping = {'int8': 'signed char', 
-                     'int16': 'short int', 
-                     'int32': 'int', 
-                     'int64': 'long int', 
-                     'float32': 'float', 
-                     'float64': 'double', 
-                     'complex64': 'float complex', 
-                     'complex128': 'double complex'}
+    _ctype_mapping = {'int8': 'signed char', 
+                      'int16': 'short int', 
+                      'int32': 'int', 
+                      'int64': 'long int', 
+                      'float32': 'float', 
+                      'float64': 'double', 
+                      'complex64': 'float complex', 
+                      'complex128': 'double complex'}
                      
     def __init__(self, cacheDir=None, verbose=True):
         # Setup the module cache and fill it
@@ -70,20 +70,20 @@ class justInTimeOptimizer(object):
             cacheDir = os.path.dirname(__file__)
         self.cacheDir = os.path.abspath(cacheDir)
         self._cache = {}
-        self._loadCacheDir(verbose=verbose)
+        self._load_cache_dir(verbose=verbose)
         
         # Setup the compiler
-        cc = self.getCompiler()
-        cflags, ldflags = self.getFlags()
+        cc = self.get_compiler()
+        cflags, ldflags = self.get_flags()
         self.cc = cc
         self.cflags = cflags
         self.ldflags = ldflags
         
         # Setup the template cache and fill it
         self._templates = {}
-        self._loadTemplates()
+        self._load_templates()
         
-    def _loadCacheDir(self, verbose=False):
+    def _load_cache_dir(self, verbose=False):
         """
         Populate the cache with with valid .so modules that have been found.
         """
@@ -121,7 +121,7 @@ class justInTimeOptimizer(object):
                 exec("import %s as loadedModule" % module)
                 exec("self._cache['%s'] = loadedModule" % module)
                 
-    def getCompiler(self):
+    def get_compiler(self):
         """
         Return the compiler to use for the JIT code generation.
         """
@@ -132,14 +132,14 @@ class justInTimeOptimizer(object):
         cc = compiler.compiler
         return cc[0]
         
-    def getFlags(self, cc=None):
+    def get_flags(self, cc=None):
         """
         Return a two-element tuple of CFLAGS and LDFLAGS for the compiler to use for
         JIT code generation.
         """
         
         if cc is None:
-            cc = self.getCompiler()
+            cc = self.get_compiler()
         cflags, ldflags = [], []
         
         # Python
@@ -217,7 +217,7 @@ return 0;
         
         return cflags, ldflags
         
-    def _loadTemplates(self):
+    def _load_templates(self):
         """
         Load in the various templates we might need.
         """
@@ -262,7 +262,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def getModule(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=noWindow):
+    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=noWindow):
         """
         Generate an optimized version of the various time-domain functions 
         for the given parameters, update the cache, and return the module.
@@ -275,9 +275,9 @@ return 0;
             
         # Sort out the data types we need
         try:
-            funcTemplate = self._callMapping[dtype]
-            dtypeN = self._numpyMapping[dtype]
-            dtypeC = self._ctypeMapping[dtype]
+            funcTemplate = self._call_mapping[dtype]
+            dtypeN = self._numpy_mapping[dtype]
+            dtypeC = self._ctype_mapping[dtype]
         except KeyError:
             raise RuntimeError("Unknown data type: %s" % dtype)
             
@@ -325,7 +325,7 @@ return 0;
         # Done
         return loadedModule
         
-    def getFunction(self, func, *args, **kwds):
+    def get_function(self, func, *args, **kwds):
         """
         Given a base LSL function and a call signature, return optimzed version of the function for that call.
         """
@@ -376,7 +376,7 @@ return 0;
             window = noWindow
             
         # Get the optimized module
-        mod = self.getModule(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
+        mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
         
         # Do we need to measure it?
         try:

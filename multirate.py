@@ -20,11 +20,10 @@ from lsl.correlator.fx import pol2pol, noWindow
 
 __version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['getOptimalDelayPadding', 'MRF', 'MRX', 
-           '__version__', '__revision__', '__all__']
+__all__ = ['get_optimal_delay_padding', 'fengine', 'xengine']
 
 
-def getOptimalDelayPadding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
+def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
     if Pol == '*':
@@ -80,7 +79,7 @@ def getOptimalDelayPadding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, C
     return -minDelay
 
 
-def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -172,9 +171,9 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
     return freq, signalsF1, validF1, delays1
 
 
-def MRX(signalsF1, validF1, signalsF2, validF2):
+def xengine(signalsF1, validF1, signalsF2, validF2):
     """
-    X-engine for the outputs of MRF().
+    X-engine for the outputs of fengine().
     """
     
     output = _core.XEngine2(signalsF1, signalsF2, validF1, validF2)

@@ -18,18 +18,17 @@ from lsl.common.constants import *
 from lsl.correlator import _core
 from lsl.correlator.fx import pol2pol, noWindow
 
-from jit import justInTimeOptimizer
+from jit import JustInTimeOptimizer
 
 __version__ = '0.2'
 __revision__ = '$Rev$'
-__all__ = ['getOptimalDelayPadding', 'MRF', 'MRX', 'MRX3', 
-           '__version__', '__revision__', '__all__']
+__all__ = ['get_optimal_delay_padding', 'fengine', 'xengine', 'xengine3']
 
 
-jitopt = justInTimeOptimizer()
+JIT_OPT = JustInTimeOptimizer()
 
 
-def getOptimalDelayPadding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
+def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
     if Pol == '*':
@@ -85,7 +84,7 @@ def getOptimalDelayPadding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, C
     return -minDelay
 
 
-def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -153,9 +152,9 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = jitopt.getFunction(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
     else:
-        FEngine = jitopt.getFunction(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
     
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
@@ -166,26 +165,26 @@ def MRF(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False,
     return freq, signalsF1, validF1, delays1
 
 
-def MRX(signalsF1, validF1, signalsF2, validF2):
+def xengine(signalsF1, validF1, signalsF2, validF2):
     """
-    X-engine for the outputs of MRF().
+    X-engine for the outputs of fengine().
     """
     
     # Optimize
-    #XEngine = jitopt.getFunction('XEngine2', signalsF1, signalsF2, validF1, validF2)
+    #XEngine = JIT_OPT.get_function('XEngine2', signalsF1, signalsF2, validF1, validF2)
     XEngine = _core.XEngine2
 
     output = XEngine(signalsF1, signalsF2, validF1, validF2)
     return output
 
 
-def MRX3(signalsF1, validF1, signalsF2, validF2):
+def xengine3(signalsF1, validF1, signalsF2, validF2):
     """
-    X-engine for the outputs of MRF().
+    X-engine for the outputs of fengine().
     """
     
     # Optimize
-    XEngine = jitopt.getFunction('XEngine3', signalsF1, signalsF2, validF1, validF2)
+    XEngine = JIT_OPT.get_function('XEngine3', signalsF1, signalsF2, validF1, validF2)
 
     output = XEngine(signalsF1, signalsF2, validF1, validF2)
     return output
