@@ -92,7 +92,7 @@ def main(args):
         ant1 = antennas[i].stand.id
         for j in xrange(i, len(antennas), 2):
             ant2 = antennas[j].stand.id
-            if ant1 != ant2:
+            if args.include_auto or ant1 != ant2:
                 if args.baseline is not None:
                     if (ant1,ant2) in args.baseline:
                         bls.append( (ant1,ant2) )
@@ -251,6 +251,8 @@ if __name__ == "__main__":
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop delay step mask when displaying')
+    parser.add_argument('-a', '--include-auto', action='store_true', 
+                         help='display the auto-correlations along with the cross-correlations')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
                         help='plot XX data')

@@ -112,7 +112,7 @@ def main(args):
         
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
-            if ant1 == ant2 and ant1 != 0:
+            if not args.include_auto and ant1 == ant2 and ant1 != 0:
                 continue
             tStart, tStop = row['TIMERANG']
             band = row['BANDS']
@@ -141,7 +141,7 @@ def main(args):
     for i in xrange(len(ubls)):
         bl = ubls[i]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
-        if ant1 != ant2:
+        if args.include_auto or ant1 != ant2:
             if args.baseline is not None:
                 if (ant1,ant2) in args.baseline:
                     plot_bls.append( bl )
@@ -279,15 +279,17 @@ if __name__ == "__main__":
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
+    parser.add_argument('-a', '--include-auto', action='store_true', 
+                         help='display the auto-correlations along with the cross-correlations')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--xx', action='store_true', default=True, 
-                        help='plot XX data')
+                        help='plot XX or RR data')
     pgroup.add_argument('-z', '--xy', action='store_true', 
-                        help='plot XY data')
+                        help='plot XY or RL data')
     pgroup.add_argument('-w', '--yx', action='store_true', 
-                        help='plot YX data')
+                        help='plot YX or LR data')
     pgroup.add_argument('-y', '--yy', action='store_true', 
-                        help='plot YY data')
+                        help='plot YY or LL data')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     args = parser.parse_args()
