@@ -29,14 +29,14 @@ from lsl.correlator.uvUtils import computeUVW
 from lsl.common.constants import c as vLight
 
 from lsl.reader import drx, vdif, errors
-from lsl.reader.buffer import DRXFrameBuffer
+from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 
 import guppi
 from lsl.misc.dedispersion import delay as dispDelay
 
 import jones
 from utils import *
-from buffer import VDIFFrameBuffer, GUPPIFrameBuffer
+from buffer import GUPPIFrameBuffer
 
 
 def bestFreqUnits(freq):

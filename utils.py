@@ -38,15 +38,15 @@ __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun',
 
 # List of bright radio sources and pulsars in PyEphem format
 _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
-        "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
-        "VirA,f|J,12:30:49.40,+12:23:28.0,1",
-        "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
-        "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
-        "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
-        "CasA,f|J,23:23:27.94,+58:48:42.4,1",
-        "3C196,f|J,08:13:36.06,+48:13:02.6,1",
-        "3C286,f|J,13:31:08.29,+30:30:33.0,1",
-        "3C295,f|J,14:11:20.47,+52:12:09.5,1", ]
+         "TauA,f|J,05:34:32.00,+22:00:52.0,1", 
+         "VirA,f|J,12:30:49.40,+12:23:28.0,1",
+         "HerA,f|J,16:51:08.15,+04:59:33.3,1", 
+         "SgrA,f|J,17:45:40.00,-29:00:28.0,1", 
+         "CygA,f|J,19:59:28.30,+40:44:02.0,1", 
+         "CasA,f|J,23:23:27.94,+58:48:42.4,1",
+         "3C196,f|J,08:13:36.06,+48:13:02.6,1",
+         "3C286,f|J,13:31:08.29,+30:30:33.0,1",
+         "3C295,f|J,14:11:20.47,+52:12:09.5,1", ]
 
 
 class InterProcessLock(object):
@@ -498,33 +498,11 @@ def get_better_time(frame):
 def read_guppi_header(filehandle):
     """
     Read in a GUPPI header at the start of a VDIF file from the VLA.  The 
-    contents of the header are returned as a dictionary.
+    contents of the header are returned as a dictionary.  This is a wrapper
+    around the lsl.reader.vdif.readGUPPIHeader() function.
     """
     
-    # Read in the GUPPI header
-    header = {}
-    while True:
-        line = filehandle.read(80)
-        if line[:3] == 'END':
-            break
-        elif line[:8] == 'CONTINUE':
-            junk, value2 = line.split(None, 1)
-            value = "%s%s" % (value[:-1], value2[:-1])
-        else:
-            name, value = line.split('=', 1)
-            name = name.strip()
-        try:
-            value = int(value, 10)
-        except:
-            try:
-                value = float(value)
-            except:
-                value = value.strip().replace("'", '')
-        header[name.strip()] = value
-    header['OBSBW'] *= 1e6
-    header['OBSFREQ'] *= 1e6
-    
-    return header
+    return vdif.readGUPPIHeader(filehandle)
 
 
 def parse_lwa_metadata(filename):

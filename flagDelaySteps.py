@@ -56,6 +56,7 @@ def main(args):
         ## Time of each integration
         obsdates = uvdata.data['DATE']
         obstimes = uvdata.data['TIME']
+        inttimes = uvdata.data['INTTIM']
         ## Source list
         srcs = uvdata.data['SOURCE']
         ## Band information
@@ -103,7 +104,7 @@ def main(args):
         ## New flags based on the delay steps for the LWA baselines
         for ant1,step in delaysteps:
             tStart = unix_to_utcjd(step) - obsdates[0]
-            tStop = unix_to_utcjd(step+1.0) - obsdates[0]
+            tStop = unix_to_utcjd(step+inttimes[0]) - obsdates[0]
             ants.append( (ant1,0) )
             times.append( (tStart, tStop) )
             bands.append( [1 for j in xrange(nBand)] )
