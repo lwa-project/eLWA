@@ -230,7 +230,7 @@ def main(args):
             ## VDIF
             try:
                 ## Read in the GUPPI header
-                header = read_guppi_header(fh)
+                header = vdif.readGUPPIHeader(fh)
                 
                 ## Read in the first frame
                 vdif.FrameSize = vdif.getFrameSize(fh)
@@ -284,7 +284,7 @@ def main(args):
             ## GUPPI Raw
             try:
                 ## Read in the GUPPI header
-                header = read_guppi_header(fh)
+                header = vdif.readGUPPIHeader(fh)
                 
                 ## Read in the first frame
                 guppi.FrameSize = guppi.getFrameSize(fh)

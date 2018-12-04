@@ -28,12 +28,12 @@ from lsl.misc.beamformer import calcDelay
 import guppi
 
 
-__version__ = '0.5'
+__version__ = '0.6'
 __revision__ = '$Rev$'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
            'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
            'nsround', 'read_correlator_configuration', 'get_better_time', 
-           'read_guppi_header', 'parse_lwa_metadata', 'PolyCos']
+           'parse_lwa_metadata', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -493,16 +493,6 @@ def get_better_time(frame):
         raise TypeError("Unknown frame type: %s" % type(frame).__name__)
         
     return [sec, frac]
-
-
-def read_guppi_header(filehandle):
-    """
-    Read in a GUPPI header at the start of a VDIF file from the VLA.  The 
-    contents of the header are returned as a dictionary.  This is a wrapper
-    around the lsl.reader.vdif.readGUPPIHeader() function.
-    """
-    
-    return vdif.readGUPPIHeader(filehandle)
 
 
 def parse_lwa_metadata(filename):

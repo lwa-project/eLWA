@@ -31,7 +31,7 @@ def main(args):
         filename = args[0]
         
     fh = open(filename, 'rb')
-    header = read_guppi_header(fh)
+    header = guppi.readGUPPIHeader(fh)
     guppi.FrameSize = guppi.getFrameSize(fh)
     nThreads = guppi.getThreadCount(fh)
     nFramesFile = os.path.getsize(filename) / guppi.FrameSize
