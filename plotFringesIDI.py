@@ -112,8 +112,25 @@ def main(args):
         
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
-            if not args.include_auto and ant1 == ant2 and ant1 != 0:
+            
+            ## Only deal with flags that we need for the plots
+            process_flag = False
+            if args.include_auto or ant1 != ant2 or ant1 == 0 or ant2 == 0:
+                if ant1 == 0 and ant2 == 0:
+                    process_flag = True
+                elif args.baseline is not None:
+                    if ant2 == 0 and ant1 in [a0 for a0,a1 in args.baseline]:
+                        process_flag = True
+                    elif (ant1,ant2) in args.baseline:
+                        process_flag = True
+                elif args.ref_ant is not None:
+                    if ant1 == args.ref_ant or ant2 == args.ref_ant:
+                        process_flag = True
+                else:
+                    process = True
+            if not process_flag:
                 continue
+                
             tStart, tStop = row['TIMERANG']
             band = row['BANDS']
             try:
