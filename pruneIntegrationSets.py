@@ -131,7 +131,7 @@ def main(args):
         for scan,nint in bad:
             filenames = glob.glob(os.path.join(basedir, '*%s[HL]-vis2-%s.npz' % (scan, nint)))
             for filename in filenames:
-                os.rename(filename, os.path.join(basedir, 'notUsed', filename))
+                os.rename(filename, os.path.join(basedir, 'notUsed', os.path.basename(filename)))
                 nMoved += 1
                 
         ## Report
