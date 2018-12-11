@@ -23,7 +23,6 @@ functions defined in this module are based heavily off the lwda_fits library.
 """
 
 import os
-import gc
 import re
 import math
 import ephem
@@ -438,10 +437,6 @@ class IDI(object):
         self._writeBandpass()
         self._writeSource()
         self._writeData()
-        
-        # Clear out the data section
-        del(self.data[:])
-        gc.collect()
         
     def close(self):
         """
@@ -959,7 +954,13 @@ class IDI(object):
         blineList = []
         nameList = []
         sourceList = []
-        for dataSet in self.data:
+        while True:
+            # Get the next data set to process
+            try:
+                dataSet = self.data.pop(0)
+            except IndexError:
+                break
+                
             # Sort the data by packed baseline
             try:
                 order
@@ -1046,6 +1047,9 @@ class IDI(object):
             if dataSet.pol == self.stokes[-1]:
                 mList.append( matrix.view(numpy.float32)*1.0 )
                 
+            # Cleanup
+            del dataSet
+            
         nBaseline = len(blineList)
         nSource = len(nameList)
         
