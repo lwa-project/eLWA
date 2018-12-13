@@ -42,7 +42,15 @@ def main(args):
         dstlist.insert(-1, hdu)
         dstlist[-2].header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
         dstlist[-2].header['HISTORY'] = 'Copied from \'%s\'' % os.path.basename(srcname)
-        
+        ## Check to see if we need to scale the channel masks
+        if dstlist[0].header['NO_CHAN'] != dstlist[-2].header['NO_CHAN']:
+            ### Figure out how to change the channel ranges
+            scl = 1.0 * dstlist[0].header['NO_CHAN'] / dstlist[-2].header['NO_CHAN']
+            chans = dstlist[-2].data['CHANS']
+            chans = chans * scl
+            dstlist[-2].data['CHANS'][...] = chans.astype(dstlist[-2].data['CHANS'].dtype)
+            dstlist[-2].header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (dstlist[-2].header['NO_CHAN'], dstlist[0].header['NO_CHAN'])
+            
     # Save
     print "  Saving to disk"
     ## What to call it
