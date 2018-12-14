@@ -110,6 +110,9 @@ def main(args):
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
         mintimes = reltimes - inttimes / 2.0 / 86400.0
         
+        bls_ant1 = bls/256
+        bls_ant2 = bls%256
+        
         for row in fgdata.data:
             ant1, ant2 = row['ANTS']
             
@@ -140,19 +143,22 @@ def main(args):
             cStart, cStop = row['CHANS']
             if cStop == 0:
                 cStop = -1
+            pol = row['PFLAGS'].astype(numpy.bool)
+            
             if ant1 == 0 and ant2 == 0:
                 btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             elif ant1 == 0 or ant2 == 0:
                 ant1 = max([ant1, ant2])
-                btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
+                btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
                                       & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             else:
-                btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
+                btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
                                       & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             for b,v in enumerate(band):
-                for p,w in enumerate(row['PFLAGS']):
-                    mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
-                    
+                if not v:
+                    continue
+                mask[btmask,b,cStart-1:cStop,:] |= pol
+                
     plot_bls = []
     cross = []
     for i in xrange(len(ubls)):
