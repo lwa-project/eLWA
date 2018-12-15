@@ -64,11 +64,6 @@ def main(args):
         ## Frequency channels
         freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
-        ## UVW coordinates
-        u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
-        uvw = numpy.array([u, v, w]).T
-        ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
         ## History to look for delay steps
         delaysteps = []
         try:

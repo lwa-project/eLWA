@@ -63,9 +63,6 @@ def main(args):
         ## Frequency channels
         freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
-        ## UVW coordinates
-        u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
-        uvw = numpy.array([u, v, w]).T
         ## The actual visibility data
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
@@ -112,13 +109,11 @@ def main(args):
             
             for b,offset in enumerate(fqoffsets):
                 print '    IF #%i' % (b+1,)
-                crd = uvw[match,:]
                 visXX = flux[match,b,:,0]
                 visYY = flux[match,b,:,1]
                 
                 nBL = len(bbls)
                 times = times[0::nBL]
-                crd.shape = (crd.shape[0]/nBL, nBL, 1, 3)
                 visXX.shape = (visXX.shape[0]/nBL, nBL, visXX.shape[1])
                 visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
                 print '      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape
