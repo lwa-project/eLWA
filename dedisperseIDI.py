@@ -17,9 +17,184 @@ import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
-from lsl.misc.dedispersion import incoherent
+from lsl.misc.dedispersion import delay, incoherent
 
 from flagger import *
+
+
+def get_source_blocks(hdulist):
+    """
+    Given a pyfits hdulist, look at the source IDs listed in the UV_DATA table
+    and generate a list of contiguous blocks for each source.  This list is 
+    returned as a list of blocks where each block is itself a two-element list.
+    This two-element list contains the the start and stop rows for the block.
+    """
+    
+    # Get the tables
+    uvdata = hdulist['UV_DATA']
+    
+    # Pull out various bits of information we need to flag the file
+    ## Source list
+    srcs = uvdata.data['SOURCE']
+    
+    # Find the source blocks to see if there is something we can use
+    # to help the dedispersion
+    usrc = numpy.unique(srcs)
+    blocks = []
+    for src in usrc:
+        valid = numpy.where( src == srcs )[0]
+        
+        blocks.append( [valid[0],valid[0]] )
+        for v in valid[1:]:
+            if v == blocks[-1][1] + 1:
+                blocks[-1][1] = v
+            else:
+                blocks.append( [v,v] )
+    blocks.sort()
+    
+    # Done
+    return blocks
+
+
+def get_flags_as_mask(hdulist, selection=None, version=0):
+    """
+    Given a pyfits hdulist, build a mask for the visibility data based using 
+    the specified version of the FLAG table.  This can also be done for a 
+    sub-set of the full visibility data by using the 'selection' keyword to 
+    provide a list of visility entries to create the mask for.
+    
+    .. note::
+        Be default the FLAG version used is the most recent version.
+    """
+    
+    # Get the tables
+    fgdata = None
+    for hdu in hdulist[1:]:
+        if hdu.header['EXTNAME'] == 'FLAG':
+            if version == 0 or hdu.header['EXTVER'] == version:
+                fgdata = hdu
+    uvdata = hdulist['UV_DATA']
+    
+    # Pull out various bits of information we need to flag the file
+    ## Frequency and polarization setup
+    nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
+    ## Baseline list
+    bls = uvdata.data['BASELINE']
+    ## Time of each integration
+    obsdates = uvdata.data['DATE']
+    obstimes = uvdata.data['TIME']
+    inttimes = uvdata.data['INTTIM']
+    ## Number of rows in the file
+    if selection is None:
+        flux_rows = uvdata.data['FLUX'].shape[0]
+    else:
+        flux_rows = len(selection)
+        
+    # Create the mask
+    mask = numpy.zeros((flux_rows, nBand, nFreq, nStk), dtype=numpy.bool)
+    if fgdata is not None:
+        reltimes = obsdates - obsdates[0] + obstimes
+        maxtimes = reltimes + inttimes / 2.0 / 86400.0
+        mintimes = reltimes - inttimes / 2.0 / 86400.0
+        if selection is not None:
+            bls = bls[selection]
+            maxtimes = maxtimes[selection]
+            mintimes = mintimes[selection]
+            
+        bls_ant1 = bls/256
+        bls_ant2 = bls%256
+        
+        for row in fgdata.data:
+            ant1, ant2 = row['ANTS']
+            tStart, tStop = row['TIMERANG']
+            band = row['BANDS']
+            try:
+                len(band)
+            except TypeError:
+                band = [band,]
+            cStart, cStop = row['CHANS']
+            if cStop == 0:
+                cStop = -1
+            pol = row['PFLAGS'].astype(numpy.bool)
+            
+            if ant1 == 0 and ant2 == 0:
+                btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            elif ant1 == 0 or ant2 == 0:
+                ant1 = max([ant1, ant2])
+                btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            else:
+                btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            for b,v in enumerate(band):
+                if not v:
+                    continue
+                mask[btmask,b,cStart-1:cStop,:] |= pol
+                
+    # Done
+    return mask
+
+
+def get_trailing_scan(filename, src_name, needed, drop_mask=False):
+    mask = None
+    flux = None
+    
+    nextname, ext = filename.rsplit('_', 1)
+    ext = int(ext, 10)
+    ext += 1
+    nextname = "%s_%i" % (nextname, ext)
+    
+    if os.path.exists(nextname):
+        # Open up the next file
+        hdulist = pyfits.open(nextname, mode='readonly', memmap=True)
+        srdata = hdulist['SOURCE']
+        uvdata = hdulist['UV_DATA']
+        
+        # Pull out various bits of information we need to flag the file
+        ## Frequency and polarization setup
+        nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
+        ## Baseline list
+        bls = uvdata.data['BASELINE']
+        ## Integration time
+        inttimes = uvdata.data['INTTIM']
+        ## Source list
+        srcs = uvdata.data['SOURCE']
+        
+        # Find the source blocks to see if there is something we can use
+        # to help the dedispersion
+        blocks = get_source_blocks(hdulist)
+        block = blocks[0]
+        match = range(block[0],block[1]+1)
+        
+        # Check and see if the first block in 'nextname' matches the last in 'filename'
+        next_src_name = srdata.data['SOURCE'][srcs[match[0]]-1]
+        if src_name == next_src_name:
+            bbls = numpy.unique(bls[match])
+            next_needed = inttimes[match[0]]
+            next_needed = int(numpy.ceil(needed/next_needed))
+            next_needed_rows = next_needed*len(bbls)
+            
+            match = range(match[0], min([match[0]+next_needed_rows, match[-1]+1]))
+            flux = uvdata.data['FLUX'][match].astype(numpy.float32)
+            
+            # Convert the visibilities to something that we can easily work with
+            nComp = flux.shape[1] / nBand / nFreq / nStk
+            if nComp == 2:
+                ## Case 1) - Just real and imaginary data
+                flux = flux.view(numpy.complex64)
+            else:
+                ## Case 2) - Real, imaginary data + weights (drop the weights)
+                flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
+            flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+            
+            # Create a mask of the old flags, if needed
+            mask = get_flags_as_mask(hdulist, selection=match, version=0)
+            
+        del srdata
+        del uvdata
+        hdulist.close()
+        
+    return mask, flux
 
 
 def main(args):
@@ -33,6 +208,7 @@ def main(args):
         hdulist = pyfits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
+        srdata = hdulist['SOURCE']
         fgdata = None
         for hdu in hdulist[1:]:
             if hdu.header['EXTNAME'] == 'FLAG':
@@ -65,9 +241,6 @@ def main(args):
         ## Frequency channels
         freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
-        ## UVW coordinates
-        u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
-        uvw = numpy.array([u, v, w]).T
         ## The actual visibility data
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
@@ -81,55 +254,12 @@ def main(args):
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
-        # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
-        
         # Find unique scans to work on
-        blocks = []
-        for src in usrc:
-            valid = numpy.where( src == srcs )[0]
-            
-            blocks.append( [valid[0],valid[0]] )
-            for v in valid[1:]:
-                if v == blocks[-1][1] + 1:
-                    blocks[-1][1] = v
-                else:
-                    blocks.append( [v,v] )
-        blocks.sort()
+        blocks = get_source_blocks(hdulist)
         
         # Create a mask of the old flags, if needed
-        old_flag_mask = numpy.zeros(flux.shape, dtype=numpy.bool)
-        if not args.drop and fgdata is not None:
-            reltimes = obsdates - obsdates[0] + obstimes
-            maxtimes = reltimes + inttimes / 2.0 / 86400.0
-            mintimes = reltimes - inttimes / 2.0 / 86400.0
-            
-            for row in fgdata.data:
-                ant1, ant2 = row['ANTS']
-                tStart, tStop = row['TIMERANG']
-                band = row['BANDS']
-                try:
-                    len(band)
-                except TypeError:
-                    band = [band,]
-                cStart, cStop = row['CHANS']
-                if cStop == 0:
-                    cStop = -1
-                if ant1 == 0 and ant2 == 0:
-                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
-                elif ant1 == 0 or ant2 == 0:
-                    ant1 = max([ant1, ant2])
-                    btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) | (bls&0xFF == ant1) ) \
-                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
-                else:
-                    btmask = numpy.where( ( ((bls>>8)&0xFF == ant1) & (bls&0xFF == ant2) ) \
-                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
-                for b,v in enumerate(band):
-                    for p,w in enumerate(row['PFLAGS']):
-                        old_flag_mask[btmask,b,cStart-1:cStop,p] |= bool(v*w)
-                        
+        old_flag_mask = get_flags_as_mask(hdulist, version=0-args.drop)
+        
         # Dedisperse
         mask = numpy.zeros(flux.shape, dtype=numpy.bool)
         for i,block in enumerate(blocks):
@@ -149,9 +279,24 @@ def main(args):
                 freq_comb.append( freq + offset)
             freq_comb = numpy.concatenate(freq_comb)
             
+            nBL = len(bbls)
             vis = flux[match,:,:,:]
             ofm = old_flag_mask[match,:,:,:]
-            nBL = len(bbls)
+            
+            ## If this is the last block, check and see if there is anything that 
+            ## we can pull out next file in the sequence so that we don't have a
+            ## dedispersion gap
+            to_trim = -1
+            if i == len(blocks)-1:
+                src_name = srdata.data['SOURCE'][srcs[match[0]]-1]
+                nextmask, nextflux = get_trailing_scan(filename, src_name, 
+                                                       max(delay(freq_comb, args.DM)))
+                if nextmask is not None and nextflux is not None:
+                    to_trim = ofm.shape[0]
+                    vis = numpy.concatenate([vis, nextflux])
+                    ofm = numpy.concatenate([ofm, nextmask])
+                    print '      Appended %i times from the next file in the sequence' % (nextflux.shape[0]/nBL)
+                    
             vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
             ofm.shape = (ofm.shape[0]/nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
             print '      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape
@@ -168,6 +313,10 @@ def main(args):
             vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]/len(fqoffsets), vis.shape[3])
             ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]/len(fqoffsets), ofm.shape[3])
             
+            if to_trim != -1:
+                print '      Removing the appended times'
+                vis = vis[:to_trim,...]
+                ofm = ofm[:to_trim,...]
             flux[match,:,:,:] = vis
             
             print '      Saving polarization masks'
@@ -209,7 +358,7 @@ def main(args):
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
-                    reas.append( 'FLAGIDI.PY' )
+                    reas.append( 'DEDISPERSEIDI.PY' )
                     sevs.append( -1 )
                 for flag in flagsYY:
                     ants.append( (ant1,ant2) )
@@ -218,7 +367,7 @@ def main(args):
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
-                    reas.append( 'FLAGIDI.PY' )
+                    reas.append( 'DEDISPERSEIDI.PY' )
                     sevs.append( -1 )
                     
         ## Build the FLAG table
@@ -272,7 +421,7 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_DM%.3f%s' % (outname, args.DM, outext)
+        outname = '%s_DM%.4f%s' % (outname, args.DM, outext)
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
