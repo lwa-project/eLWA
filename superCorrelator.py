@@ -92,7 +92,11 @@ def main(args):
     observer = site.getObserver()
     
     # Parse the correlator configuration
-    refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
+    config, refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
+    if config is not None:
+        args.fft_length = config['channels']
+        args.dump_time = config['inttime']
+        print "NOTE: Set FFT length to %i and dump time to %.3f s per user defined configuration" % (args.fft_length, args.dump_time)
     if args.duration == 0.0:
         args.duration = refSrc.duration
     args.duration = min([args.duration, refSrc.duration])

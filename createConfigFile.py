@@ -11,6 +11,7 @@ $LastChangedDate$
 """
 
 import os
+import re
 import sys
 import ephem
 import numpy
@@ -27,6 +28,7 @@ from get_vla_ant_pos import database
 
 
 VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9)) 
+
 
 ## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
 ## with LWA1 and EA03/EA01
@@ -46,6 +48,12 @@ LWASV_LON = -106.88582216960029 * numpy.pi/180
 LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
                          [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
                          [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
+
+
+## Correlator configuration regexs
+CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
+CORR_INTTIME = re.compile('corrinttime:(?P<inttime>\d+(.\d*)?)')
+CORR_BASIS = re.compile('corrbasis:(?P<basis>[(linear)|(circular)|(stokes)])')
 
 
 def main(args):
@@ -70,6 +78,7 @@ def main(args):
         db = None
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
+    setup = None
     sources = []
     metadata = {}
     lwasite = {}
@@ -85,6 +94,29 @@ def main(args):
                         sdf = metabundle.getSessionDefinition(filename)
                     except Exception as e:
                         sdf = metabundleADP.getSessionDefinition(filename)
+                        
+                    comments = sdf.projectOffice.sessions[0]
+                    mtch = CORR_CHANNELS.search(comments)
+                    if mtch is not None:
+                        corr_channels = int(mtch.group('channels'), 10)
+                    else:
+                        corr_channels = None
+                    mtch = CORR_INTTIME.search(comments)
+                    if mtch is not None:
+                        corr_inttime = float(mtch.group('inttime'))
+                    else:
+                        corr_inttime = None
+                    mtch = CORR_BASIS.search(comments)
+                    if mtch is not None:
+                        corr_basis = mtch.group('basis')
+                    else:
+                        sys.stderr.write("WARNING: No output correlation polarization basis defined, assuming 'linear'.\n")
+                        corr_basis = 'linear'
+                    if corr_channels is not None and corr_inttime is not None:
+                        setup = {'channels': corr_channels, 'inttime': corr_inttime, 'basis': corr_basis}
+                    else:
+                        sys.stderr.write("WARNING: No or incomplete correlation configuration defined, setting to be defined at correlation time.\n")
+                        
                     for obs in sdf.sessions[0].observations:
                         if type(obs).__name__ == 'Solar':
                             name = 'Sun'
@@ -127,7 +159,8 @@ def main(args):
                 sys.stderr.flush()
                 
     # Setup what we need to write out a configuration file
-    corrConfig = {'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
+    corrConfig = {'setup': setup, 
+                  'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
                   'inputs': []}
     
     metadata = {}
@@ -453,6 +486,14 @@ def main(args):
         fh.write("#  on %s\n" % datetime.now())
         fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
         fh.write("\n")
+        ## Configuration, if present
+        if corrConfig['setup'] is not None:
+            fh.write("Configuration\n")
+            fh.write("  Channels     %i\n" % corrConfig['setup']['channels'])
+            fh.write("  IntTime      %.3f\n" % corrConfig['setup']['inttime'])
+            fh.write("  PolBasis     %s\n" % corrConfig['setup']['basis'])
+            fh.write("EndConfiguration\n")
+            fh.write("\n")
         ## Source
         fh.write("Source\n")
         fh.write("# Observation start is %s\n" % source['start'])

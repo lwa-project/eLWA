@@ -159,9 +159,23 @@ def main(args):
     for line in cConfig:
         fh.write('%s\n' % line)
     fh.close()
-    refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
+    config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
     os.unlink(tempConfig)
-    
+    if config is not None:
+        if config['basis'] == 'linear':
+            args.linear = True
+            args.circular = False
+            args.stokes = False
+        elif config['basis'] == 'circular':
+            args.linear = False
+            args.circular = True
+            args.stokes = False
+        elif config['basis'] == 'stokes':
+            args.linear = False
+            args.circular = False
+            args.stokes = True
+        print "NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis']
+        
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
     visXY = dataDict['vis1XY'].astype(numpy.complex64)
     visYX = dataDict['vis1YX'].astype(numpy.complex64)

@@ -70,7 +70,7 @@ def main(args):
     for line in cConfig:
         fh.write('%s\n' % line)
     fh.close()
-    refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
+    junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
     os.unlink(tempConfig)
     
     dataDict.close()

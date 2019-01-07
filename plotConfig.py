@@ -86,7 +86,7 @@ def main(args):
         for line in cConfig:
             fh.write('%s\n' % line)
         fh.close()
-        refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(tempConfig)
+        junk0, refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(tempConfig)
         os.unlink(tempConfig)
         
     except IOError:
