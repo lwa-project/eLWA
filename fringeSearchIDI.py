@@ -187,6 +187,21 @@ def main(args):
                 blocks.append( [v,v] )
     blocks.sort()
     
+    # Make sure the reference antenna is in there
+    if config['refAnt'] is None:
+        bl = ubls[0]
+        ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
+        config['refAnt'] = ant1
+    else:
+        found = False
+        for bl in ubls:
+            ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
+            if ant1 == config['refAnt']:
+                found = True
+                break
+        if not found:
+            raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
+            
     search_bls = []
     cross = []
     for i in xrange(len(ubls)):
