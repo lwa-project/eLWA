@@ -53,7 +53,7 @@ LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
 CORR_INTTIME = re.compile('corrinttime:(?P<inttime>\d+(.\d*)?)')
-CORR_BASIS = re.compile('corrbasis:(?P<basis>[(linear)|(circular)|(stokes)])')
+CORR_BASIS = re.compile('corrbasis:(?P<basis>(linear)|(circular)|(stokes))')
 
 
 def main(args):
