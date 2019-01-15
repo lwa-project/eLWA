@@ -786,7 +786,6 @@ class IDI(object):
         raPoList = []
         decPoList = []
         sourceID = 0
-        lastSourceName = None
         for dataSet in self.data:
             if dataSet.pol == self.stokes[0]:
                 utc = astro.taimjd_to_utcjd(dataSet.obsTime)
@@ -803,7 +802,7 @@ class IDI(object):
                 except AttributeError:
                     currSourceName = dataSet.source
                 
-                if currSourceName != lastSourceName:
+                if currSourceName not in nameList:
                     sourceID += 1
                     
                     if dataSet.source == 'z':
@@ -833,9 +832,6 @@ class IDI(object):
                     
                     # name
                     nameList.append(name)
-                    
-                    # Update
-                    lastSourceName = name
                     
         nSource = len(nameList)
         
