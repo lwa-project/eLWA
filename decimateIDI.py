@@ -236,6 +236,7 @@ def main(args):
                 scl = 1.0 / args.decimation
                 chans = hdu.data['CHANS']
                 chans = chans * scl
+                chans = numpy.where(chans >= 1, chans, 1)
                 hdu.data['CHANS'][...] = chans.astype(hdu.data['CHANS'].dtype)
                 hdu.header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (hdu.header['NO_CHAN'], nFreq)
         ## Insert the new table right before UV_DATA 
