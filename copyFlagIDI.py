@@ -45,12 +45,12 @@ def main(args):
         ## Check to see if we need to scale the channel masks
         if dstlist[1].header['NO_CHAN'] != dstlist[-2].header['NO_CHAN']:
             ### Figure out how to change the channel ranges
-            scl = 1.0 * dstlist[0].header['NO_CHAN'] / dstlist[-2].header['NO_CHAN']
+            scl = 1.0 * dstlist[1].header['NO_CHAN'] / dstlist[-2].header['NO_CHAN']
             chans = dstlist[-2].data['CHANS']
             chans = chans * scl
-            chans = numpy.where(chans >= 1, chans, 1)
+            chans = numpy.clip(chans, 1, dstlist[1].header['NO_CHAN'])
             dstlist[-2].data['CHANS'][...] = chans.astype(dstlist[-2].data['CHANS'].dtype)
-            dstlist[-2].header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (dstlist[-2].header['NO_CHAN'], dstlist[0].header['NO_CHAN'])
+            dstlist[-2].header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (dstlist[-2].header['NO_CHAN'], dstlist[1].header['NO_CHAN'])
             
     # Save
     print "  Saving to disk"
