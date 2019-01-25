@@ -56,6 +56,12 @@ CORR_INTTIME = re.compile('corrinttime:(?P<inttime>\d+(.\d*)?)')
 CORR_BASIS = re.compile('corrbasis:(?P<basis>(linear)|(circular)|(stokes))')
 
 
+## Alternate phase center regexs
+ALT_TARGET = re.compile('alttarget(?P<id>\d+):(?P<target>.*);;')
+ALT_RA = re.compile('altra(?P<id>\d+):(?P<ra>\d+(.\d*)?)')
+ALT_DEC = re.compile('altdec(?P<id>\d+):(?P<dec>[-+]?\d+(.\d*)?)')
+
+
 def main(args):
     # Parse the command line
     filenames = args.filename
@@ -117,7 +123,7 @@ def main(args):
                     else:
                         sys.stderr.write("WARNING: No or incomplete correlation configuration defined, setting to be defined at correlation time.\n")
                         
-                    for obs in sdf.sessions[0].observations:
+                    for o,obs in enumerate(sdf.sessions[0].observations):
                         if type(obs).__name__ == 'Solar':
                             name = 'Sun'
                             ra = None
@@ -129,11 +135,43 @@ def main(args):
                         else:
                             name = obs.target
                             ra = ephem.hours(str(obs.ra))
-                            dec = ephem.hours(str(obs.dec))
+                            dec = ephem.degrees(str(obs.dec))
                         tStart = mjdmpm2datetime(obs.mjd, obs.mpm)
                         tStop  = mjdmpm2datetime(obs.mjd, obs.mpm+obs.dur)
                         sources.append( {'name':name, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
                         
+                        ### Alternate phase centers
+                        comments = sdf.projectOffice.observations[0][o]
+                        
+                        alts = {}
+                        for mtch in ALT_TARGET.finditer(comments):
+                            alt_id = int(mtch.group('id'), 10)
+                            alt_name = mtch.group('target')
+                            try:
+                                alts[alt_id]['name'] = alt_name
+                            except KeyError:
+                                alts[alt_id] = {'name':alt_name, 'ra':None, 'dec':None}
+                        for mtch in ALT_RA.finditer(comments):
+                            alt_id = int(mtch.group('id'), 10)
+                            alt_ra = ephem.hours(mtch.group('ra'))
+                            try:
+                                alts[alt_id]['ra'] = alt_ra
+                            except KeyError:
+                                alts[alt_id] = {'name':None, 'ra':alt_ra, 'dec':None}
+                        for mtch in ALT_DEC.finditer(comments):
+                            alt_id = int(mtch.group('id'), 10)
+                            alt_dec = ephem.degrees(mtch.group('dec'))
+                            try:
+                                alts[alt_id]['dec'] = alt_dec
+                            except KeyError:
+                                alts[alt_id] = {'name':None, 'ra':None, 'dec':alt_dec}
+                        for alt_id in sorted(alts.keys()):
+                            alt_name, alt_ra, alt_dec = alts[alt_id]
+                            if alt_name is None or alt_ra is None or alt_dec is None:
+                                sys.stderr.write("WARNING: Incomplete alternate phase center %i, skipping.\n" % alt_id)
+                            else:
+                                sources.append( {'name':alt_name, 'ra2000':alt_ra, 'dec2000':alt_dec, 'start':tStart, 'stop':tStop} )
+                                
                 ## Extract the file information so that we can pair things together
                 fileInfo = metabundle.getSessionMetaData(filename)
                 for obsID in fileInfo.keys():
