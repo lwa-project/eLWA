@@ -130,7 +130,7 @@ def main(args):
                     if ant1 == args.ref_ant or ant2 == args.ref_ant:
                         process_flag = True
                 else:
-                    process = True
+                    process_flag = True
             if not process_flag:
                 continue
                 
