@@ -116,7 +116,7 @@ def main(args):
     bad = []
     for scan in scans:
         for nint in scans[scan]:
-            if len(scans[scan][nint]) != 4:
+            if len(scans[scan][nint]) != nInts:
                 bad.append( (scan, nint) )
                 
     # Move any integration sets that do not ahve the right number of parts
