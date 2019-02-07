@@ -17,6 +17,7 @@ import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
+from lsl.writer.fitsidi import NumericStokes
 from lsl.misc.dedispersion import delay, incoherent
 
 from flagger import *
@@ -221,6 +222,12 @@ def main(args):
         if uvdata.header['NO_STKD'] < 4:
             raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
             
+        # NOTE: Assumes that the Stokes parameters increment by -1
+        polMapper = {}
+        for i in xrange(nStk):
+            stk = stk0 - i
+            polMapper[i] = NumericStokes[stk]
+            
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
         antLookup = {}
@@ -325,8 +332,8 @@ def main(args):
             mask[match,:,:,:] = submask
             
             print '      Statistics for this scan'
-            print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,)
-            print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,)
+            print '      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,)
+            print '      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,)
             print '      -> Elapsed - %.3f s' % (time.time()-tS,)
             
             # Add in the original flag mask

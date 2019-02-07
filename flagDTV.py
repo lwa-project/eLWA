@@ -17,6 +17,7 @@ import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
+from lsl.writer.fitsidi import NumericStokes
 
 from flagger import *
 
@@ -43,6 +44,12 @@ def main(args):
             raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
         if uvdata.header['NO_STKD'] < 4:
             raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            
+        # NOTE: Assumes that the Stokes parameters increment by -1
+        polMapper = {}
+        for i in xrange(nStk):
+            stk = stk0 - i
+            polMapper[i] = NumericStokes[stk]
             
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
@@ -137,8 +144,8 @@ def main(args):
                 mask[match,b,:,1] = submask
                 
                 print '      Statistics for this scan/IF'
-                print '      -> XX      - %.1f%% flagged' % (100.0*mask[match,b,:,0].sum()/mask[match,b,:,0].size,)
-                print '      -> YY      - %.1f%% flagged' % (100.0*mask[match,b,:,1].sum()/mask[match,b,:,0].size,)
+                print '      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,b,:,0].sum()/mask[match,b,:,0].size,)
+                print '      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,b,:,1].sum()/mask[match,b,:,0].size,)
                 print '      -> Elapsed - %.3f s' % (time.time()-tS,)
                 
         # Convert the masks into a format suitable for writing to a FLAG table
