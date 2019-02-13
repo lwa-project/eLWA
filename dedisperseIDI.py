@@ -224,8 +224,8 @@ def main(args):
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
-        for i in xrange(nStk):
-            stk = stk0 - i
+        for i in xrange(uvdata.header['NO_STKD']):
+            stk = uvdata.header['STK_1'] - i
             polMapper[i] = NumericStokes[stk]
             
         # Pull out various bits of information we need to flag the file
