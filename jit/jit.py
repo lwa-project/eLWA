@@ -339,6 +339,8 @@ return 0;
             ftype = 'spec'
         elif ftype[:7] == 'FEngine':
             ftype = 'FEngine'
+        elif ftype[:9] == 'PFBEngine':
+            ftype = 'PFBEngine'
         elif ftype[:8] == 'XEngine2':
             ftype == 'XEngine2'
         elif ftype[:8] == 'XEngine3':

@@ -13,89 +13,89 @@
 */
 
 static PyObject *XEngine2(PyObject *self, PyObject *args) {
-	PyObject *signals1, *signals2, *sigValid1, *sigValid2, *output;
-	PyArrayObject *data1, *data2, *valid1, *valid2, *vis;
-	
-	if(!PyArg_ParseTuple(args, "OOOO", &signals1, &signals2, &sigValid1, &sigValid2)) {
-		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
-	}
+    PyObject *signals1, *signals2, *sigValid1, *sigValid2, *output;
+    PyArrayObject *data1, *data2, *valid1, *valid2, *vis;
+    
+    if(!PyArg_ParseTuple(args, "OOOO", &signals1, &signals2, &sigValid1, &sigValid2)) {
+        PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+        return NULL;
+    }
 
-	// Bring the data into C and make it usable
-	data1 = (PyArrayObject *) PyArray_ContiguousFromObject(signals1, NPY_COMPLEX64, 3, 3);
-	data2 = (PyArrayObject *) PyArray_ContiguousFromObject(signals2, NPY_COMPLEX64, 3, 3);
-	valid1 = (PyArrayObject *) PyArray_ContiguousFromObject(sigValid1, NPY_UINT8, 2, 2);
-	valid2 = (PyArrayObject *) PyArray_ContiguousFromObject(sigValid2, NPY_UINT8, 2, 2);
-	
-	// Create the output visibility array and fill with zeros
-	npy_intp dims[2];
-	dims[0] = (npy_intp) {{nBL}};
-	dims[1] = (npy_intp) {{nChan}};
-	vis = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_COMPLEX64);
-	if(vis == NULL) {
-		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
-		Py_XDECREF(data1);
-		Py_XDECREF(data2);
-		Py_XDECREF(valid1);
-		Py_XDECREF(valid2);
-		return NULL;
-	}
-	
-	// Mapper for baseline number to stand 1, stand 2
-	long s1, s2, mapper[{{nBL}}][2];
-	long k = 0;
-	for(s1=0; s1<{{nStand}}; s1++) {
-		for(s2=s1; s2<{{nStand}}; s2++) {
-			mapper[k][0] = s1;
-			mapper[k++][1] = s2;
-		}
-	}
-	
-	// Cross-multiplication and accumulation
-	long bl, c, f;
-	float complex tempVis;
-	float complex *a, *b, *v;
-	a = (float complex *) PyArray_DATA(data1);
-	b = (float complex *) PyArray_DATA(data2);
-	v = (float complex *) PyArray_DATA(vis);
-	
-	// Time-domain blanking control
-	long nActVis;
-	unsigned char *u1, *u2;
-	u1 = (unsigned char *) PyArray_DATA(valid1);
-	u2 = (unsigned char *) PyArray_DATA(valid2);
-	
-	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(s1, s2, c, f, nActVis, tempVis)
-	#endif
-	{
-		#ifdef _OPENMP
-			#pragma omp for schedule(OMP_SCHEDULER)
-		#endif
-		for(bl=0; bl<{{nBL}}; bl++) {
-			s1 = mapper[bl][0];
-			s2 = mapper[bl][1];
-			
-			nActVis = 0;
-			for(f=0; f<{{nFFT}}; f++) {
-				nActVis += (long) (*(u1 + {{nFFT}}*s1 + f) & *(u2 + {{nFFT}}*s2 + f));
-			}
-			
-			for(c=0; c<{{nChan}}; c++) {
-				cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				*(v + {{nChan}}*bl + c) = tempVis / nActVis;
-			}
-		}
-	}
-	Py_XDECREF(data1);
-	Py_XDECREF(data2);
-	Py_XDECREF(valid1);
-	Py_XDECREF(valid2);
+    // Bring the data into C and make it usable
+    data1 = (PyArrayObject *) PyArray_ContiguousFromObject(signals1, NPY_COMPLEX64, 3, 3);
+    data2 = (PyArrayObject *) PyArray_ContiguousFromObject(signals2, NPY_COMPLEX64, 3, 3);
+    valid1 = (PyArrayObject *) PyArray_ContiguousFromObject(sigValid1, NPY_UINT8, 2, 2);
+    valid2 = (PyArrayObject *) PyArray_ContiguousFromObject(sigValid2, NPY_UINT8, 2, 2);
+    
+    // Create the output visibility array and fill with zeros
+    npy_intp dims[2];
+    dims[0] = (npy_intp) {{nBL}};
+    dims[1] = (npy_intp) {{nChan}};
+    vis = (PyArrayObject*) PyArray_SimpleNew(2, dims, NPY_COMPLEX64);
+    if(vis == NULL) {
+        PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+        Py_XDECREF(data1);
+        Py_XDECREF(data2);
+        Py_XDECREF(valid1);
+        Py_XDECREF(valid2);
+        return NULL;
+    }
+    
+    // Mapper for baseline number to stand 1, stand 2
+    long s1, s2, mapper[{{nBL}}][2];
+    long k = 0;
+    for(s1=0; s1<{{nStand}}; s1++) {
+        for(s2=s1; s2<{{nStand}}; s2++) {
+            mapper[k][0] = s1;
+            mapper[k++][1] = s2;
+        }
+    }
+    
+    // Cross-multiplication and accumulation
+    long bl, c, f;
+    float complex tempVis;
+    float complex *a, *b, *v;
+    a = (float complex *) PyArray_DATA(data1);
+    b = (float complex *) PyArray_DATA(data2);
+    v = (float complex *) PyArray_DATA(vis);
+    
+    // Time-domain blanking control
+    long nActVis;
+    unsigned char *u1, *u2;
+    u1 = (unsigned char *) PyArray_DATA(valid1);
+    u2 = (unsigned char *) PyArray_DATA(valid2);
+    
+    #ifdef _OPENMP
+        #pragma omp parallel default(shared) private(s1, s2, c, f, nActVis, tempVis)
+    #endif
+    {
+        #ifdef _OPENMP
+            #pragma omp for schedule(OMP_SCHEDULER)
+        #endif
+        for(bl=0; bl<{{nBL}}; bl++) {
+            s1 = mapper[bl][0];
+            s2 = mapper[bl][1];
+            
+            nActVis = 0;
+            for(f=0; f<{{nFFT}}; f++) {
+                nActVis += (long) (*(u1 + {{nFFT}}*s1 + f) & *(u2 + {{nFFT}}*s2 + f));
+            }
+            
+            for(c=0; c<{{nChan}}; c++) {
+                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                *(v + {{nChan}}*bl + c) = tempVis / nActVis;
+            }
+        }
+    }
+    Py_XDECREF(data1);
+    Py_XDECREF(data2);
+    Py_XDECREF(valid1);
+    Py_XDECREF(valid2);
 
-	output = Py_BuildValue("O", PyArray_Return(vis));
-	Py_XDECREF(vis);
+    output = Py_BuildValue("O", PyArray_Return(vis));
+    Py_XDECREF(vis);
 
-	return output;
+    return output;
 }
 
 PyDoc_STRVAR(XEngine2_doc, \
@@ -118,108 +118,108 @@ Ouputs:\n\
 
 
 static PyObject *XEngine3(PyObject *self, PyObject *args) {
-	PyObject *signalsX, *signalsY, *sigValidX, *sigValidY, *output;
-	PyArrayObject *dataX, *dataY, *validX, *validY, *vis;
-	
-	if(!PyArg_ParseTuple(args, "OOOO", &signalsX, &signalsY, &sigValidX, &sigValidY)) {
-		PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
-		return NULL;
-	}
-	
-	// Bring the data into C and make it usable
-	dataX = (PyArrayObject *) PyArray_ContiguousFromObject(signalsX, NPY_COMPLEX64, 3, 3);
-	dataY = (PyArrayObject *) PyArray_ContiguousFromObject(signalsY, NPY_COMPLEX64, 3, 3);
-	validX = (PyArrayObject *) PyArray_ContiguousFromObject(sigValidX, NPY_UINT8, 2, 2);
-	validY = (PyArrayObject *) PyArray_ContiguousFromObject(sigValidY, NPY_UINT8, 2, 2);
-	
-	// Create the output visibility array and fill with zeros
-	npy_intp dims[3];
-	dims[0] = (npy_intp) 4;
-	dims[1] = (npy_intp) {{nBL}};
-	dims[2] = (npy_intp) {{nChan}};
-	vis = (PyArrayObject*) PyArray_SimpleNew(3, dims, NPY_COMPLEX64);
-	if(vis == NULL) {
-		PyErr_Format(PyExc_MemoryError, "Cannot create output array");
-		Py_XDECREF(dataX);
-		Py_XDECREF(dataY);
-		Py_XDECREF(validX);
-		Py_XDECREF(validY);
-		return NULL;
-	}
-	
-	// Mapper for baseline number to stand 1, stand 2
-	long s1, s2, mapper[{{nBL}}][2];
-	long k = 0;
-	for(s1=0; s1<{{nStand}}; s1++) {
-		for(s2=s1; s2<{{nStand}}; s2++) {
-			mapper[k][0] = s1;
-			mapper[k++][1] = s2;
-		}
-	}
-	
-	// Cross-multiplication and accumulation
-	long bl, c, f;
-	float complex tempVis;
-	float complex *a, *b, *v;
-	a = (float complex *) PyArray_DATA(dataX);
-	b = (float complex *) PyArray_DATA(dataY);
-	v = (float complex *) PyArray_DATA(vis);
-	
-	// Time-domain blanking control
-	long nActVisPureX, nActVisPureY, nActVisCross;
-	unsigned char *u1, *u2;
-	u1 = (unsigned char *) PyArray_DATA(validX);
-	u2 = (unsigned char *) PyArray_DATA(validY);
-	
-	#ifdef _OPENMP
-		#pragma omp parallel default(shared) private(s1, s2, c, f, nActVisPureX, nActVisPureY, nActVisCross, tempVis)
-	#endif
-	{
-		#ifdef _OPENMP
-			#pragma omp for schedule(OMP_SCHEDULER)
-		#endif
-		for(bl=0; bl<{{nBL}}; bl++) {
-			s1 = mapper[bl][0];
-			s2 = mapper[bl][1];
-			
-			nActVisPureX = 0;
-			nActVisPureY = 0;
-			nActVisCross = 0;
-			for(f=0; f<{{nFFT}}; f++) {
-				nActVisPureX += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
-				nActVisPureY += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
-				nActVisCross += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
-			}
-			
-			for(c=0; c<{{nChan}}; c++) {
-				// XX
-				cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				*(v + 0*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureX;
-				
-				// XY
-				cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
-				
-				// YX
-				//cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				//*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
-				*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
-				
-				// YY
-				cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-				*(v + 3*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureY;
-			}
-		}
-	}
-	Py_XDECREF(dataX);
-	Py_XDECREF(dataY);
-	Py_XDECREF(validX);
-	Py_XDECREF(validY);
+    PyObject *signalsX, *signalsY, *sigValidX, *sigValidY, *output;
+    PyArrayObject *dataX, *dataY, *validX, *validY, *vis;
+    
+    if(!PyArg_ParseTuple(args, "OOOO", &signalsX, &signalsY, &sigValidX, &sigValidY)) {
+        PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
+        return NULL;
+    }
+    
+    // Bring the data into C and make it usable
+    dataX = (PyArrayObject *) PyArray_ContiguousFromObject(signalsX, NPY_COMPLEX64, 3, 3);
+    dataY = (PyArrayObject *) PyArray_ContiguousFromObject(signalsY, NPY_COMPLEX64, 3, 3);
+    validX = (PyArrayObject *) PyArray_ContiguousFromObject(sigValidX, NPY_UINT8, 2, 2);
+    validY = (PyArrayObject *) PyArray_ContiguousFromObject(sigValidY, NPY_UINT8, 2, 2);
+    
+    // Create the output visibility array and fill with zeros
+    npy_intp dims[3];
+    dims[0] = (npy_intp) 4;
+    dims[1] = (npy_intp) {{nBL}};
+    dims[2] = (npy_intp) {{nChan}};
+    vis = (PyArrayObject*) PyArray_SimpleNew(3, dims, NPY_COMPLEX64);
+    if(vis == NULL) {
+        PyErr_Format(PyExc_MemoryError, "Cannot create output array");
+        Py_XDECREF(dataX);
+        Py_XDECREF(dataY);
+        Py_XDECREF(validX);
+        Py_XDECREF(validY);
+        return NULL;
+    }
+    
+    // Mapper for baseline number to stand 1, stand 2
+    long s1, s2, mapper[{{nBL}}][2];
+    long k = 0;
+    for(s1=0; s1<{{nStand}}; s1++) {
+        for(s2=s1; s2<{{nStand}}; s2++) {
+            mapper[k][0] = s1;
+            mapper[k++][1] = s2;
+        }
+    }
+    
+    // Cross-multiplication and accumulation
+    long bl, c, f;
+    float complex tempVis;
+    float complex *a, *b, *v;
+    a = (float complex *) PyArray_DATA(dataX);
+    b = (float complex *) PyArray_DATA(dataY);
+    v = (float complex *) PyArray_DATA(vis);
+    
+    // Time-domain blanking control
+    long nActVisPureX, nActVisPureY, nActVisCross;
+    unsigned char *u1, *u2;
+    u1 = (unsigned char *) PyArray_DATA(validX);
+    u2 = (unsigned char *) PyArray_DATA(validY);
+    
+    #ifdef _OPENMP
+        #pragma omp parallel default(shared) private(s1, s2, c, f, nActVisPureX, nActVisPureY, nActVisCross, tempVis)
+    #endif
+    {
+        #ifdef _OPENMP
+            #pragma omp for schedule(OMP_SCHEDULER)
+        #endif
+        for(bl=0; bl<{{nBL}}; bl++) {
+            s1 = mapper[bl][0];
+            s2 = mapper[bl][1];
+            
+            nActVisPureX = 0;
+            nActVisPureY = 0;
+            nActVisCross = 0;
+            for(f=0; f<{{nFFT}}; f++) {
+                nActVisPureX += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
+                nActVisPureY += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+                nActVisCross += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+            }
+            
+            for(c=0; c<{{nChan}}; c++) {
+                // XX
+                cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                *(v + 0*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureX;
+                
+                // XY
+                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                *(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
+                
+                // YX
+                //cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                //*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
+                *(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
+                
+                // YY
+                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                *(v + 3*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureY;
+            }
+        }
+    }
+    Py_XDECREF(dataX);
+    Py_XDECREF(dataY);
+    Py_XDECREF(validX);
+    Py_XDECREF(validY);
 
-	output = Py_BuildValue("O", PyArray_Return(vis));
-	Py_XDECREF(vis);
+    output = Py_BuildValue("O", PyArray_Return(vis));
+    Py_XDECREF(vis);
 
-	return output;
+    return output;
 }
 
 PyDoc_STRVAR(XEngine3_doc, \
@@ -247,13 +247,14 @@ Ouputs:\n\
 */
 
 static PyMethodDef cMethods[] = {
-	{"specS",    (PyCFunction) cSpecS,   METH_VARARGS|METH_KEYWORDS, cSpec_doc   }, 
-	{"specF",    (PyCFunction) cSpecF,   METH_VARARGS|METH_KEYWORDS, cSpec_doc   }, 
-	{"specL",    (PyCFunction) cSpecL,   METH_VARARGS|METH_KEYWORDS, cSpec_doc   }, 
-	{"FEngine",  (PyCFunction) cFEngine, METH_VARARGS|METH_KEYWORDS, cFEngine_doc}, 
-	{"XEngine2", (PyCFunction) XEngine2, METH_VARARGS,               XEngine2_doc}, 
-	{"XEngine3", (PyCFunction) XEngine3, METH_VARARGS,               XEngine3_doc}, 
-	{NULL,       NULL,                   0,                          NULL        }
+    {"specS",     (PyCFunction) cSpecS,     METH_VARARGS|METH_KEYWORDS, cSpec_doc     }, 
+    {"specF",     (PyCFunction) cSpecF,     METH_VARARGS|METH_KEYWORDS, cSpec_doc     }, 
+    {"specL",     (PyCFunction) cSpecL,     METH_VARARGS|METH_KEYWORDS, cSpec_doc     }, 
+    {"FEngine",   (PyCFunction) cFEngine,   METH_VARARGS|METH_KEYWORDS, cFEngine_doc  }, 
+    {"PFBEngine", (PyCFunction) cPFBEngine, METH_VARARGS|METH_KEYWORDS, cPFBEngine_doc},
+    {"XEngine2",  (PyCFunction) XEngine2,   METH_VARARGS,               XEngine2_doc  }, 
+    {"XEngine3",  (PyCFunction) XEngine3,   METH_VARARGS,               XEngine3_doc  }, 
+    {NULL,        NULL,                     0,                          NULL          }
 };
 
 PyDoc_STRVAR(cDoc, \
@@ -267,20 +268,20 @@ PyDoc_STRVAR(cDoc, \
 */
 
 PyMODINIT_FUNC init{{module}}(void) {
-	char filename[256];
-	PyObject *m, *pModule, *pDataPath;
+    char filename[256];
+    PyObject *m, *pModule, *pDataPath;
 
-	// Module definitions and functions
-	m = Py_InitModule3("{{module}}", cMethods, cDoc);
-	import_array();
-	
-	// LSL FFTW Wisdom
-	pModule = PyImport_ImportModule("lsl.common.paths");
-	if( pModule != NULL ) {
-		pDataPath = PyObject_GetAttrString(pModule, "data");
-		sprintf(filename, "%s/fftwf_wisdom.txt", PyString_AsString(pDataPath));
-		read_wisdom(filename, m);
-	} else {
-		PyErr_Warn(PyExc_RuntimeWarning, "Cannot load the LSL FFTWF wisdom");
-	}
+    // Module definitions and functions
+    m = Py_InitModule3("{{module}}", cMethods, cDoc);
+    import_array();
+    
+    // LSL FFTW Wisdom
+    pModule = PyImport_ImportModule("lsl.common.paths");
+    if( pModule != NULL ) {
+        pDataPath = PyObject_GetAttrString(pModule, "data");
+        sprintf(filename, "%s/fftwf_wisdom.txt", PyString_AsString(pDataPath));
+        read_wisdom(filename, m);
+    } else {
+        PyErr_Warn(PyExc_RuntimeWarning, "Cannot load the LSL FFTWF wisdom");
+    }
 }
