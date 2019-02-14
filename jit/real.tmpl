@@ -681,7 +681,7 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
     float *pfb;
     pfb = (float*) malloc(sizeof(float) * 2*{{nChan}}*NTAP);
     for(i=0; i<2*{{nChan}}*NTAP; i++) {
-        *(pfb + i) = (float) sincf((i - 2.0*{{nChan}}*NTAP/2.0 + 0.5)/(2.0*{{nChan}}));
+        *(pfb + i) = sincf((i - 2.0*{{nChan}}*NTAP/2.0 + 0.5)/(2.0*{{nChan}}));
         *(pfb + i) *= hanningf(2*NPY_PI*i/(2*{{nChan}}*NTAP-1));
     }
     
