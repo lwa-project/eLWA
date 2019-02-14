@@ -757,10 +757,10 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             cleanFactor = 1.0;
             
             for(k=0; k<{{nChan}}*NTAP; k++) {
-                if( *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*NTAP + k < {{nSamps}}*i ) {
+                if( *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(NTAP-1) + k < {{nSamps}}*i ) {
                     in[k] = 0.0;
                 } else {
-                    in[k] = *(a + *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*NTAP + k);
+                    in[k] = *(a + *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(NTAP-1) + k);
                 }
                 
                 {%- if ClipLevel != 0 -%}
