@@ -685,20 +685,18 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
     }
     
     // Create the FFTW plan
-    #define NTAP 4
-    
     float complex *inP, *in;
-    inP = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}}*NTAP);
+    inP = (float complex*) fftwf_malloc(sizeof(float complex) * {{nChan}}*PFB_NTAP);
     fftwf_plan p;
     int n[] = { {{nChan}},};
-    p = fftwf_plan_many_dft(1, n, NTAP, inP, NULL, 1, {{nChan}}, inP, NULL, 1, {{nChan}}, FFTW_FORWARD, FFTW_ESTIMATE);
+    p = fftwf_plan_many_dft(1, n, PFB_NTAP, inP, NULL, 1, {{nChan}}, inP, NULL, 1, {{nChan}}, FFTW_FORWARD, FFTW_ESTIMATE);
     
     // Filter bank
     float *pfb;
-    pfb = (float*) malloc(sizeof(float) * {{nChan}}*NTAP);
-    for(i=0; i<{{nChan}}*NTAP; i++) {
-        *(pfb + i) = sincf((i - {{nChan}}*NTAP/2.0 + 0.5)/{{nChan}});
-        *(pfb + i) *= hanningf(2*NPY_PI*i/({{nChan}}*NTAP-1));
+    pfb = (float*) malloc(sizeof(float) * {{nChan}}*PFB_NTAP);
+    for(i=0; i<{{nChan}}*PFB_NTAP; i++) {
+        *(pfb + i) = sincf((i - {{nChan}}*PFB_NTAP/2.0 + 0.5)/{{nChan}});
+        *(pfb + i) *= hanningf(2*NPY_PI*i/({{nChan}}*PFB_NTAP-1));
     }
     
     // Data indexing and access
@@ -737,7 +735,7 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
         #pragma omp parallel default(shared) private(in, i, j, k, l, cleanFactor, temp2)
     #endif
     {
-        in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}}*NTAP);
+        in = (float complex *) fftwf_malloc(sizeof(float complex) * {{nChan}}*PFB_NTAP);
         temp2 = (float complex *) fftwf_malloc(sizeof(float complex)*({{nChan}}/2+{{nChan}}%2));
         
         #ifdef _OPENMP
@@ -756,11 +754,11 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             
             cleanFactor = 1.0;
             
-            for(k=0; k<{{nChan}}*NTAP; k++) {
-                if( *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(NTAP-1) + k < {{nSamps}}*i ) {
+            for(k=0; k<{{nChan}}*PFB_NTAP; k++) {
+                if( *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(PFB_NTAP-1) + k < {{nSamps}}*i ) {
                     in[k] = 0.0;
                 } else {
-                    in[k] = *(a + *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(NTAP-1) + k);
+                    in[k] = *(a + *(fifo + i) + {{nSamps}}*i + {{nChan}}*j/{{nOverlap}} - {{nChan}}*(PFB_NTAP-1) + k);
                 }
                 
                 {%- if ClipLevel != 0 -%}
@@ -774,7 +772,7 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             
             fftwf_execute_dft(p, in, in);
             
-            for(l=1; l<NTAP; l++) {
+            for(l=1; l<PFB_NTAP; l++) {
                 // Sum over the various FFT windows
                 for(k=0; k<{{nChan}}; k++) {
                     in[k] += in[k+l*{{nChan}}];

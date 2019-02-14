@@ -667,22 +667,20 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
     }
     
     // Create the FFTW plan
-    #define NTAP 4
-    
     float *inP, *in;                        
     float complex *outP, *out;                          
-    inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}}*NTAP);
-    outP = (float complex *) fftwf_malloc(sizeof(float complex) * ({{nChan}}+1)*NTAP);
+    inP = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}}*PFB_NTAP);
+    outP = (float complex *) fftwf_malloc(sizeof(float complex) * ({{nChan}}+1)*PFB_NTAP);
     fftwf_plan p;
     int n[] = {2*{{nChan}},};
-    p = fftwf_plan_many_dft_r2c(1, n, NTAP, inP, NULL, 1, 2*{{nChan}}, outP, NULL, 1, {{nChan}}+1, FFTW_MEASURE);
+    p = fftwf_plan_many_dft_r2c(1, n, PFB_NTAP, inP, NULL, 1, 2*{{nChan}}, outP, NULL, 1, {{nChan}}+1, FFTW_MEASURE);
     
     // Filter bank
     float *pfb;
-    pfb = (float*) malloc(sizeof(float) * 2*{{nChan}}*NTAP);
-    for(i=0; i<2*{{nChan}}*NTAP; i++) {
-        *(pfb + i) = sincf((i - 2.0*{{nChan}}*NTAP/2.0 + 0.5)/(2.0*{{nChan}}));
-        *(pfb + i) *= hanningf(2*NPY_PI*i/(2*{{nChan}}*NTAP-1));
+    pfb = (float*) malloc(sizeof(float) * 2*{{nChan}}*PFB_NTAP);
+    for(i=0; i<2*{{nChan}}*PFB_NTAP; i++) {
+        *(pfb + i) = sincf((i - 2.0*{{nChan}}*PFB_NTAP/2.0 + 0.5)/(2.0*{{nChan}}));
+        *(pfb + i) *= hanningf(2*NPY_PI*i/(2*{{nChan}}*PFB_NTAP-1));
     }
     
     // Data indexing and access
@@ -721,8 +719,8 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
         #pragma omp parallel default(shared) private(in, out, i, j, k, cleanFactor)
     #endif
     {
-        in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}}*NTAP);
-        out = (float complex *) fftwf_malloc(sizeof(float complex) * ({{nChan}}+1)*NTAP);
+        in = (float *) fftwf_malloc(sizeof(float) * 2*{{nChan}}*PFB_NTAP);
+        out = (float complex *) fftwf_malloc(sizeof(float complex) * ({{nChan}}+1)*PFB_NTAP);
         
         #ifdef _OPENMP
             #pragma omp for schedule(OMP_SCHEDULER)
@@ -740,11 +738,11 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             
             cleanFactor = 1.0;
             
-            for(k=0; k<2*{{nChan}}*NTAP; k++) {
-                if( *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} - 2*{{nChan}}*(NTAP-1) + k < {{nSamps}}*i ) {
+            for(k=0; k<2*{{nChan}}*PFB_NTAP; k++) {
+                if( *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} - 2*{{nChan}}*(PFB_NTAP-1) + k < {{nSamps}}*i ) {
                     in[k] = 0.0;
                 } else {
-                    in[k] = (float) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} - 2*{{nChan}}*(NTAP-1) + k);
+                    in[k] = (float) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} - 2*{{nChan}}*(PFB_NTAP-1) + k);
                 }
                 
                 {%- if ClipLevel != 0 -%}
@@ -758,7 +756,7 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             
             fftwf_execute_dft_r2c(p, in, out);
             
-            for(l=1; l<NTAP; l++) {
+            for(l=1; l<PFB_NTAP; l++) {
                 // Sum over the various FFT windows
                 for(k=0; k<{{nChan}}; k++) {
                     out[k] += out[k+l*({{nChan}}+1)];
