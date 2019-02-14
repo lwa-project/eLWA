@@ -746,13 +746,14 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
                 } else {
                     in[k] = (float) *(a + *(fifo + i) + {{nSamps}}*i + 2*{{nChan}}*j/{{nOverlap}} - 2*{{nChan}}*NTAP + k);
                 }
-                in[k] *= *(pfb + k);
                 
                 {%- if ClipLevel != 0 -%}
                 if( fabsf(in[k]) >= {{ClipLevel}} ) {
                     cleanFactor = 0.0;
                 }
                 {%- endif %}
+                
+                in[k] *= *(pfb + k);
             }
             
             fftwf_execute_dft_r2c(p, in, out);
