@@ -12,7 +12,7 @@ $LastChangedDate$
 import os
 import sys
 import numpy
-import getopt
+import argparse
 import tempfile
 
 from lsl.reader import vdif, drx
@@ -23,63 +23,11 @@ from matplotlib import pyplot as plt
 from matplotlib.ticker import NullFormatter
 
 
-def usage(exitCode=None):
-    print """plotConfig.py - Plot the antenna locations in a configuration file
-
-Usage:
-plotConfig.py [OPTIONS] configFile|npzFile
-
-Options:
--h, --help                  Display this help information
--l, --label                 Label the stands with their IDs
-                            (default = no)
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['label'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hl", ["help", "label"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--label'):
-            config['label'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    filename = config['args'][0]
-    
     # Parse the correlator configuration
     try:
         ## .npz file
-        dataDict = numpy.load(filename)
+        dataDict = numpy.load(args.filename)
         cConfig = dataDict['config']
         fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
         fh = open(tempConfig, 'w')
@@ -91,7 +39,7 @@ def main(args):
         
     except IOError:
         ## Standard .txt file
-        refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(filename)
+        refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
         
     # Load in the stand position data and antenna names
     data = []
@@ -117,7 +65,7 @@ def main(args):
     blLength = numpy.array(blLength) / 1e3
     
     # Report
-    print "Filename: %s" % os.path.basename(filename)
+    print "Filename: %s" % os.path.basename(args.filename)
     print "  Phase Center:"
     print "    Name: %s" % refSrc.name
     print "    RA: %s" % refSrc._ra
@@ -145,7 +93,7 @@ def main(args):
     c = ax1.scatter(data[:,0]/1e3, data[:,1]/1e3, c=color, s=40.0, alpha=0.50)	
     ax1.set_xlabel('$\Delta$X [E-W; km]')
     ax1.set_ylabel('$\Delta$Y [N-S; km]')
-    fig.suptitle("%s - %s" % (os.path.basename(filename), refSrc.name))
+    fig.suptitle("%s - %s" % (os.path.basename(args.filename), refSrc.name))
     
     ax2.scatter(data[:,0]/1e3, data[:,2], c=color, s=40.0)
     ax2.xaxis.set_major_formatter( NullFormatter() )
@@ -155,7 +103,7 @@ def main(args):
     ax3.set_xlabel('$\Delta$Z [m]')
     
     # Add in the labels, if requested
-    if config['label']:
+    if args.label:
         for i in xrange(len(names)):
             ax1.annotate(names[i], xy=(data[i,0]/1e3, data[i,1]/1e3))
             
@@ -171,5 +119,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='plot the antenna locations in a configuration or superCorrelator.py .npz file', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to plot')
+    parser.add_argument('-l', '--label', action='store_true', 
+                        help='label the stands with their IDs')
+    args = parser.parse_args()
+    main(args)
     

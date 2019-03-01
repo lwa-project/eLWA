@@ -266,7 +266,7 @@ if __name__ == "__main__":
                         help='plot Stokes I data')
     pgroup.add_argument('-v', '--stokes-v', action='store_true', 
                         help='plot Stokes V data')
-    parser.add_argument('-l', '--limit', type=int, 
+    parser.add_argument('-l', '--limit', type=int, default=-1, 
                         help='limit the data loaded to the first N files, -1 = load all')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')

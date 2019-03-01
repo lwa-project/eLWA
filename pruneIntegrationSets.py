@@ -14,80 +14,28 @@ $LastChangedDate$
 import os
 import sys
 import glob
-import getopt
-
-
-def usage(exitCode=None):
-    print("""pruneIntegrationSets.py - Script that takes in a directory and removes integrations 
-where a full set is not present.  If no directory is supplied, the current 
-directory is used.
-
-Usage:
-pruneIntegrationSets.py [OPTIONS] [directory]
-
-Options:
--h, --help                Display this help information
--q, --quiet               Suppress script output
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['verbose'] = True
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hq", ["help", "quiet"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
+import argparse
 
 
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    try:
-        basedir = config['args'][0]
-    except IndexError:
-        basedir = '.'
+    if args.directory is None:
+        args.directory = '.'
         
     # Validate
-    basedir = os.path.abspath(basedir)
-    if not os.path.exists(basedir):
-        raise RuntimeError("'%s' does not exists" % basedir)
-    if not os.path.isdir(basedir):
-        raise RuntimeError("'%s' is not a directory" % basedir)
+    args.directory = os.path.abspath(args.directory)
+    if not os.path.exists(args.directory):
+        raise RuntimeError("'%s' does not exists" % args.directory)
+    if not os.path.isdir(args.directory):
+        raise RuntimeError("'%s' is not a directory" % args.directory)
         
     # Find all of the files
-    filenames = glob.glob(os.path.join(basedir, '*-vis2-*.npz'))
+    filenames = glob.glob(os.path.join(args.directory, '*-vis2-*.npz'))
     
     # Validate
     if len(filenames) == 0:
-        if config['verbose']:
-            print("No integrations found in '%s', exiting" % basedir)
+        if (not args.quiet):
+            print("No integrations found in '%s', exiting" % args.directory)
         sys.exit()
         
     # Find the scan/integration sets
@@ -109,7 +57,7 @@ def main(args):
     for scan in scans:
         nInts.extend( [len(scans[scan][nint]) for nint in scans[scan]] )
     nInts = max(nInts)
-    if config['verbose']:
+    if (not args.quiet):
         print("There appear to be %i files per integration set" % nInts)
         
     # Find bad integration sets that do not have the right number parts
@@ -123,19 +71,19 @@ def main(args):
     # into a 'notUsed' directory.
     if bad:
         ## Make sure we have a 'notUsed' directory to populate
-        if not os.path.exists(os.path.join(basedir, 'notUsed')):
-            os.mkdir(os.path.join(basedir, 'notUsed'))
+        if not os.path.exists(os.path.join(args.directory, 'notUsed')):
+            os.mkdir(os.path.join(args.directory, 'notUsed'))
             
         ## Move the files over
         nMoved = 0
         for scan,nint in bad:
-            filenames = glob.glob(os.path.join(basedir, '*%s[HL]-vis2-%s.npz' % (scan, nint)))
+            filenames = glob.glob(os.path.join(args.directory, '*%s[HL]-vis2-%s.npz' % (scan, nint)))
             for filename in filenames:
-                os.rename(filename, os.path.join(basedir, 'notUsed', os.path.basename(filename)))
+                os.rename(filename, os.path.join(args.directory, 'notUsed', os.path.basename(filename)))
                 nMoved += 1
                 
         ## Report
-        if config['verbose']:
+        if (not args.quiet):
             badScans = set([scan for scan,nint in bad])
             
             print("Moved %i files corresponding to %i integrations to 'notUsed'" % (nMoved, len(bad)))
@@ -145,5 +93,15 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='script that takes in a directory and removes integrations where a full set is not present', 
+        epilog='NOTE:  If no directory is supplied, the current directory is used.', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('directory', type=str, nargs='?', 
+                        help='directory to process')
+    parser.add_argument('-q', '--quiet', action='store_true', 
+                        help='suppress script output')
+    args = parser.parse_args()
+    main(args)
     
