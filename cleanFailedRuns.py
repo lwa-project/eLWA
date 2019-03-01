@@ -159,7 +159,6 @@ if __name__ == "__main__":
                         help='comma seperated lists of nodes to examine')
     parser.add_argument('-d', '--dry-run', action='store_true', 
                         help='dry run; report but do not clean')
-                        
     args = parser.parse_args()
     main(args)
     

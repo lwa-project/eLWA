@@ -16,110 +16,35 @@ $LastChangedDate$
 import os
 import sys
 import numpy
-import getopt
 import pyfits
+import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
 from lsl.statistics import robust
 from lsl.misc.mathutil import to_dB
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
 
-def usage(exitCode=None):
-    print """fringeSearchIDI.py - Given a FITS-IDI file, search for fringes.
-
-Usage:
-fringeSearchIDI.py [OPTIONS] fits
-
-Options:
--h, --help                  Display this help information
--r, --ref-ant               Reference antenna (default = first antenna)
--b, --baseline              Search only the specified baseline in 'ANT-ANT' format
--y, --y-only                Limit the search on VLA-LWA baselines to the VLA
-                            Y pol. only
--e, --delay-window          Delay search window in us (default = -inf,inf 
-                            = maximum allowed by spectral resolution)
--a, --rate-window           Rate search window in mHz (default = -inf,inf
-                            = maximum allowed by temporal resolution)
--p, --plot                  Show search plots at the end (default = no)
-"""
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['refAnt'] = None
-    config['baseline'] = None
-    config['yOnlyVLALWA'] = False
-    config['delayWindow'] = [-numpy.inf, numpy.inf]
-    config['rateWindow'] = [-numpy.inf, numpy.inf]
-    config['plot'] = False
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hr:b:ye:a:p", ["help", "baseline=", "ref-ant=", "y-only", "delay-window=", "rate-window=", "plot"])
-    except getopt.GetoptError, err:
-        # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-r', '--ref-ant'):
-            config['refAnt'] = int(value, 10)
-        elif opt in ('-b', '--baseline'):
-            config['baseline'] = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in value.split(',')]]
-        elif opt in ('-y', '--y-only'):
-            config['yOnlyVLALWA'] = True
-        elif opt in ('-e', '--delay-window'):
-            config['delayWindow'] = [float(v) for v in value.split(',', 1)]
-        elif opt in ('-a', '--rate-window'):
-            config['rateWindow'] = [float(v) for v in value.split(',', 1)]
-        elif opt in ('-p', '--plot'):
-            config['plot'] = True
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Fill the baseline list with the conjugates
-    if config['baseline'] is not None:
-        newBaselines = []
-        for pair in config['baseline']:
-            newBaselines.append( (pair[1],pair[0]) )
-        config['baseline'].extend(newBaselines)
-        
-    # Validate
-    if len(config['args']) != 1:
-        raise RuntimeError("Must provide at a single FITS-IDI file to plot")
-    if config['delayWindow'][0] > config['delayWindow'][1]:
-        raise RuntimeError("Invalid delay search window: %.3f to %.3f" % tuple(config['delayWindow']))
-    if config['rateWindow'][0] > config['rateWindow'][1]:
-        raise RuntimeError("Invalid rate search window: %.3f to %.3f" % tuple(config['rateWindow']))
-        
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filename = config['args'][0]
+    ## Baseline list
+    if args.baseline is not None:
+        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in args.baseline.split(',')]]
+        ## Fill the baseline list with the conjugates, if needed
+        newBaselines = []
+        for pair in args.baseline:
+            newBaselines.append( (pair[1],pair[0]) )
+        args.baseline.extend(newBaselines)
+    ## Search limits
+    args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
+    args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
     
-    print "Working on '%s'" % os.path.basename(filename)
+    print "Working on '%s'" % os.path.basename(args.filename)
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = pyfits.open(args.filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     uvdata = hdulist['UV_DATA']
@@ -188,19 +113,19 @@ def main(args):
     blocks.sort()
     
     # Make sure the reference antenna is in there
-    if config['refAnt'] is None:
+    if args.ref_ant is None:
         bl = ubls[0]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
-        config['refAnt'] = ant1
+        args.ref_ant = ant1
     else:
         found = False
         for bl in ubls:
             ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
-            if ant1 == config['refAnt']:
+            if ant1 == args.ref_ant:
                 found = True
                 break
         if not found:
-            raise RuntimeError("Cannot file reference antenna %i in the data" % config['refAnt'])
+            raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
             
     search_bls = []
     cross = []
@@ -223,43 +148,43 @@ def main(args):
     
     dMax = 1.0/(freq[1]-freq[0])/4
     dMax = int(dMax*1e6)*1e-6
-    if -dMax*1e6 > config['delayWindow'][0]:
-        config['delayWindow'][0] = -dMax*1e6
-    if dMax*1e6 < config['delayWindow'][1]:
-        config['delayWindow'][1] = dMax*1e6
+    if -dMax*1e6 > args.delay_window[0]:
+        args.delay_window[0] = -dMax*1e6
+    if dMax*1e6 < args.delay_window[1]:
+        args.delay_window[1] = dMax*1e6
     rMax = 1.0/iTimes.mean()/4
     rMax = int(rMax*1e2)*1e-2
-    if -rMax*1e3 > config['rateWindow'][0]:
-        config['rateWindow'][0] = -rMax*1e3
-    if rMax*1e3 < config['rateWindow'][1]:
-        config['rateWindow'][1] = rMax*1e3
+    if -rMax*1e3 > args.rate_window[0]:
+        args.rate_window[0] = -rMax*1e3
+    if rMax*1e3 < args.rate_window[1]:
+        args.rate_window[1] = rMax*1e3
         
     dres = 1.0
-    nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+    nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     while nDelays < 50:
         dres /= 10
-        nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+        nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     while nDelays > 5000:
         dres *= 10
-        nDelays = int((config['delayWindow'][1]-config['delayWindow'][0])/dres)
+        nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     nDelays += (nDelays + 1) % 2
     
     rres = 10.0
-    nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+    nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     while nRates < 50:
         rres /= 10
-        nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+        nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     while nRates > 5000:
         rres *= 10
-        nRates = int((config['rateWindow'][1]-config['rateWindow'][0])/rres)
+        nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
     
-    print "Searching delays %.1f to %.1f us in steps of %.2f us" % (config['delayWindow'][0], config['delayWindow'][1], dres)
-    print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (config['rateWindow'][0], config['rateWindow'][1], rres)
+    print "Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres)
+    print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres)
     print " "
     
-    delay = numpy.linspace(config['delayWindow'][0]*1e-6, config['delayWindow'][1]*1e-6, nDelays)		# s
-    drate = numpy.linspace(config['rateWindow'][0]*1e-3,  config['rateWindow'][1]*1e-3,  nRates )		# Hz
+    delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+    drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
     
     # Find RFI and trim it out.  This is done by computing average visibility 
     # amplitudes (a "spectrum") and running a median filter in frequency to extract
@@ -280,7 +205,7 @@ def main(args):
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nFreq - len(good)
     print "Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq)
-    if config['plot']:
+    if args.plot:
         fig = plt.figure()
         ax = fig.gca()
         ax.plot(freq/1e6, numpy.log10(spec)*10)
@@ -304,17 +229,17 @@ def main(args):
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
         
         ## Skip over baselines that are not in the baseline list (if provided)
-        if config['baseline'] is not None:
-            if (ant1, ant2) not in config['baseline']:
+        if args.baseline is not None:
+            if (ant1, ant2) not in args.baseline:
                 continue
         ## Skip over baselines that don't include the reference antenna
-        elif ant1 != config['refAnt'] and ant2 != config['refAnt']:
+        elif ant1 != args.ref_ant and ant2 != args.ref_ant:
             continue
             
         ## Check and see if we need to conjugate the visibility, i.e., switch from
         ## baseline (*,ref) to baseline (ref,*)
         doConj = False
-        if ant2 == config['refAnt']:
+        if ant2 == args.ref_ant:
             doConj = True
             
         ## Figure out which polarizations to process
@@ -323,12 +248,12 @@ def main(args):
             polToUse = ('XX', 'YY')
         else:
             ### LWA-LWA or LWA-VLA baseline
-            if config['yOnlyVLALWA']:
+            if args.y_only:
                 polToUse = ('YX', 'YY')
             else:
                 polToUse = ('XX', 'XY', 'YX', 'YY')
                 
-        if config['plot']:
+        if args.plot:
             fig = plt.figure()
             axs = {}
             axs['XX'] = fig.add_subplot(2, 2, 1)
@@ -362,14 +287,14 @@ def main(args):
             else:
                 print "%3i  %9s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----')
                 
-            if config['plot']:
+            if args.plot:
                 axs[pol].imshow(amp, origin='lower', interpolation='nearest', 
                             extent=(drate[0]*1e3, drate[-1]*1e3, delay[0]*1e6, delay[-1]*1e6), 
                             cmap='gray_r')
                 axs[pol].plot(drate[best[1][0]]*1e3, delay[best[0][0]]*1e6, linestyle='', marker='x', color='r', ms=15, alpha=0.75)
                 
-        if config['plot']:
-            fig.suptitle(os.path.basename(filename))
+        if args.plot:
+            fig.suptitle(os.path.basename(args.filename))
             for pol,ax in axs.iteritems():
                 ax.axis('auto')
                 ax.set_title(pol)
@@ -378,10 +303,31 @@ def main(args):
             fig.suptitle("%s" % blName)
             plt.draw()
             
-    if config['plot']:
+    if args.plot:
         plt.show()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='given a FITS-IDI file, search for fringes', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to search')
+    parser.add_argument('-r', '--ref-ant', type=int, 
+                        help='limit plots to baselines containing the reference antenna')
+    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+                        help="limit plots to the specified baseline in 'ANT-ANT' format")
+    parser.add_argument('-l', '--limit', type=int, default=-1, 
+                        help='limit the data loaded to the first N files, -1 = load all')
+    parser.add_argument('-y', '--y-only', action='store_true', 
+                        help='limit the search on VLA-LWA baselines to the VLA Y pol. only')
+    parser.add_argument('-e', '--delay-window', type=str, default='-inf,inf', 
+                        help='delay search window in us; defaults to maximum allowed')
+    parser.add_argument('-a', '--rate-window', type=str, default='-inf,inf', 
+                        help='rate search window in mHz; defaults to maximum allowed')
+    parser.add_argument('-p', '--plot', action='store_true', 
+                        help='show search plots at the end')
+    args = parser.parse_args()
+    main(args)
     
