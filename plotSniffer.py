@@ -40,7 +40,7 @@ def main(args):
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
     ## Filenames
-    filenames = arg.filename
+    filenames = args.filename
     filenames.sort()
     if args.limit != -1:
         filenames = filenames[:args.limit]

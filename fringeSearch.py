@@ -43,7 +43,7 @@ def main(args):
     ## Filenames
     filenames = args.filename
     filenames.sort()
-    if arg.limit != -1:
+    if args.limit != -1:
         filenames = filenames[:args.limit]
         
     nInt = len(filenames)

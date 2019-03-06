@@ -13,6 +13,7 @@ $LastChangedDate$
 import os
 import re
 import sys
+import shlex
 import argparse
 import subprocess
 

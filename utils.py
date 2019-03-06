@@ -12,6 +12,7 @@ import os
 import re
 import time
 import ephem
+import errno
 import fcntl
 import numpy
 from datetime import datetime
