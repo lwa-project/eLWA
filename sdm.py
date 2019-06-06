@@ -245,8 +245,8 @@ def get_noise_diode_values(filename):
             name, value = field.tag, field.text
             if name == 'timeInterval':
                 ## Convert times to JD
-                value = _parse_interval(value)
-                value[1] += value[0]
+                tMid, tInt = _parse_interval(value)
+                value = [tMid - tInt/2, tMid + tInt/2]
                 value = [vla_to_utcjd(v) for v in value]
             elif name == 'antennaId':
                 ## Convert antenna IDs to names
@@ -259,7 +259,7 @@ def get_noise_diode_values(filename):
             entry[name] = value
             
         # Cleanup the time
-        entry['startTime'], entry['stopTime'] = entry['timeInterval']
+        entry['startTime'], entry['endTime'] = entry['timeInterval']
         del entry['timeInterval']
         
         # Pull out only the noise diode information
@@ -427,7 +427,7 @@ def get_switched_power_sums(filename):
     return final
 
 
-def filter_switched_power_sums(gains, startJD, stopJD):
+def filter_switched_power_sums(psums, startJD, stopJD):
     """
     Given a dictionary of switched power sums returned by get_switched_power_sums()
     and a start and stop JD, filter the list to exclude values that do not 
@@ -455,7 +455,7 @@ def get_switched_power_diffs(filename):
     return final
 
 
-def filter_switched_power_diffs(gains, startJD, stopJD):
+def filter_switched_power_diffs(pdiffs, startJD, stopJD):
     """
     Given a dictionary of switched power differences returned by 
     get_switched_power_diffs() and a start and stop JD, filter the list to 
