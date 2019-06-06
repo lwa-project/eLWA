@@ -25,7 +25,7 @@ def main(args):
     # Parse the command line
     filenames = args.filename
     
-    # Parse the SDM, if provided
+    # Parse the SDM
     sdm_flags = []
     flags = get_flags(args.sdm)
     for flag in flags:
