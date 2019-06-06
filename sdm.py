@@ -9,17 +9,23 @@ $LastChangedDate$
 """
 
 import os
+import numpy
 import struct
 from xml.etree import ElementTree
 
 from lsl.astro import utcjd_to_unix, MJD_OFFSET
+from lsl.misc.lru_cache import lru_cache
 
 
-__version__ = '0.4'
+__version__ = '0.5'
 __revision__ = '$Rev$'
 __all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'get_antennas', 
-           'get_flags', 'filter_flags', 'get_requantizer_gains', 
-           'filter_requantizer_gains']
+           'get_flags', 'filter_flags', 
+           'get_noise_diode_values', 'filter_noise_diode_values', 
+           'get_switched_power_data', 'filter_switched_power_data', 
+           'get_switched_power_sums', 'filter_switched_power_sums', 
+           'get_switched_power_diffs', 'filter_switched_power_diffs', 
+           'get_requantizer_gains', 'filter_requantizer_gains']
 
 
 def vla_to_utcmjd(timetag):
@@ -68,27 +74,43 @@ def _parse_convert(text):
     return text
 
 
+def _parse_interval(text):
+    """
+    Try a couple of different parsers for a text interval to get it into the
+    correct datatype.
+    """
+    
+    return [_parse_convert(v) for v in text.split(None, 1)]
+
+
 def _parse_compound(text):
     """
-    Parse a packed text array of format "rows cols data" that is used in the
+    Parse a packed text array of format "ndim dim0 ... data" that is used in the
     text XML files for storing arrays.  If both 'rows' and 'cols' are one
     then a single value is returned.  If 'rows' is one and 'cols' is greater
     than one a list is returned.  Otherwise, a list of lists is returned.
     """
     
-    rows, cols, data = text.split(None, 2)
-    rows, cols = int(rows, 10), int(cols, 10)
-    if rows == 1 and cols == 1:
+    ndim, data = text.split(None, 1)
+    ndim = int(ndim, 10)
+    fields = data.split(None, ndim)
+    dims, data = [int(d, 10) for d in fields[:-1]], fields[-1]
+    nentry = reduce(lambda x,y: x*y, dims)
+    if nentry == 1:
         return data
     else:
-        data = data.split(None, rows*cols-1)
+        data = data.split(None, nentry-1)
         output = []
-        for i,d in enumerate(data):
-            if i % cols == 0:
-                output.append( [] )
-            output[-1].append( _parse_convert(d) )
-        if rows == 1:
+        for d in data:
+            output.append( _parse_convert(d) )
+        output = numpy.array(output)
+        output.shape = tuple(dims)
+        if dims[0] == 1:
             output = output[0]
+        if len(output.shape) == 1:
+            output = list(output)
+        else:
+            output = output.T
         return output
 
 
@@ -191,13 +213,85 @@ def filter_flags(flags, startJD, stopJD):
     return filter(f, flags)
 
 
-def get_requantizer_gains(filename):
+def get_noise_diode_values(filename):
     """
-    Parse the SysPower.bin file in a VLA SDM set and return a dictionary of
-    requantizer gains as a function of time.  This dictionary is indexed with
-    the antenna IDs converted to names via the get_antennas() function.  Each
-    dictionary value is is a list of the requantizer gains with each gain
-    being stored as a four-element list of [JD start, JD stop, gain0, gain1].
+    Parse the CalDevice.xml file in a VLA SDM set and return a list of noise diode 
+    power values.  This list of power values has the antenna IDs converted to names
+    via the get_antennas() function.
+    """
+    
+    # If we are given a directory, assume that it is an SDM set and 
+    # pull out the right file.  Otherwise, make sure we are given an
+    # CalDevice.xml file
+    if os.path.isdir(filename):
+        filename = os.path.join(filename, 'CalDevice.xml')
+    else:
+        if os.path.basename(filename) != 'CalDevice.xml':
+            raise RuntimeError("Invalid filename: '%s'" % os.path.basename(filename))
+            
+    # Grab the antenna name mapper information
+    antname = os.path.join(os.path.dirname(filename), 'Antenna.xml')
+    ants = get_antennas(antname)
+    
+    # Open up the XML file
+    tree = ElementTree.parse(filename)
+    root = tree.getroot()
+    
+    # Parse
+    powers = []
+    for row in root.iter('row'):
+        entry = {}
+        for field in row:  
+            name, value = field.tag, field.text
+            if name == 'timeInterval':
+                ## Convert times to JD
+                value = _parse_interval(value)
+                value[1] += value[0]
+                value = [vla_to_utcjd(v) for v in value]
+            elif name == 'antennaId':
+                ## Convert antenna IDs to names
+                value = _parse_convert(value)
+                value = ants[value]
+            elif name[:3] == 'cal' or name[-3:] == 'Cal':
+                value = _parse_compound(value)
+            else:
+                value = _parse_convert(value)
+            entry[name] = value
+            
+        # Cleanup the time
+        entry['startTime'], entry['stopTime'] = entry['timeInterval']
+        del entry['timeInterval']
+        
+        # Pull out only the noise diode information
+        idx = entry['calLoadNames'].index('NOISE_TUBE_LOAD')
+        entry['calLoadNames'] = entry['calLoadNames'][idx]
+        entry['noiseCal'] = entry['noiseCal'][idx]
+        entry['coupledNoiseCal'] = entry['coupledNoiseCal'][idx,:]
+        
+        powers.append(entry)
+        
+    return powers
+
+
+def filter_noise_diode_values(powers, startJD, stopJD):
+    """
+    Given a list of flags returned by get_flags() and a start and stop JD, 
+    filter the list to exclude flags that do not apply to that time range.
+    """
+    
+    f = lambda x: False if x['endTime'] < startJD or x['startTime'] > stopJD else True
+    return filter(f, powers)
+
+
+@lru_cache(2)
+def get_switched_power_data(filename):
+    """
+    Parse the SysPower.bin file in a VLA SDM set and return a tuple of 
+    dictionaries for (1) the switched power sum, (2) the switched power 
+    difference, and (3) the requantizer gains.  These dictionaries are 
+    indexed with the antenna IDs converted to names via the get_antennas() 
+    function.  Each dictionary value is a list of the quantity being stored 
+    as a four-element list of [JD start, JD stop, quantity0, quantity1].
     """
     
     # If we are given a directory, assume that it is an SDM set and 
@@ -215,7 +309,7 @@ def get_requantizer_gains(filename):
     
     # Open the file and begin parsing
     fh = open(filename, 'rb')
-    gains = {}
+    psums, pdiffs, gains = {}, {}, {}
     while fh.tell() < os.path.getsize(filename):
         ## Find the start of the next block of data we are working on
         block = fh.read(8)
@@ -252,7 +346,10 @@ def get_requantizer_gains(filename):
             ### reading scheme that seems to work at least for the data 
             ### we have
             fields = struct.unpack('>siqqiBiffBiffBiff', row[:64])
-            tMid, tInt, gain0, gain1 = fields[2], fields[3], fields[15], fields[16]
+            tMid,   tInt   = fields[ 2], fields[ 3]
+            psum0,  psum1  = fields[11], fields[12]
+            pdiff0, pdiff1 = fields[ 7], fields[ 8]
+            gain0,  gain1  = fields[15], fields[16]
             tStart = tMid - tInt/2
             tStop  = tMid + tInt/2
             
@@ -261,26 +358,127 @@ def get_requantizer_gains(filename):
             ant = ants[ant]
             
             ### Save the data as necessary
-            if ant not in gains:
-                gains[ant] = {}
-            if tStart not in gains[ant]:
-                gains[ant][tStart] = [tStart, tStop, 0.0, 0.0]
+            if ant not in psums:
+                psums[ant]  = {}
+                pdiffs[ant] = {}
+                gains[ant]  = {}
+            if tStart not in psums[ant]:
+                psums[ant][tStart]  = [tStart, tStop, 0.0, 0.0]
+                pdiffs[ant][tStart] = [tStart, tStop, 0.0, 0.0]
+                gains[ant][tStart]  = [tStart, tStop, 0.0, 0.0]
+            if psum0 != 0.0:
+                psums[ant][tStart][2] = psum0
+            if psum1 != 0.0:
+                psums[ant][tStart][3] = psum1
+            if pdiff0 != 0.0:
+                pdiffs[ant][tStart][2] = pdiff0
+            if pdiff1 != 0.0:
+                pdiffs[ant][tStart][3] = pdiff1
             if gain0 != 0.0:
                 gains[ant][tStart][2] = gain0
             if gain1 != 0.0:
                 gains[ant][tStart][3] = gain1
                 
     # Convert the dictionary of dictionaries to a dictionary of lists
-    final = {}
-    for ant in gains:
-        final[ant] = []
-        keys = sorted(gains[ant])
+    final_psums, final_pdiffs, final_gains = {}, {}, {}
+    for ant in psums:
+        final_psums[ant]  = []
+        final_pdiffs[ant] = []
+        final_gains[ant]  = []
+        keys = sorted(psums[ant])
         for key in keys:
-            tStart = vla_to_utcjd( gains[ant][key][0] )
-            tStop  = vla_to_utcjd( gains[ant][key][1] )
-            final[ant].append( [tStart, tStop, gains[ant][key][2], gains[ant][key][3]] )
+            tStart = vla_to_utcjd( psums[ant][key][0] )
+            tStop  = vla_to_utcjd( psums[ant][key][1] )
+            final_psums[ant].append( [tStart, tStop, psums[ant][key][2], psums[ant][key][3]] )
+            final_pdiffs[ant].append( [tStart, tStop, pdiffs[ant][key][2], pdiffs[ant][key][3]] )
+            final_gains[ant].append( [tStart, tStop, gains[ant][key][2], gains[ant][key][3]] )
             
     # Done
+    return final_psums, final_pdiffs, final_gains
+
+
+def filter_switched_power_data(psums, pdiffs, gains, startJD, stopJD):
+    """
+    Given the three dictionaries of power sum, power difference, and 
+    requantizer gains returned by get_switched_power() and a start and 
+    stop JD, filter the dictionaries to exclude values that do not apply
+    to that time range.
+    """
+    
+    f = lambda x: False if x[1] < startJD or x[0] > stopJD else True
+    output = []
+    for entry in (psums, pdiffs, gains):
+        output.append({})
+        for key in entry:
+            output[-1] = filter(f, entry[key])
+    return output
+
+
+def get_switched_power_sums(filename):
+    """
+    Parse the SysPower.bin file in a VLA SDM set and return a dictionary of
+    switched power sums as a function of time.  This dictionary is indexed with
+    the antenna IDs converted to names via the get_antennas() function.  Each
+    dictionary value is a list of the sums with each sum being stored as a 
+    four-element list of [JD start, JD stop, sum0, sum1].
+    """
+    
+    final, _, _ = get_switched_power_data(filename)
+    return final
+
+
+def filter_switched_power_sums(gains, startJD, stopJD):
+    """
+    Given a dictionary of switched power sums returned by get_switched_power_sums()
+    and a start and stop JD, filter the list to exclude values that do not 
+    apply to that time range.
+    """
+    
+    f = lambda x: False if x[1] < startJD or x[0] > stopJD else True
+    output = {}
+    for key in psums:
+        output[key] = filter(f, psums[key])
+    return output
+
+
+def get_switched_power_diffs(filename):
+    """
+    Parse the SysPower.bin file in a VLA SDM set and return a dictionary of
+    switched power differences as a function of time.  This dictionary is 
+    indexed with the antenna IDs converted to names via the get_antennas() 
+    function.  Each dictionary value is a list of the differences with each 
+    difference being stored as a four-element list of 
+    [JD start, JD stop, diff0, diff1].
+    """
+    
+    _, final, _ = get_switched_power_data(filename)
+    return final
+
+
+def filter_switched_power_diffs(gains, startJD, stopJD):
+    """
+    Given a dictionary of switched power differences returned by 
+    get_switched_power_diffs() and a start and stop JD, filter the list to 
+    exclude values that do not apply to that time range.
+    """
+    
+    f = lambda x: False if x[1] < startJD or x[0] > stopJD else True
+    output = {}
+    for key in pdiffs:
+        output[key] = filter(f, pdiffs[key])
+    return output
+
+
+def get_requantizer_gains(filename):
+    """
+    Parse the SysPower.bin file in a VLA SDM set and return a dictionary of
+    requantizer gains as a function of time.  This dictionary is indexed with
+    the antenna IDs converted to names via the get_antennas() function.  Each
+    dictionary value is a list of the requantizer gains with each gain
+    being stored as a four-element list of [JD start, JD stop, gain0, gain1].
+    """
+    
+    _, _, final = get_switched_power_data(filename)
     return final
 
 
