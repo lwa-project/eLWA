@@ -58,6 +58,7 @@ CORR_BASIS = re.compile('corrbasis:(?P<basis>(linear)|(circular)|(stokes))')
 
 ## Alternate phase center regexs
 ALT_TARGET = re.compile('alttarget(?P<id>\d+):(?P<target>.*);;')
+ALT_INTENT = re.compile('altintent(?P<id>\d+):(?P<intent>.*);;')
 ALT_RA = re.compile('altra(?P<id>\d+):(?P<ra>\d+(.\d*)?)')
 ALT_DEC = re.compile('altdec(?P<id>\d+):(?P<dec>[-+]?\d+(.\d*)?)')
 
@@ -126,19 +127,22 @@ def main(args):
                     for o,obs in enumerate(sdf.sessions[0].observations):
                         if type(obs).__name__ == 'Solar':
                             name = 'Sun'
+                            intent = 'target'
                             ra = None
                             dec = None
                         elif type(obs).__name__ == 'Jovian':
                             name = 'Jupiter'
+                            intent = 'target'
                             ra = None
                             dec = None
                         else:
                             name = obs.target
+                            intent = obs.name
                             ra = ephem.hours(str(obs.ra))
                             dec = ephem.degrees(str(obs.dec))
                         tStart = mjdmpm2datetime(obs.mjd, obs.mpm)
                         tStop  = mjdmpm2datetime(obs.mjd, obs.mpm+obs.dur)
-                        sources.append( {'name':name, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
+                        sources.append( {'name':name, 'intent':intent, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
                         
                         ### Alternate phase centers
                         comments = sdf.projectOffice.observations[0][o]
@@ -150,21 +154,28 @@ def main(args):
                             try:
                                 alts[alt_id]['name'] = alt_name
                             except KeyError:
-                                alts[alt_id] = {'name':alt_name, 'ra':None, 'dec':None}
+                                alts[alt_id] = {'name':alt_name, 'intent':'dummy', 'ra':None, 'dec':None}
+                        for mtch in ALT_INTENT.finditer(comments):
+                            alt_id = int(mtch.group('id'), 10)
+                            alt_intent = mtch.group('intent')
+                            try:
+                                alts[alt_id]['intent'] = alt_intent
+                            except KeyError:
+                                alts[alt_id] = {'name':None, 'intent':alt_intent, 'ra':None, 'dec':None}
                         for mtch in ALT_RA.finditer(comments):
                             alt_id = int(mtch.group('id'), 10)
                             alt_ra = ephem.hours(mtch.group('ra'))
                             try:
                                 alts[alt_id]['ra'] = alt_ra
                             except KeyError:
-                                alts[alt_id] = {'name':None, 'ra':alt_ra, 'dec':None}
+                                alts[alt_id] = {'name':None, 'intent':'dummy', 'ra':alt_ra, 'dec':None}
                         for mtch in ALT_DEC.finditer(comments):
                             alt_id = int(mtch.group('id'), 10)
                             alt_dec = ephem.degrees(mtch.group('dec'))
                             try:
                                 alts[alt_id]['dec'] = alt_dec
                             except KeyError:
-                                alts[alt_id] = {'name':None, 'ra':None, 'dec':alt_dec}
+                                alts[alt_id] = {'name':None, 'intent':'dummy', 'ra':None, 'dec':alt_dec}
                         for alt_id in sorted(alts.keys()):
                             alt_name, alt_ra, alt_dec = alts[alt_id]
                             if alt_name is None or alt_ra is None or alt_dec is None:
@@ -339,6 +350,7 @@ def main(args):
                                 
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
+                corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
                 corrConfig['source']['dec2000'] = header['DEC_STR']
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
@@ -395,6 +407,7 @@ def main(args):
                 
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
+                corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
                 corrConfig['source']['dec2000'] = header['DEC_STR']
                 corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
@@ -498,13 +511,18 @@ def main(args):
         
     # Render the configuration
     startRef = sources[0]['start']
-    for s,source in enumerate(sources):
+    s = 0
+    for source in sources:
         startOffset = source['start'] - startRef
         startOffset = startOffset.total_seconds()
         
         dur = source['stop'] - source['start']
         dur = dur.total_seconds()
         
+        ## Skip over dummy scans
+        if source['intent'] in (None, 'dummy'):
+            continue
+            
         ## Small correction for the first scan to compensate for stale data at LWA-SV
         if lwasvFound and s == 0:
             startOffset += 10.0
@@ -537,6 +555,7 @@ def main(args):
         fh.write("# Observation start is %s\n" % source['start'])
         fh.write("# Duration is %s\n" % (source['stop'] - source['start'],))
         fh.write("  Name     %s\n" % source['name'])
+        fh.write("  Intent   %s\n" % source['intent'].lower())
         if source['name'] not in ('Sun', 'Jupiter'):
             fh.write("  RA2000   %s\n" % source['ra2000'])
             fh.write("  Dec2000  %s\n" % source['dec2000'])
@@ -580,6 +599,9 @@ def main(args):
             fh.write("\n")
         if fh != sys.stdout:
             fh.close()
+            
+        # Increment the source/file counter
+        s += 1
 
 
 if __name__ == "__main__":

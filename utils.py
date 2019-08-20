@@ -333,7 +333,7 @@ def read_correlator_configuration(filename):
         elif line[:4] == 'Name':
             source['name'] = line.split(None, 1)[1]
         elif line[:6] == 'Intent':
-            source['intent'] = line.split(None, 1)[1]
+            source['intent'] = line.split(None, 1)[1].lower()
         elif line[:6] == 'RA2000':
             source['ra'] = line.split(None, 1)[1]
         elif line[:7] == 'Dec2000':
