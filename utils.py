@@ -329,9 +329,11 @@ def read_correlator_configuration(filename):
         elif line == 'EndConfiguration':
             config = temp_config
         elif line == 'Source':
-            source = {'duration':0.0}
+            source = {'intent':'target', 'duration':0.0}
         elif line[:4] == 'Name':
             source['name'] = line.split(None, 1)[1]
+        elif line[:6] == 'Intent':
+            source['intent'] = line.split(None, 1)[1]
         elif line[:6] == 'RA2000':
             source['ra'] = line.split(None, 1)[1]
         elif line[:7] == 'Dec2000':
@@ -387,6 +389,7 @@ def read_correlator_configuration(filename):
                 break
         if refSource is None:
             raise ValueError("Unknown source '%s'" % sources[0]['name'])
+    refSource.intent = sources[0]['intent']
     refSource.duration = sources[0]['duration']
     try:
         refSource._polycos = PolyCos(sources[0]['polyco'], psrname=refSource.name.replace('PSR', '').replace('_', ''))
