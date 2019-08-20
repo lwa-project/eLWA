@@ -498,14 +498,14 @@ class IDI(object):
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['COMMENT'] = comment
+                primary.header['comment'] = comment
             del self._comments
         except AttributeError:
             pass
         primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['HISTORY'] = hist
+                primary.header['history'] = hist
             del self._history
         except AttributeError:
             pass
@@ -781,6 +781,7 @@ class IDI(object):
         obs.pressure = 0
         
         nameList = []
+        codeList = []
         raList = []
         decList = []
         raPoList = []
@@ -833,6 +834,19 @@ class IDI(object):
                     # name
                     nameList.append(name)
                     
+                    # calcode
+                    code = '    '
+                    try:
+                        if dataSet.source.intent.lower() == 'fluxcal':
+                            ## calibrator for flux density scale and bandpass
+                            code = 'K   '
+                        elif dataSet.source.intent.lower() == 'phasecal':
+                            ## calibrator useful to determine Complex Gains
+                            code = 'D   '
+                    except AttributeError:
+                        pass
+                    codeList.append(code)
+                    
         nSource = len(nameList)
         
         # Save these for later since we might need them
@@ -849,7 +863,7 @@ class IDI(object):
                         array=numpy.zeros((nSource,), dtype=numpy.int32))
         # Calibrator code
         c4 = pyfits.Column(name='CALCODE', format='A4', 
-                        array=numpy.array(('   ',)).repeat(nSource))
+                        array=numpy.array(codeList))
         # Frequency group ID
         c5 = pyfits.Column(name='FREQID', format='1J', 
                         array=(numpy.zeros((nSource,), dtype=numpy.int32)+self.freq[0].id))
@@ -1283,14 +1297,14 @@ class AIPS(IDI):
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['COMMENT'] = comment
+                primary.header['comment'] = comment
             del self._comments
         except AttributeError:
             pass
         primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['HISTORY'] = hist
+                primary.header['history'] = hist
             del self._history
         except AttributeError:
             pass
@@ -1359,14 +1373,14 @@ class ExtendedIDI(IDI):
         # Write the comments and history
         try:
             for comment in self._comments:
-                primary.header['COMMENT'] = comment
+                primary.header['comment'] = comment
             del self._comments
         except AttributeError:
             pass
         primary.header['COMMENT'] = " FITS (Flexible Image Transport System) format is defined in 'Astronomy and Astrophysics', volume 376, page 359; bibcode: 2001A&A...376..359H"
         try:
             for hist in self._history:
-                primary.header['HISTORY'] = hist
+                primary.header['history'] = hist
             del self._history
         except AttributeError:
             pass
