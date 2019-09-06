@@ -392,6 +392,9 @@ def read_correlator_configuration(filename):
     refSource.intent = sources[0]['intent']
     refSource.duration = sources[0]['duration']
     try:
+        if not os.path.exists(sources[0]['polyco']):
+            # Maybe it is relative to the configuration file's path?
+            sources[0]['polyco'] = os.path.join(os.path.dirname(filename), sources[0]['polyco'])
         refSource._polycos = PolyCos(sources[0]['polyco'], psrname=refSource.name.replace('PSR', '').replace('_', ''))
     except KeyError:
         pass
