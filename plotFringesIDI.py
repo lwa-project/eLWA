@@ -20,6 +20,7 @@ from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NumericStokes
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -28,7 +29,6 @@ def main(args):
     # Parse the command line
     ## Baseline list
     if args.baseline is not None:
-        args.baseline = [(int(v0,10),int(v1,10)) for v0,v1 in [v.split('-') for v in args.baseline.split(',')]]
         ## Fill the baseline list with the conjugates, if needed
         newBaselines = []
         for pair in args.baseline:
@@ -297,7 +297,7 @@ if __name__ == "__main__":
                         help='filename to process')
     parser.add_argument('-r', '--ref-ant', type=int, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=str, 
+    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
