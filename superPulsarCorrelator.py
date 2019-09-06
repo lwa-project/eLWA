@@ -415,14 +415,18 @@ def main(args):
     observer.date = beginMJDs[0] + astro.MJD_OFFSET - astro.DJD_OFFSET
     refSrc.compute(observer)
     pulsarPeriod = refSrc.period
-    nProfileBins = int(pulsarPeriod / tSub)
-    nProfileBins = min([nProfileBins, 64])
+    nProfileBins = args.profile_bins
+    if nProfileBins <= 0:
+        nProfileBins = int(pulsarPeriod / tSub)
+        nProfileBins = min([nProfileBins, 64])
     profileBins = numpy.linspace(0, 1+1.0/nProfileBins, nProfileBins+2)
     profileBins -= (profileBins[1]-profileBins[0])/2.0
     print "Pulsar frequency: %.6f Hz" % refSrc.frequency
     print "Pulsar period: %.6s seconds" % pulsarPeriod
     print "Number of profile bins:  %i" % nProfileBins
     print "Phase coverage per bin: %.3f" % (profileBins[1]-profileBins[0],)
+    if pulsarPeriod >= tDump:
+        print "WARNING:  Pulsar period is longer than the integration time!"
     print " "
     
     pulsarDM, pulsarDoppler = refSrc.dm, refSrc.doppler
@@ -1006,6 +1010,8 @@ if __name__ == "__main__":
                         help='sub-integration time in seconds for the data')
     parser.add_argument('-t', '--dump-time', type=float, default=1.0, 
                         help='correlator dump time in seconds for saving the visibilties')
+    parser.add_argument('-b', '--profile-bins', type=int, default=0, 
+                        help='number of bins to use when folding')
     parser.add_argument('-d', '--duration', type=float, default=0.0, 
                         help='duration in seconds of the file to correlate; 0 = everything')
     parser.add_argument('-g', '--tag', type=str, 
