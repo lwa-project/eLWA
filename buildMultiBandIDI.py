@@ -207,10 +207,14 @@ def main(args):
     blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        to_trim = (freq.size/args.decimate)*args.decimate
+        to_drop = freq.size - to_trim
+        if to_drop != 0:
+            print "Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3)
             
         nChan /= args.decimate
+        if to_drop != 0:
+            freq = freq[:to_trim]
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
@@ -292,6 +296,12 @@ def main(args):
         delayStepApplied = [dsl or dsh for dsl,dsh in zip(delayStepAppliedL, delayStepAppliedH)]
         
         if args.decimate > 1:
+            if to_drop != 0:
+                visXX = visXX[:,:to_trim]
+                visXY = visXY[:,:to_trim]
+                visYX = visYX[:,:to_trim]
+                visYY = visYY[:,:to_trim]
+                
             visXX.shape = (visXX.shape[0], visXX.shape[1]/args.decimate, args.decimate)
             visXX = visXX.mean(axis=2)
             visXY.shape = (visXY.shape[0], visXY.shape[1]/args.decimate, args.decimate)
