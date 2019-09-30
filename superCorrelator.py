@@ -79,9 +79,6 @@ def main(args):
     else:
         import multirate
         
-    # Length of the FFT
-    LFFT = args.fft_length
-    
     # Build up the station
     site = stations.lwa1
     ## Updated 2018/3/8 with solutions from the 2018 Feb 28 eLWA
@@ -100,6 +97,9 @@ def main(args):
     if args.duration == 0.0:
         args.duration = refSrc.duration
     args.duration = min([args.duration, refSrc.duration])
+    
+    # Length of the FFT
+    LFFT = args.fft_length
     
     # Get the raw configuration
     fh = open(args.filename, 'r')
