@@ -5,6 +5,7 @@ from __future__ import print_function
 import sys
 if sys.version_info > (3,):
     xrange = range
+    long = int
     
 """
 Module for writing correlator output to a FITS IDI file.  The classes and 
@@ -976,7 +977,15 @@ class IDI(object):
                 order
             except NameError:
                 order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
-                
+                baselineMapped = []
+                for o in order:
+                    antenna1, antenna2 = dataSet.baselines[o]
+                    if mapper is None:
+                        stand1, stand2 = antenna1.stand.id, antenna2.stand.id
+                    else:
+                        stand1, stand2 = mapper[antenna1.stand.id], mapper[antenna2.stand.id]
+                    baselineMapped.append( mergeBaseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
+                    
             # Deal with defininig the values of the new data set
             if dataSet.pol == self.stokes[0]:
                 ## Figure out the new date/time for the observation
@@ -1014,44 +1023,49 @@ class IDI(object):
                 uvwCoords = dataSet.getUVW(HA, dec, obs)
                 
                 ## Populate the metadata
-                ### Add in the new baselines
-                try:
-                    blineList.extend( baselineMapped )
-                except NameError:
-                    baselineMapped = []
-                    for o in order:
-                        antenna1, antenna2 = dataSet.baselines[o]
-                        if mapper is None:
-                            stand1, stand2 = antenna1.stand.id, antenna2.stand.id
-                        else:
-                            stand1, stand2 = mapper[antenna1.stand.id], mapper[antenna2.stand.id]
-                        baselineMapped.append( mergeBaseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
-                    blineList.extend( baselineMapped )
-                    
                 ### Add in the new u, v, and w coordinates
-                uList.extend( uvwCoords[order,0] )
-                vList.extend( uvwCoords[order,1] )
-                wList.extend( uvwCoords[order,2] )
-                
+                try:
+                    local_order = order
+                    uList.extend( uvwCoords[local_order,0] )
+                    vList.extend( uvwCoords[local_order,1] )
+                    wList.extend( uvwCoords[local_order,2] )
+                except IndexError:
+                    ## Oh, things look different.  Let's see what we can salvage 
+                    ## by looking at the intersection of what we have and what 
+                    ## we are accustomed to
+                    local_order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
+                    overlapping_order = [o for o in order if o in local_order]
+                    #print("len(order):", len(order), "len(local_order):", len(local_order), "len(overlapping_order):", len(overlapping_order))
+                    local_order = overlapping_order
+                    uList.extend( uvwCoords[local_order,0] )
+                    vList.extend( uvwCoords[local_order,1] )
+                    wList.extend( uvwCoords[local_order,2] )
+                    
+                ### Add in the new baselines
+                blineList.extend( [baselineMapped[bl] for bl in local_order] )
+                   
                 ### Add in the new date/time and integration time
-                dateList.extend( [utc0 for bl in dataSet.baselines] )
-                timeList.extend( [utc-utc0 for bl in dataSet.baselines] )
-                intTimeList.extend( [dataSet.intTime for bl in dataSet.baselines] )
+                dateList.extend( [utc0 for bl in local_order] )
+                timeList.extend( [utc-utc0 for bl in local_order] )
+                intTimeList.extend( [dataSet.intTime for bl in local_order] )
                 
                 ### Add in the new new source ID and name
-                sourceList.extend( [sourceID for bl in dataSet.baselines] )
-                nameList.extend( [name for bl in dataSet.baselines] )
+                sourceList.extend( [sourceID for bl in local_order] )
+                nameList.extend( [name for bl in local_order] )
                 
                 ### Zero out the visibility data
                 try:
                     matrix *= 0.0
                 except NameError:
-                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                    matrix = numpy.zeros((len(local_order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                if matrix.shape[0] != len(local_order):
+                    print("WARNING: baseline count changed from %i to %i" % (matrix.shape[0], len(local_order)))
+                    matrix = numpy.zeros((len(local_order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
                     
             # Save the visibility data in the right order
             # NOTE:  This is this conjugate since there seems to be a convention mis-match
             #        between LSL and AIPS/the FITS-IDI convention.
-            matrix[:,self.stokes.index(dataSet.pol)::self.nStokes] = dataSet.visibilities[order,:].conj()
+            matrix[:,self.stokes.index(dataSet.pol)::self.nStokes] = dataSet.visibilities[local_order,:].conj()
             
             # Deal with saving the data once all of the polarizations have been added to 'matrix'
             if dataSet.pol == self.stokes[-1]:
