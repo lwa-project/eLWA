@@ -323,12 +323,16 @@ def main(args):
                 
                 ## Read in the last frame
                 nJump = int(os.path.getsize(filename)/vdif.FrameSize)
-                nJump -= 4
+                nJump -= 30
                 fh.seek(nJump*vdif.FrameSize, 1)
                 mark = fh.tell()
-                frame = vdif.readFrame(fh)
-                tStop = datetime.utcfromtimestamp(frame.getTime())
-            
+                while True:
+                    try:
+                        frame = vdif.readFrame(fh)
+                        tStop = datetime.utcfromtimestamp(frame.getTime())
+                    except Exception as e:
+                        break
+                        
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
                 x,y,z = db.get_xyz(pad, tStart)
