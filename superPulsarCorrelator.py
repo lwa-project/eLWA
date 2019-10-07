@@ -282,7 +282,12 @@ def main(args):
         while junkFrame.getTime() + grossOffsets[i] < max(tStart):
             if readers[i] is vdif:
                 for k in xrange(beampols[i]):
-                    junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+                    try:
+                        junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+                    except errors.syncError:
+                        print "Error - VDIF @ %i" % (i,)
+                        fh[i].seek(vdif.FrameSize, 1)
+                        continue
             else:
                 for k in xrange(beampols[i]):
                     junkFrame = readers[i].readFrame(fh[i])
