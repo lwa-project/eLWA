@@ -182,12 +182,35 @@ def main(args):
     visYY = dataDict['vis1YY'].astype(numpy.complex64)
     dataDict.close()
     
+    # Build up the master list of antennas and report
+    master_antennas = antennas
+    obs_groups = [os.path.basename(filenames[0]).split('-vis2-', 1)[0],]
+    for filename in filenames:
+        group = os.path.basename(filename).split('-vis2-', 1)[0]
+        if group not in obs_groups:
+            dataDict = numpy.load(filename)
+            cConfig = dataDict['config']
+            fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
+            os.close(fh)
+            fh = open(tempConfig, 'w')
+            for line in cConfig:
+                fh.write('%s\n' % line)
+            fh.close()
+            config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
+            os.unlink(tempConfig)
+            del dataDict
+            
+            for ant in antennas:
+                if ant not in master_antennas:
+                    master_antennas.append(ant)
+            obs_groups.append(group)
+            
     print "Antennas:"
-    for ant in antennas:
+    for ant in master_antennas:
         print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
         
     nChan = visXX.shape[1]
-    blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+    master_blList = uvUtils.getBaselines([ant for ant in master_antennas if ant.pol == 0], IncludeAuto=True)
     
     if args.decimate > 1:
         to_trim = (freq.size/args.decimate)*args.decimate
@@ -318,7 +341,7 @@ def main(args):
             else:
                 fits.setStokes(['XX', 'XY', 'YX', 'YY'])
             fits.setFrequency(freq)
-            fits.setGeometry(stations.lwa1, [a for a in antennas if a.pol == 0])
+            fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
             print "Opening %s for writing" % outname
             
