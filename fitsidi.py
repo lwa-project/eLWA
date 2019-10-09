@@ -45,18 +45,18 @@ except ImportError:
 __version__ = '0.9'
 __revision__ = '$Rev$'
 __all__ = ['IDI', 'AIPS', 'ExtendedIDI', 'StokesCodes', 'NumericStokes', 
-        '__version__', '__revision__', '__all__']
+           '__version__', '__revision__', '__all__']
 
 
 IDIVersion = (3, 0)
 
 StokesCodes = { 'I':  1,  'Q': 2,   'U':  3,  'V':  4, 
-            'RR': -1, 'LL': -2, 'RL': -3, 'LR': -4, 
-            'XX': -5, 'YY': -6, 'XY': -7, 'YX': -8}
+               'RR': -1, 'LL': -2, 'RL': -3, 'LR': -4, 
+               'XX': -5, 'YY': -6, 'XY': -7, 'YX': -8}
 
 NumericStokes = { 1: 'I',   2: 'Q',   3: 'U',   4: 'V', 
-            -1: 'RR', -2: 'LL', -3: 'RL', -4: 'LR', 
-            -5: 'XX', -6: 'YY', -7: 'XY', -8: 'YX'}
+                 -1: 'RR', -2: 'LL', -3: 'RL', -4: 'LR', 
+                 -5: 'XX', -6: 'YY', -7: 'XY', -8: 'YX'}
 
 
 def mergeBaseline(ant1, ant2, shift=16):
@@ -955,6 +955,7 @@ class IDI(object):
         obs.elev = arrPos.elv * numpy.pi/180
         obs.pressure = 0
         
+        dsCount = 0
         mList = []
         uList = []
         vList = []
@@ -969,23 +970,10 @@ class IDI(object):
             # Get the next data set to process
             try:
                 dataSet = self.data.pop(0)
+                dsCount += 1
             except IndexError:
                 break
                 
-            # Sort the data by packed baseline
-            try:
-                order
-            except NameError:
-                order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
-                baselineMapped = []
-                for o in order:
-                    antenna1, antenna2 = dataSet.baselines[o]
-                    if mapper is None:
-                        stand1, stand2 = antenna1.stand.id, antenna2.stand.id
-                    else:
-                        stand1, stand2 = mapper[antenna1.stand.id], mapper[antenna2.stand.id]
-                    baselineMapped.append( mergeBaseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
-                    
             # Deal with defininig the values of the new data set
             if dataSet.pol == self.stokes[0]:
                 ## Figure out the new date/time for the observation
@@ -1024,48 +1012,44 @@ class IDI(object):
                 
                 ## Populate the metadata
                 ### Add in the new u, v, and w coordinates
-                try:
-                    local_order = order
-                    uList.extend( uvwCoords[local_order,0] )
-                    vList.extend( uvwCoords[local_order,1] )
-                    wList.extend( uvwCoords[local_order,2] )
-                except IndexError:
-                    ## Oh, things look different.  Let's see what we can salvage 
-                    ## by looking at the intersection of what we have and what 
-                    ## we are accustomed to
-                    local_order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
-                    overlapping_order = [o for o in order if o in local_order]
-                    #print("len(order):", len(order), "len(local_order):", len(local_order), "len(overlapping_order):", len(overlapping_order))
-                    local_order = overlapping_order
-                    uList.extend( uvwCoords[local_order,0] )
-                    vList.extend( uvwCoords[local_order,1] )
-                    wList.extend( uvwCoords[local_order,2] )
-                    
+                order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
+                baselineMapped = []
+                for o in order:
+                    antenna1, antenna2 = dataSet.baselines[o]
+                    if mapper is None:
+                        stand1, stand2 = antenna1.stand.id, antenna2.stand.id
+                    else:
+                        stand1, stand2 = mapper[antenna1.stand.id], mapper[antenna2.stand.id]
+                    baselineMapped.append( mergeBaseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
+                uList.extend( uvwCoords[order,0] )
+                vList.extend( uvwCoords[order,1] )
+                wList.extend( uvwCoords[order,2] )
+                
                 ### Add in the new baselines
-                blineList.extend( [baselineMapped[bl] for bl in local_order] )
+                blineList.extend( baselineMapped )
                    
                 ### Add in the new date/time and integration time
-                dateList.extend( [utc0 for bl in local_order] )
-                timeList.extend( [utc-utc0 for bl in local_order] )
-                intTimeList.extend( [dataSet.intTime for bl in local_order] )
-                
+                dateList.extend( [utc0 for o in order] )
+                timeList.extend( [utc-utc0 for o in order] )
+                intTimeList.extend( [dataSet.intTime for o in order] )
+
                 ### Add in the new new source ID and name
-                sourceList.extend( [sourceID for bl in local_order] )
-                nameList.extend( [name for bl in local_order] )
+                sourceList.extend( [sourceID for o in order] )
+                nameList.extend( [name for o in order] )
                 
                 ### Zero out the visibility data
                 try:
                     matrix *= 0.0
                 except NameError:
-                    matrix = numpy.zeros((len(local_order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
-                if matrix.shape[0] != len(local_order):
-                    print("WARNING: baseline count changed from %i to %i" % (matrix.shape[0], len(local_order)))
-                    matrix = numpy.zeros((len(local_order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                if matrix.shape[0] != len(order):
+                    print("WARNING: baseline count changed from %i to %i at data set %i of %i and %i" % (matrix.shape[0], len(order), dsCount, dsCount+len(self.data), dataSet.pol))
+                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
                     
             # Save the visibility data in the right order
             # NOTE:  This is this conjugate since there seems to be a convention mis-match
             #        between LSL and AIPS/the FITS-IDI convention.
-            matrix[:,self.stokes.index(dataSet.pol)::self.nStokes] = dataSet.visibilities[local_order,:].conj()
+            matrix[:,self.stokes.index(dataSet.pol)::self.nStokes] = dataSet.visibilities[order,:].conj()
             
             # Deal with saving the data once all of the polarizations have been added to 'matrix'
             if dataSet.pol == self.stokes[-1]:
