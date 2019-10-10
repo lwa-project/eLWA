@@ -163,7 +163,7 @@ def main(args):
             tunepols.append( readers[i].getThreadCount(fh[i]) )
             beampols.append( tunepols[i] )
         elif readers[i] is drx:
-            beampols.append( 4 if antennas[2*i].stand.id == 51 else 4 )	# CHANGE THIS FOR SINGLE TUNING LWA-SV DATA
+            beampols.append( max(readers[i].getFramesPerObs(fh[i])) )
             
         skip = args.skip + foffset
         if skip != 0:
@@ -229,10 +229,7 @@ def main(args):
         elif readers[i] is guppi:
             buffers.append( GUPPIFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
-            if beampols[i] == 4:
-                buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nSegments=16) )
-            else:
-                buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,], pols=[0,1], nSegments=16) )
+            buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nSegments=16) )
     for i in xrange(len(filenames)):
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
@@ -253,23 +250,7 @@ def main(args):
             pass
             
         elif readers[i] is drx:
-            timeTags = []
-            for k in xrange(16):
-                junkFrame = readers[i].readFrame(fh[i])
-                timeTags.append(junkFrame.data.timeTag)
-            fh[i].seek(-16*readers[i].FrameSize, 1)
-            
-            j = 0
-            #if beampols[i] == 4:
-            #	while (timeTags[j+0] != timeTags[j+1]) or (timeTags[j+0] != timeTags[j+2]) or (timeTags[j+0] != timeTags[j+3]):
-            #		j += 1
-            #		fh[i].seek(readers[i].FrameSize, 1)
-            #else:
-            #	while (timeTags[j+0] != timeTags[j+1]):
-            #		j += 1
-            #		fh[i].seek(readers[i].FrameSize, 1)
-                
-            nFramesFile[i] -= j
+            pass
             
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
@@ -595,7 +576,7 @@ def main(args):
                             continue
                         try:
                             dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
-                            k += 2
+                            k += beampols[j]/2
                         except ValueError:
                             k = beampols[j]*nFramesD
                             break
