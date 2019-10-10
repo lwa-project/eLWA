@@ -167,25 +167,27 @@ def main(args):
                     reas.append( row['REASON'] )
                     sevs.append( row['SEVERITY'] )
         ## New Flags
-        obsdates.shape = (obsdates.shape[0]/nBL, nBL)
-        obstimes.shape = (obstimes.shape[0]/nBL, nBL)
-        mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
+        nBL = len(ubls)
         for i in xrange(nBL):
-            ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
+            blset = numpy.where( bls == ubls[i] )[0]
+            ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
                 print "    Baseline %i of %i" % (i+1, nBL)
                 
-            for b,offset in enumerate(fqoffsets):
-                maskXX = mask[:,i,b,:,0]
-                maskYY = mask[:,i,b,:,1]
+            if len(blset) == 0:
+                continue
                 
-                flagsXX, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXX)
-                flagsYY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskYY)
+            for b,offset in enumerate(fqoffsets):
+                maskXX = mask[blset,b,:,0]
+                maskYY = mask[blset,b,:,1]
+                
+                flagsXX, _ = create_flag_groups(obstimes[blset], freq+offset, maskXX)
+                flagsYY, _ = create_flag_groups(obstimes[blset], freq+offset, maskYY)
                 
                 for flag in flagsXX:
                     ants.append( (ant1,ant2) )
-                    times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
-                                   obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
+                    times.append( (obsdates[blset[flag[0]]]+obstimes[blset[flag[0]]]-obsdates[0], 
+                                   obsdates[blset[flag[1]]]+obstimes[blset[flag[1]]]-obsdates[0]) )
                     bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
