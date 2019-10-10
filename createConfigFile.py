@@ -449,11 +449,11 @@ def main(args):
     # not DRX files were found
     vdifRefFile = None
     isDRX = False
-    for input in corrConfig['inputs']:
-        if input['type'] in ('VDIF', 'GUPPI'):
+    for cinp in corrConfig['inputs']:
+        if cinp['type'] in ('VDIF', 'GUPPI'):
             if vdifRefFile is None:
-                vdifRefFile = input
-        elif input['type'] == 'DRX':
+                vdifRefFile = cinp
+        elif cinp['type'] == 'DRX':
                 isDRX = True
             
     # Set a state variable so that we can generate a warning about missing
@@ -464,22 +464,22 @@ def main(args):
     toPurge = []
     drxFound = False
     lwasvFound = False
-    for input in corrConfig['inputs']:
+    for cinp in corrConfig['inputs']:
         ### Sort out multiple DRX files - this only works if we have only one LWA station
-        if input['type'] == 'DRX':
+        if cinp['type'] == 'DRX':
             if vdifRefFile is not None:
-                l0, l1 = input['tstart'], input['tstop']
+                l0, l1 = cinp['tstart'], cinp['tstop']
                 v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
                 ve = (v1 - v0).total_seconds()
                 overlapWithVDIF = (v0>=l0 and v0<l1) or (l0>=v0 and l0<v1)
                 lvo = (min([v1,l1]) - max([v0,l0])).total_seconds()
                 if not overlapWithVDIF or lvo < 0.25*ve:
-                    toPurge.append( input )
+                    toPurge.append( cinp )
                 drxFound = True
-            if input['antenna'] == 'LWA-SV':
+            if cinp['antenna'] == 'LWA-SV':
                 lwasvFound = True
-    for input in toPurge:
-        del corrConfig['inputs'][corrConfig['inputs'].index(input)]
+    for cinp in toPurge:
+        del corrConfig['inputs'][corrConfig['inputs'].index(cinp)]
         
     # Sort the inputs based on the antenna name - this puts LWA1 first, 
     # LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
@@ -490,12 +490,23 @@ def main(args):
     if vdifRefFile is not None and isDRX and not drxFound:
         sys.stderr.write("WARNING: DRX files provided but none overlapped with VDIF data")
         
+    # Duplicate antenna check
+    antCounts = {}
+    for cinp in corrConfig['inputs']:
+        try:
+            antCounts[cinp['antenna']] += 1
+        except KeyError:
+            antCounts[cinp['antenna']] = 1
+    for ant in antCounts.keys():
+        if antCounts[ant] != 1:
+            sys.stderr.write("WARNING: Antenna '%i' is defined %i times" % (ant, antCounts[ant]))
+            
     # Update the file offsets to get things lined up better
-    tMax = max([input['tstart'] for input in corrConfig['inputs']])
-    for input in corrConfig['inputs']:
-        diff = tMax - input['tstart']
+    tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
+    for cinp in corrConfig['inputs']:
+        diff = tMax - cinp['tstart']
         offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
-        input['fileoffset'] = max([0, offset])
+        cinp['fileoffset'] = max([0, offset])
         
     # Reconcile the source lists for when we have eLWA data.  This is needed so
     # that we use the source information contained in the VDIF files rather than
@@ -510,8 +521,8 @@ def main(args):
     # Update the dwell time using the minimum on-source time for all inputs if 
     # there is only one source, i.e., for full eLWA runs
     if len(sources) == 1:
-        sources[0]['start'] = max([input['tstart'] for input in corrConfig['inputs']])
-        sources[0]['stop'] = min([input['tstop'] for input in corrConfig['inputs']])
+        sources[0]['start'] = max([cinp['tstart'] for cinp in corrConfig['inputs']])
+        sources[0]['stop'] = min([cinp['tstop'] for cinp in corrConfig['inputs']])
         
     # Render the configuration
     startRef = sources[0]['start']
@@ -567,38 +578,38 @@ def main(args):
         fh.write("SourceDone\n")
         fh.write("\n")
         ## Input files
-        for input in corrConfig['inputs']:
+        for cinp in corrConfig['inputs']:
             fh.write("Input\n")
-            fh.write("# Start time is %s\n" % input['tstart'])
-            fh.write("# Stop time is %s\n" % input['tstop'])
+            fh.write("# Start time is %s\n" % cinp['tstart'])
+            fh.write("# Stop time is %s\n" % cinp['tstop'])
             try:
-                fh.write("# Beam is %i\n" % input['beam'])
+                fh.write("# Beam is %i\n" % cinp['beam'])
             except KeyError:
                 pass
             try:
-                fh.write("# VLA pad is %s\n" % input['pad'])
+                fh.write("# VLA pad is %s\n" % cinp['pad'])
             except KeyError:
                 pass
             try:
-                fh.write("# Frequency tuning 1 is %.3f Hz\n" % input['freq'][0])
-                fh.write("# Frequency tuning 2 is %.3f Hz\n" % input['freq'][1])
+                fh.write("# Frequency tuning 1 is %.3f Hz\n" % cinp['freq'][0])
+                fh.write("# Frequency tuning 2 is %.3f Hz\n" % cinp['freq'][1])
             except TypeError:
-                fh.write("# Frequency tuning is %.3f Hz\n" % input['freq'])
-            fh.write("  File         %s\n" % input['file'])
+                fh.write("# Frequency tuning is %.3f Hz\n" % cinp['freq'])
+            fh.write("  File         %s\n" % cinp['file'])
             try:
-                metaname = metadata[os.path.basename(input['file'])]
+                metaname = metadata[os.path.basename(cinp['file'])]
                 fh.write("  MetaData     %s\n" % metaname)
             except KeyError:
-                if input['type'] == 'DRX':
-                    sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(input['file']), s+1))
+                if cinp['type'] == 'DRX':
+                    sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(cinp['file']), s+1))
                     sys.stderr.flush()
                 pass
-            fh.write("  Type         %s\n" % input['type'])
-            fh.write("  Antenna      %s\n" % input['antenna'])
-            fh.write("  Pols         %s\n" % input['pols'])
-            fh.write("  Location     %.6f, %.6f, %.6f\n" % input['location'])
-            fh.write("  ClockOffset  %s, %s\n" % input['clockoffset'])
-            fh.write("  FileOffset   %.3f\n" % (startOffset + input['fileoffset'],))
+            fh.write("  Type         %s\n" % cinp['type'])
+            fh.write("  Antenna      %s\n" % cinp['antenna'])
+            fh.write("  Pols         %s\n" % cinp['pols'])
+            fh.write("  Location     %.6f, %.6f, %.6f\n" % cinp['location'])
+            fh.write("  ClockOffset  %s, %s\n" % cinp['clockoffset'])
+            fh.write("  FileOffset   %.3f\n" % (startOffset + cinp['fileoffset'],))
             fh.write("InputDone\n")
             fh.write("\n")
         if fh != sys.stdout:
