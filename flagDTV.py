@@ -63,6 +63,7 @@ def main(args):
         ## Time of each integration
         obsdates = uvdata.data['DATE']
         obstimes = uvdata.data['TIME']
+        inttimes = uvdata.data['INTTIM']
         ## Source list
         srcs = uvdata.data['SOURCE']
         ## Band information
@@ -88,14 +89,15 @@ def main(args):
         utimes = numpy.unique(obstimes)
         usrc = numpy.unique(srcs)
         
-        # Find unique scans to work on
+        # Find unique scans to work on, making sure that there are no large gaps
         blocks = []
         for src in usrc:
             valid = numpy.where( src == srcs )[0]
             
             blocks.append( [valid[0],valid[0]] )
             for v in valid[1:]:
-                if v == blocks[-1][1] + 1:
+                if v == blocks[-1][1] + 1 \
+                   and (obsdates[v] - obsdates[blocks[-1][1]] + obstimes[v] - obstimes[blocks[-1][1]])*86400 < 10*inttimes[v]:
                     blocks[-1][1] = v
                 else:
                     blocks.append( [v,v] )

@@ -37,6 +37,10 @@ def get_source_blocks(hdulist):
     # Pull out various bits of information we need to flag the file
     ## Source list
     srcs = uvdata.data['SOURCE']
+    ## Time of each integration
+    obsdates = uvdata.data['DATE']
+    obstimes = uvdata.data['TIME']
+    inttimes = uvdata.data['INTTIM']
     
     # Find the source blocks to see if there is something we can use
     # to help the dedispersion
@@ -47,7 +51,8 @@ def get_source_blocks(hdulist):
         
         blocks.append( [valid[0],valid[0]] )
         for v in valid[1:]:
-            if v == blocks[-1][1] + 1:
+            if v == blocks[-1][1] + 1 \
+                and (obsdates[v] - obsdates[blocks[-1][1]] + obstimes[v] - obstimes[blocks[-1][1]])*86400 < 10*inttimes[v]:
                 blocks[-1][1] = v
             else:
                 blocks.append( [v,v] )
