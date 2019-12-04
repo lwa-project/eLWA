@@ -201,10 +201,14 @@ def main(args):
             del dataDict
             
             for ant in antennas:
-                if ant not in master_antennas:
+                ## The FITS IDI writer only cares about the stand ID
+                if (ant.stand.id, ant.pol) not in [(ma.stand.id, ma.pol) for ma in master_antennas]:
                     master_antennas.append(ant)
             obs_groups.append(group)
-            
+    master_antennas.sort(key=lambda x: (x.stand.id, x.pol))
+    for i in range(len(master_antennas)):
+        master_antennas[i].id = i+1
+        
     print "Antennas:"
     for ant in master_antennas:
         print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
