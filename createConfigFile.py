@@ -534,10 +534,12 @@ def main(args):
         dur = source['stop'] - source['start']
         dur = dur.total_seconds()
         
-        ## Skip over dummy scans
+        ## Skip over dummy scans and scans that start after the files end
         if source['intent'] in (None, 'dummy'):
             continue
-            
+        if source['start'] > max([cinp['tstop'] for cinp in corrConfig['inputs']]):
+            print('skip', source['start'], [cinp['tstop'] for cinp in corrConfig['inputs']])
+            continue           
         ## Small correction for the first scan to compensate for stale data at LWA-SV
         if lwasvFound and s == 0:
             startOffset += 10.0
