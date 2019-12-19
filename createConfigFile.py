@@ -538,8 +538,9 @@ def main(args):
         if source['intent'] in (None, 'dummy'):
             continue
         if source['start'] > max([cinp['tstop'] for cinp in corrConfig['inputs']]):
-            print('skip', source['start'], [cinp['tstop'] for cinp in corrConfig['inputs']])
-            continue           
+            print("Skipping scan of %s which starts at %s, %.3f s after the data end" % (source['name'], source['start'], (source['start'] - max([cinp['tstop'] for cinp in corrConfig['inputs']])).total_seconds()))
+            continue
+            
         ## Small correction for the first scan to compensate for stale data at LWA-SV
         if lwasvFound and s == 0:
             startOffset += 10.0
