@@ -499,7 +499,7 @@ def main(args):
             antCounts[cinp['antenna']] = 1
     for ant in antCounts.keys():
         if antCounts[ant] != 1:
-            sys.stderr.write("WARNING: Antenna '%i' is defined %i times" % (ant, antCounts[ant]))
+            sys.stderr.write("WARNING: Antenna '%s' is defined %i times" % (ant, antCounts[ant]))
             
     # Update the file offsets to get things lined up better
     tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
