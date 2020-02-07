@@ -170,10 +170,19 @@ class JustInTimeOptimizer(object):
                         if k == 'ATLAS_INFO']+[None])[0]
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
-        cflags.extend( ['-I%s' % idir for idir in atlas_info['include_dirs']] )
-        ldflags.extend( ['-L%s' % ldir for ldir in atlas_info['library_dirs']] )
-        ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
-        
+        try:
+            cflags.extend( ['-I%s' % idir for idir in atlas_info['include_dirs']] )
+        except KeyError:
+            pass
+        try:
+            ldflags.extend( ['-L%s' % ldir for ldir in atlas_info['library_dirs']] )
+        except KeyError:
+            pass
+        try:
+            ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
+        except KeyError:
+            pass
+            
         # FFTW3
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
