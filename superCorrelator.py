@@ -857,13 +857,13 @@ def main(args):
                 subIntCount = 0
                 fileCount += 1
                 
+                ### CD = correlator dump
                 outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
                 numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
                             vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
                             tStart=numpy.mean(subIntTimes), tInt=tDump,
                             delayStepApplied=delayStepApplied)
                 delayStepApplied = [False for step in delaySteps]
-                ### CD = correlator dump
                 print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
                 if fileCount == 1:
                     print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)

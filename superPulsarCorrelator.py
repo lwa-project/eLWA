@@ -108,6 +108,11 @@ def main(args):
     rawConfig = fh.readlines()
     fh.close()
     
+    # Get the raw polycos
+    fh = open(refSrc._polycos.filename, 'r')
+    rawPolycos = fh.readlines()
+    fh.close()
+    
     # Antenna report
     print "Antennas:"
     for ant in antennas:
@@ -946,18 +951,28 @@ def main(args):
                     visYX[bestBin] *= nDump / subIntWeight[bestBin]
                     visYY[bestBin] *= nDump / subIntWeight[bestBin]
                     
+                    ### Compute the effective integration time - this should be
+                    ### tDump/nProfileBins but let's use the actual median number
+                    ### of accumulations at tSub instead
+                    try:
+                        tDumpAct
+                    except NameError:
+                        tDumpAct = numpy.median(subIntWeight[bestBin]) * tSub
+                        
+                    ### CD = correlator dump
                     outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
-                    numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
+                    numpy.savez(outfile, config=rawConfig, polycos=rawPolycos, 
+                                srate=srate[0]/2.0, freq1=freqXX, 
                                 vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
                                 vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
-                                tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDump, 
+                                tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDumpAct, 
                                 delayStepApplied=delayStepApplied)
                     anyFilesSaved = True
-                    ### CD = correlator dump
                     print "CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(subIntTimes[bestBin]))
                     if bestBin == 0:
                         if fileCount[0] == 1:
                             print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
+                            print "CD - effective integration time is %.3f s" % tDumpAct
                         if (fileCount[0]-1) % 25 == 0:
                             print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),)
                             etc = (nInt - max(fileCount)) * (time.time() - wallStart)/max(fileCount)
