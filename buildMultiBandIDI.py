@@ -31,7 +31,7 @@ from lsl.correlator.uvUtils import computeUVW
 from lsl.common.constants import c as vLight
 from lsl.common.mcs import datetime2mjdmpm
 
-from utils import read_correlator_configuration
+from utils import extract_correlator_configuration
 
 import fitsidi
 
@@ -156,15 +156,7 @@ def main(args):
     freqL = dataDict['freq1']
     freq = freqL
     
-    cConfig = dataDict['config']
-    fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
-    os.close(fh)
-    fh = open(tempConfig, 'w')
-    for line in cConfig:
-        fh.write('%s\n' % line)
-    fh.close()
-    config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
-    os.unlink(tempConfig)
+    config, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(DataDict)
     if config is not None:
         if config['basis'] == 'linear':
             args.linear = True
@@ -206,15 +198,7 @@ def main(args):
         group = os.path.basename(filename).split('-vis2-', 1)[0]
         if group not in obs_groups:
             dataDict = numpy.load(filename)
-            cConfig = dataDict['config']
-            fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
-            os.close(fh)
-            fh = open(tempConfig, 'w')
-            for line in cConfig:
-                fh.write('%s\n' % line)
-            fh.close()
-            config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
-            os.unlink(tempConfig)
+            config, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
             del dataDict
             
             for ant in antennas:
@@ -255,15 +239,7 @@ def main(args):
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
         dataDict = numpy.load(lowname)
-        
-        cConfig = dataDict['config']
-        fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
-        os.close(fh)
-        fh = open(tempConfig, 'w')
-        for line in cConfig:
-            fh.write('%s\n' % line)
-        fh.close()
-        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
+        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(DataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
             if refSrc.name[:12] == 'ELWA_SESSION':
@@ -273,7 +249,6 @@ def main(args):
             ## Moving sources cannot have their names changed
             pass
         blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
-        os.unlink(tempConfig)
         
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()

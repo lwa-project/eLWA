@@ -63,16 +63,7 @@ def main(args):
     tInt = dataDict['tInt']
     nBL, nChan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
-    
-    cConfig = dataDict['config']
-    fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
-    fh = open(tempConfig, 'w')
-    for line in cConfig:
-        fh.write('%s\n' % line)
-    fh.close()
-    junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(tempConfig)
-    os.unlink(tempConfig)
-    
+    junk0, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
     dataDict.close()
     
     # Make sure the reference antenna is in there

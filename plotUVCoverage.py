@@ -26,18 +26,8 @@ def main(args):
     dataDict = numpy.load(args.filename[0])
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
-    
     freq = dataDict['freq1']
-    
-    cConfig = dataDict['config']
-    fh, tempConfig = tempfile.mkstemp(suffix='.txt', prefix='config-')
-    fh = open(tempConfig, 'w')
-    for line in cConfig:
-        fh.write('%s\n' % line)
-    fh.close()
-    junk0, refSrc, junk1, junk2, junk3, readers, antennas = read_correlator_configuration(tempConfig)
-    os.unlink(tempConfig)
-    
+    junk0, refSrc, junk1, junk2, junk3, readers, antennas = extract_correlator_configuration(dataDict)
     dataDict.close()
     
     # Prune down to a single polarization
