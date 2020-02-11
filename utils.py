@@ -594,6 +594,7 @@ class PolyCos(object):
             
         from polycos import polycos
         
+        self.filename = filename
         self._polycos_base = polycos(psrname, filename)
         
     def getDM(self, mjd, mjdf=0.0):
