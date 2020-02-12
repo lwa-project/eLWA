@@ -997,6 +997,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='the next generation of correlator for LWA/VLA/eLWA pulsar data', 
+        epilog='NOTE:  The actual dump time for the correlator is a function of the requested dump time and number of profile bins used for folding.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
     parser.add_argument('filename', type=str, 
