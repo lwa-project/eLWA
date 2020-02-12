@@ -156,7 +156,7 @@ def main(args):
     freqL = dataDict['freq1']
     freq = freqL
     
-    config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(DataDict)
+    config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     if config is not None:
         if config['basis'] == 'linear':
             args.linear = True
@@ -239,7 +239,7 @@ def main(args):
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
         dataDict = numpy.load(lowname)
-        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(DataDict)
+        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
             if refSrc.name[:12] == 'ELWA_SESSION':
