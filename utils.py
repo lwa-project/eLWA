@@ -484,44 +484,52 @@ def read_correlator_configuration(filename_or_npz):
         dataDict = numpy.load(filename_or_npz)
         to_close = True
     else:
-        ## Something else, just try it
+        ## Something else, just try some stuff
+        try:
+            ### Could it be a file that has already been opened?
+            filename_or_npz = filename_or_npz.filename
+        except AttributeError:
+            pass
         return _read_correlator_configuration(filename_or_npz)
         
     # Make a temporary directory
-    tempdir = tempfile.mkdtemp()
+    tempdir = tempfile.mkdtemp(prefix='config-')
     
-    # Configuration file - oh, and check for a 'Polyco' definition
-    cConfig = dataDict['config']
-    tempConfig = os.path.join(tempdir, 'config.txt')
-    fh = open(tempConfig, 'w')
-    polycos = None
-    for line in cConfig:
-        fh.write('%s' % line)
-        if line.find('Polyco') != -1:
-            polycos = line.strip().rstrip()
-    fh.close()
-    
-    # Polycos (optional)
-    if polycos is not None:
-        tempPolycos = os.path.basename(polycos.split(None, 1)[1])
-        tempPolycos = os.path.join(tempdir, tempPolycos)
-        try:
-            cPolycos = dataDict['polycos']
-            fh = open(tempPolycos, 'w')
-            for line in cPolycos:
-                fh.write('%s' % line)
-            fh.close()
-        except KeyError:
-            pass
-            
-    # Read
-    full_config = _read_correlator_configuration(tempConfig)
-    
-    # Cleanup and done
-    shutil.rmtree(tempdir)
-    if to_close:
-        dataDict.close()
+    try:
+        # Configuration file - oh, and check for a 'Polyco' definition
+        cConfig = dataDict['config']
+        tempConfig = os.path.join(tempdir, 'config.txt')
+        fh = open(tempConfig, 'w')
+        polycos = None
+        for line in cConfig:
+            fh.write('%s' % line)
+            if line.find('Polyco') != -1:
+                polycos = line.strip().rstrip()
+        fh.close()
         
+        # Polycos (optional)
+        if polycos is not None:
+            tempPolycos = os.path.basename(polycos.split(None, 1)[1])
+            tempPolycos = os.path.join(tempdir, tempPolycos)
+            try:
+                cPolycos = dataDict['polycos']
+                fh = open(tempPolycos, 'w')
+                for line in cPolycos:
+                    fh.write('%s' % line)
+                fh.close()
+            except KeyError:
+                pass
+                
+        # Read
+        full_config = _read_correlator_configuration(tempConfig)
+        
+    finally:
+        # Cleanup
+        shutil.rmtree(tempdir)
+        if to_close:
+            dataDict.close()
+            
+    # Done
     return full_config
 
 def get_better_time(frame):
