@@ -508,7 +508,7 @@ def read_correlator_configuration(filename_or_npz):
         try:
             cPolycos = dataDict['polycos']
             fh = open(tempPolycos, 'w')
-            for line in cConfig:
+            for line in cPolycos:
                 fh.write('%s' % line)
             fh.close()
         except KeyError:
