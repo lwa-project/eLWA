@@ -25,7 +25,7 @@ from matplotlib.ticker import NullFormatter
 
 def main(args):
     # Parse the correlator configuration
-    refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
+    config, refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
         
     # Load in the stand position data and antenna names
     data = []
