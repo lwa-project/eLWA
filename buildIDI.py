@@ -31,7 +31,7 @@ from lsl.correlator.uvUtils import computeUVW
 from lsl.common.constants import c as vLight
 from lsl.common.mcs import datetime2mjdmpm
 
-from utils import extract_correlator_configuration
+from utils import read_correlator_configuration
 
 import fitsidi
 
@@ -152,7 +152,7 @@ def main(args):
     
     freq = dataDict['freq1']
     
-    config, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
+    config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     if config is not None:
         if config['basis'] == 'linear':
             args.linear = True
@@ -181,7 +181,7 @@ def main(args):
         group = os.path.basename(filename).split('-vis2-', 1)[0]
         if group not in obs_groups:
             dataDict = numpy.load(filename)
-            config, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
+            config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
             del dataDict
             
             for ant in antennas:
@@ -222,7 +222,7 @@ def main(args):
     for i,filename in enumerate(filenames):
         ## Load in the integration
         dataDict = numpy.load(filename)
-        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
+        junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
             if refSrc.name[:12] == 'ELWA_SESSION':

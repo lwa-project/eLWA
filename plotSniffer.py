@@ -21,7 +21,7 @@ from lsl.statistics import robust
 from lsl.misc.mathutil import to_dB
 from lsl.misc import parser as aph
 
-from utils import extract_correlator_configuration
+from utils import read_correlator_configuration
 
 from matplotlib import pyplot as plt
 
@@ -50,7 +50,7 @@ def main(args):
     tInt = dataDict['tInt']
     nBL, nChan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
-    junk0, refSrc, junk1, junk2, junk3, junk4, antennas = extract_correlator_configuration(dataDict)
+    junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
     
     # Make sure the reference antenna is in there

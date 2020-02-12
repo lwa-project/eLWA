@@ -27,7 +27,7 @@ def main(args):
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
     freq = dataDict['freq1']
-    junk0, refSrc, junk1, junk2, junk3, readers, antennas = extract_correlator_configuration(dataDict)
+    junk0, refSrc, junk1, junk2, junk3, readers, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
     
     # Prune down to a single polarization
