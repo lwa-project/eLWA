@@ -17,6 +17,11 @@ import getopt
 import tempfile
 import threading
 import subprocess
+from Queue import Queue
+from getpass import getuser
+
+
+FAILED_QUEUE = Queue()
 
 
 def usage(exitCode=None):
@@ -185,7 +190,7 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
     return status
 
 
-def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None):
+def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
     code = 0
     
     # Create a temporary directory to use
@@ -194,6 +199,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     code += run_command('mkdir %s' % cwd, node=node, quiet=True)
     if code != 0:
         print "WARNING: failed to create directory on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Find the polyco file to use from the configuration file
@@ -204,6 +210,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         polyfile = os.path.join(os.path.dirname(configfile), polyfile)
     except IndexError:
         print "WARNING: failed to find polyco file on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Copy the software over
@@ -214,6 +221,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
         print "WARNING: failed to sync software on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Copy the configuration over
@@ -221,6 +229,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
         print "WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Run the correlator
@@ -244,6 +253,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     code += run_command('%s ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (pythonPath, options, outname, configfile, logfile), node=node, cwd=cwd)
     if code != 0:
         print "WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Gather the results
@@ -253,14 +263,17 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     code += run_command('rsync -e ssh -avH %s:%s/*.log %s' % (node, cwd, resultsDir), quiet=True)
     if code != 0:
         print "WARNING: failed to sync results on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
     # Cleanup
     code += run_command('rm -rf %s' % cwd, node=node, quiet=True)
     if code != 0:
         print "WARNING: failed to remove directory on %s - %s" % (node, os.path.basename(configfile))
+        returnQueue.put(False)
         return False
         
+    returnQueue.put(True)
     return True
 
 
@@ -299,7 +312,7 @@ def get_idle_slot(threads):
 
 def create_lock_file(node):
     if node[:6] == 'lwaucf':
-        fh = open('/home/jdowell/correlator%s' % node[6:], 'w')
+        fh = open('/home/%s/correlator%s' % (getuser(), node[6:]), 'w')
         fh.close()
     return True
 
@@ -307,7 +320,7 @@ def create_lock_file(node):
 def remove_lock_file(node):
     if node[:6] == 'lwaucf':
         try:
-            os.unlink('/home/jdowell/correlator%s' % node[6:])
+            os.unlink('/home/%s/correlator%s' % (getuser(), node[6:]))
         except OSError:
             pass
     return True
@@ -404,7 +417,19 @@ def main(args):
     h = int(tElapsed / 60.0) / 60
     m = int(tElapsed / 60.0) % 60
     s = tElapsed % 60.0
-    print "Completed %i jobs in %i hr, %i min, %.0f sec" % (nJobs, h, m, s)
+    
+    # Final exit code evaluation
+    failed = 0
+    while True:
+        try:
+            status = FAILED_QUEUE.get_nowait()
+            if not status:
+                failed += 1
+        except:
+            pass
+            
+    print "Completed %i jobs (with %i failues) in %i hr, %i min, %.0f sec" % (nJobs, failed, h, m, s)
+    sys.exit(failed)
 
 
 if __name__ == "__main__":
