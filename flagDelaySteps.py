@@ -25,6 +25,7 @@ def main(args):
     # Parse the command line
     filenames = args.filename
     
+    all_skipped = True
     for filename in filenames:
         t0 = time.time()
         print "Working on '%s'" % os.path.basename(filename)
@@ -77,6 +78,8 @@ def main(args):
             print "  No delay step information found, skipping"
             hdulist.close()
             continue
+        else:
+            all_skipped = False
             
         # Convert the masks into a format suitable for writing to a FLAG table
         print "  Building FLAG table"
@@ -193,6 +196,9 @@ def main(args):
         hdulist.close()
         print "  -> Flagged FITS IDI file is '%s'" % outname
         print "  Finished in %.3f s" % (time.time()-t0,)
+        
+    if len(filenames) > 0 and all_skipped:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
