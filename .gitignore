@@ -1,0 +1,3 @@
+*.npz
+*.FITS_*
+get_vla_ant_pos.py
