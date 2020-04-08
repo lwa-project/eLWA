@@ -37,7 +37,7 @@ for hdu1,hdu2 in zip(hdulist1, hdulist2):
     for row1,row2 in zip(hdu1.data, hdu2.data):
         for f in range(len(row1)):
             try:
-                same_value = numpy.allclose(row1[f], row2[f])
+                same_value = numpy.allclose(row1[f], row2[f], rtol=2e-4)
             except TypeError:
                 same_value = numpy.array_equal(row1[f], row2[f])
             if not same_value:
