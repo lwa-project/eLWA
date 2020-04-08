@@ -19,18 +19,15 @@ addons:
             - libgdbm-dev
             - libatlas-base-dev
 
-script:
-    - sudo pip install \
+install:
+    - pip install \
         setuptools \
         numpy==1.13.3 \
         matplotlib==2.1.1 \
         scipy==0.19.1
-    - sudo pip install \ 
+    - pip install \ 
         lsl==1.2.5
+
+script:
     - cd tests
     - ./simple_test.sh
-
-cache:
-  directories:
-    - $HOME/eLWA/tests
-
