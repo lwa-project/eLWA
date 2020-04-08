@@ -28,6 +28,7 @@ install:
         jinja2
     - pip install \ 
         lsl==1.2.5
+    - curl https://fornax.phys.unm.edu/lwa/data/finals2000A.data -o $HOME/.lsl/geodesy_cache/finals2000A.data --create-dirs
 
 script:
     - cd tests
