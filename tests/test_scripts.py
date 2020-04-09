@@ -42,7 +42,8 @@ _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>
 _SAFE_TO_IGNORE = ["Possible",
                    "Module 'numpy",
                    "Module 'ephem",
-                   "Instance of 'HDUList'"]
+                   "Instance of 'HDUList'",
+                   "Unable to import 'polycos"]
 
 
 def _get_context(filename, line, before=0, after=0):

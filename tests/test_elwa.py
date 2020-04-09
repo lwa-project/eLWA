@@ -27,6 +27,7 @@ _REF = 'eLWA_test_ref.tar.gz'
 class eLWA_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
+        print("Starting setUp()")
         
         # get_vla_ant_pos.py
         if not os.path.exists('../get_vla_ant_pos.py'):
@@ -61,6 +62,7 @@ class eLWA_tests(unittest.TestCase):
         # Other variables
         self._FILES = ['0*', '*.vdif', 'LT004_*.tgz']
         self._BASENAME = 'elwa'
+        print("Finished setUp()")
         
     def create(self):
         """Build the correlator configuration file."""
