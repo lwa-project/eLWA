@@ -14,6 +14,7 @@ import unittest
 unittest.TestLoader.sortTestMethodsUsing = None
 
 import os
+import re
 import glob
 import numpy
 import pyfits

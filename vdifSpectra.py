@@ -145,8 +145,8 @@ def main(args):
         try:
             cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
         except errors.syncError:
-            print "Error @ %i, %i" % (i, j)
-            f.seek(vdif.FrameSize, 1)
+            print "Error @ %i" % i
+            fh.seek(vdif.FrameSize, 1)
             continue
         std,pol = cFrame.parseID()
         sid = pol

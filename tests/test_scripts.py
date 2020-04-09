@@ -39,7 +39,8 @@ __author__   = "Jayce Dowell"
 _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>.*?)[\]\)] (?P<info>.*)')
 
 
-_SAFE_TO_IGNORE = ["Module 'numpy",
+_SAFE_TO_IGNORE = ["Possible",
+                   "Module 'numpy",
                    "Module 'ephem",
                    "Instance of 'HDUList'"]
 

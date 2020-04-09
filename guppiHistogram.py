@@ -139,8 +139,8 @@ def main(args):
         try:
             cFrame = guppi.readFrame(fh)
         except errors.syncError:
-            print "Error @ %i, %i" % (i, j)
-            f.seek(guppi.FrameSize, 1)
+            print "Error @ %i" % i
+            fh.seek(guppi.FrameSize, 1)
             continue
         std,pol = cFrame.parseID()
         sid = pol
