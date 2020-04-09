@@ -13,7 +13,7 @@ from StringIO import StringIO
 
 from lsl.common.stations import lwa1
 from lsl.statistics import robust
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutil
 
 
 def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
@@ -154,9 +154,9 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
     
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutil.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -242,9 +242,9 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutil.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -362,9 +362,9 @@ def summarize_mask(antennas, times, freq, mask):
     
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutil.get_baselines(antennas, include_auto=True)
         
     # Build an antennas list to keep track of flagging
     antennaFracs = {}

@@ -81,48 +81,48 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    header = guppi.readGUPPIHeader(fh)
-    guppi.FrameSize = guppi.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / guppi.FrameSize
+    header = guppi.read_guppi_header(fh)
+    guppi.FRAME_SIZE = guppi.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / guppi.FRAME_SIZE
     
-    junkFrame = guppi.readFrame(fh)
-    srate = junkFrame.getSampleRate()
+    junkFrame = guppi.read_frame(fh)
+    srate = junkFrame.sample_rate
     guppi.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = guppi.getThreadCount(fh)
+    beam, pol = junkFrame.id
+    tunepols = guppi.get_thread_count(fh)
     beampols = tunepols
     
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = guppi.readFrame(fh)
-        s,p = junkFrame.parseID()
+        junkFrame = guppi.read_frame(fh)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Date
-    junkFrame = guppi.readFrame(fh)
-    fh.seek(-guppi.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = guppi.read_frame(fh)
+    fh.seek(-guppi.FRAME_SIZE, 1)
+    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
     print "Filename: %s" % os.path.basename(filename)
     print "  Date of First Frame: %s" % beginDate
     print "  Station: %i" % beam
     print "  Sample Rate: %i Hz" % srate
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
+    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
     print "  Tuning 1: %.1f Hz" % cFreq
     print " "
     
     # Determine the clip level
     if config['trim'] is None:
-        if junkFrame.header.bitsPerSample == 1:
+        if junkFrame.header.bits_per_sample == 1:
             config['trim'] = 1
-        elif junkFrame.header.bitsPerSample == 2:
+        elif junkFrame.header.bits_per_sample == 2:
             config['trim'] = 1
-        elif junkFrame.header.bitsPerSample == 4:
+        elif junkFrame.header.bits_per_sample == 4:
             config['trim'] = 49
-        elif junkFrame.header.bitsPerSample == 8:
+        elif junkFrame.header.bits_per_sample == 8:
             config['trim'] = 256
         else:
             config['trim'] = 1.0
@@ -155,14 +155,14 @@ def main(args):
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = guppi.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
             
-            beam,pol = cFrame.parseID()
+            beam,pol = cFrame.id
             aStand = pol
             
             try:
@@ -192,9 +192,9 @@ def main(args):
             print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
         
             i += 1
-            if fh.tell() + guppi.FrameSize*chunkSkip >= os.path.getsize(filename):
+            if fh.tell() + guppi.FRAME_SIZE*chunkSkip >= os.path.getsize(filename):
                 break
-            fh.seek(guppi.FrameSize*chunkSkip, 1)
+            fh.seek(guppi.FRAME_SIZE*chunkSkip, 1)
             
     clipFraction = numpy.array(clipFraction)
     meanPower = numpy.array(meanPower)

@@ -48,7 +48,7 @@ def main(args):
     
     dataDict = numpy.load(filenames[0])
     tInt = dataDict['tInt']
-    nBL, nChan = dataDict['vis1XX'].shape
+    nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
@@ -79,19 +79,19 @@ def main(args):
     nBL = len(cross)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        if nchan % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nChan /= args.decimate
+        nchan /= args.decimate
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
-    visXX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+    visXX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
     if not args.y_only:
-        visXY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+        visXY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
 
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)
@@ -137,7 +137,7 @@ def main(args):
     print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0])
 
     dTimes = times - times[0]
-    refTime = (int(times[0]) / 60) * 60
+    ref_time = (int(times[0]) / 60) * 60
     
     dMax = 1.0/(freq[1]-freq[0])/4
     dMax = int(dMax*1e6)*1e-6
@@ -196,8 +196,8 @@ def main(args):
     smth /= robust.mean(smth)
     bp = spec / smth
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-    nBad = nChan - len(good)
-    print "Masking %i of %i channels (%.1f%%)" % (nBad, nChan, 100.0*nBad/nChan)
+    nBad = nchan - len(good)
+    print "Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan)
     
     freq2 = freq*1.0
     freq2.shape += (1,)
@@ -277,10 +277,10 @@ def main(args):
                     bdly = delay[best[0][0]]*1e6
                     brat = drate[best[1][0]]*1e3
                     
-                    axR.plot(subTime-refTime, brat, linestyle='', marker=markers[pol], color='k')
-                    axD.plot(subTime-refTime, bdly, linestyle='', marker=markers[pol], color='k')
-                    axP.plot(subTime-refTime, subPhase, linestyle='', marker=markers[pol], color='k')
-                    axA.plot(subTime-refTime, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
+                    axR.plot(subTime-ref_time, brat, linestyle='', marker=markers[pol], color='k')
+                    axD.plot(subTime-ref_time, bdly, linestyle='', marker=markers[pol], color='k')
+                    axP.plot(subTime-ref_time, subPhase, linestyle='', marker=markers[pol], color='k')
+                    axA.plot(subTime-ref_time, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
                     
         # Legend and reference marks
         handles, labels = axA.get_legend_handles_labels()
@@ -293,7 +293,7 @@ def main(args):
         xticklabels = axR.get_xticklabels() + axD.get_xticklabels() + axP.get_xticklabels()
         plt.setp(xticklabels, visible=False)
         for ax in (axR, axD, axP, axA):
-            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(refTime).strftime('%Y%b%d %H:%M'))
+            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
         # Flip the y axis tick labels on every other plot
         for ax in (axR, axP):
             ax.yaxis.set_label_position('right')

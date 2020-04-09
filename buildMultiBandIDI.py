@@ -24,12 +24,12 @@ from datetime import datetime, timedelta, tzinfo
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
 #from lsl.writer import fitsidi
-from lsl.correlator.uvUtils import computeUVW
+from lsl.correlator.uvutil import compute_uvw
 from lsl.common.constants import c as vLight
-from lsl.common.mcs import datetime2mjdmpm
+from lsl.common.mcs import datetime_to_mjdmpm
 
 from utils import read_correlator_configuration
 
@@ -146,7 +146,7 @@ def main(args):
     
     # Build up the station
     site = stations.lwa1
-    observer = site.getObserver()
+    observer = site.get_observer()
     
     # Load in the file file to figure out what to do
     dataDict = numpy.load(lownames[0])
@@ -214,8 +214,8 @@ def main(args):
     for ant in master_antennas:
         print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
         
-    nChan = visXX.shape[1]
-    master_blList = uvUtils.getBaselines([ant for ant in master_antennas if ant.pol == 0], IncludeAuto=True)
+    nchan = visXX.shape[1]
+    master_blList = uvutil.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
     
     if args.decimate > 1:
         to_trim = (freq.size/args.decimate)*args.decimate
@@ -223,7 +223,7 @@ def main(args):
         if to_drop != 0:
             print "Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3)
             
-        nChan /= args.decimate
+        nchan /= args.decimate
         if to_drop != 0:
             freq = freq[:to_trim]
         freq.shape = (freq.size/args.decimate, args.decimate)
@@ -248,7 +248,7 @@ def main(args):
         except AttributeError:
             ## Moving sources cannot have their names changed
             pass
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
         
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()
@@ -359,16 +359,16 @@ def main(args):
                     raise RuntimeError("Output file '%s' already exists" % outname)
                     
             ### Create the file
-            fits = fitsidi.IDI(outname, refTime=tStart)
+            fits = fitsidi.Idi(outname, ref_time=tStart)
             if args.circular:
-                fits.setStokes(['RR', 'RL', 'LR', 'LL'])
+                fits.set_stokes(['RR', 'RL', 'LR', 'LL'])
             elif args.stokes:
-                fits.setStokes(['I', 'Q', 'U', 'V'])
+                fits.set_stokes(['I', 'Q', 'U', 'V'])
             else:
-                fits.setStokes(['XX', 'XY', 'YX', 'YY'])
-            fits.setFrequency(freqL)
-            fits.setFrequency(freqH)
-            fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
+                fits.set_stokes(['XX', 'XY', 'YX', 'YY'])
+            fits.set_frequency(freqL)
+            fits.set_frequency(freqH)
+            fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
             print "Opening %s for writing" % outname
             
@@ -387,20 +387,20 @@ def main(args):
         ## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
         obsTime = astro.unix_to_taimjd(tStart)
         if args.circular:
-            fits.addDataSet(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
         elif args.stokes:
-            fits.addDataSet(obsTime, tInt, blList, visI, pol='I', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visU, pol='U', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visV, pol='V', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visI, pol='I', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visU, pol='U', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visV, pol='V', source=refSrc)
         else:
-            fits.addDataSet(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
             
     # Cleanup the last file
     fits.write()

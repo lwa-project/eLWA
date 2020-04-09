@@ -18,7 +18,7 @@ import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
 
 from sdm import get_noise_diode_values, filter_noise_diode_values, \
                 get_switched_power_diffs, filter_switched_power_diffs
@@ -64,7 +64,7 @@ def main(args):
         polMapper = {}
         for i in xrange(uvdata.header['NO_STKD']):
             stk = uvdata.header['STK_1'] - i
-            polMapper[i] = NumericStokes[stk]
+            polMapper[i] = NUMERIC_STOKES[stk]
             
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']

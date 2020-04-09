@@ -16,7 +16,7 @@ __all__ = ['GUPPIFrameBuffer',]
 
 
 class GUPPIFrameBuffer(VDIFFrameBuffer):
-    def figureOfMerit(self, frame):
+    def get_figure_of_merit(self, frame):
         """
         Figure of merit for sorting frames.  For DRX it is:
             <frame timetag in ticks>

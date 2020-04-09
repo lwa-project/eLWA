@@ -23,10 +23,10 @@ from lsl import astro
 from lsl.common import stations
 from lsl.reader import drx, vdif
 from lsl.common.dp import fS
-from lsl.common.mcs import datetime2mjdmpm, delaytoMCSD, MCSDtodelay
-from lsl.common.metabundle import getCommandScript
-from lsl.common.metabundleADP import getCommandScript as getCommandScriptADP
-from lsl.misc.beamformer import calcDelay
+from lsl.common.mcs import datetime_to_mjdmpm, delaytoMCSD, MCSDtodelay
+from lsl.common.metabundle import get_command_script
+from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
+from lsl.misc.beamformer import calc_delay
 
 import guppi
 
@@ -354,7 +354,7 @@ def _read_correlator_configuration(filename):
         elif line[:8] == 'Location':
             block['location'] = [float(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:11] == 'ClockOffset':
-            block['clockOffset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
+            block['clock_offset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:10] == 'FileOffset':
             block['fileOffset'] = parse_time_string(line.split(None, 1)[1])
         elif line == 'InputDone':
@@ -439,13 +439,13 @@ def _read_correlator_configuration(filename):
                     pass
         pols = block['pols']
         location = block['location']
-        clockOffsets = block['clockOffset']
+        clock_offsets = block['clock_offset']
         
         if aid is None:
             raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
             
         stand = stations.Stand(aid, *location)
-        for pol,offset in zip(pols, clockOffsets):
+        for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
             cable.setClockOffset(offset)
             
@@ -536,30 +536,30 @@ def get_better_time(frame):
     """
     Given a lsl.reader.vdif.Frame, guppi.Frame, or lsl.reader.drx.Frame 
     instance, return a more accurate time for the frame.  Unlike the 
-    Frame.getTime() functions, this function returns a two-element tuple of:
+    Frame.get_time() functions, this function returns a two-element tuple of:
       * integer seconds since the UNIX epoch and
       * fractional second
     """
     
     if type(frame) == vdif.Frame:
-        epochDT = datetime(2000+frame.header.refEpoch/2, (frame.header.refEpoch % 2)*6+1, 1, 0, 0, 0, 0)
-        epochMJD, epochMPM = datetime2mjdmpm(epochDT)
+        epochDT = datetime(2000+frame.header.ref_epoch/2, (frame.header.ref_epoch % 2)*6+1, 1, 0, 0, 0, 0)
+        epochMJD, epochMPM = datetime_to_mjdmpm(epochDT)
         sec = int(round(astro.utcjd_to_unix(epochMJD + astro.MJD_OFFSET)))
-        sec += frame.header.secondsFromEpoch
+        sec += frame.header.seconds_from_epoch
 
-        dataSize = frame.header.frameLength*8 - 32 + 16*frame.header.isLegacy
-        samplesPerWord = 32 / frame.header.bitsPerSample                                # dimensionless
+        dataSize = frame.header.frame_length*8 - 32 + 16*frame.header.is_legacy
+        samplesPerWord = 32 / frame.header.bits_per_sample                                # dimensionless
         nSamples = dataSize / 4 * samplesPerWord                                # bytes -> words -> samples
-        frameRate = frame.header.sampleRate / nSamples
-        frac = frame.header.frameInSecond/frameRate
+        frameRate = frame.header.sample_rate / nSamples
+        frac = frame.header.frame_in_second/frameRate
         
     elif type(frame) == guppi.Frame:
         mjd = frame.header.imjd + frame.header.smjd / 86400.0
         sec = int(round(astro.utcjd_to_unix(mjd + astro.MJD_OFFSET)))
         
         offset = frame.header.offset
-        whol = offset / int(frame.getSampleRate())
-        frac = (offset - whol*int(frame.getSampleRate())) / float(frame.getSampleRate())
+        whol = offset / int(frame.sample_rate)
+        frac = (offset - whol*int(frame.sample_rate)) / float(frame.sample_rate)
         
         sec += whol
         frac += frame.header.fmjd
@@ -569,7 +569,7 @@ def get_better_time(frame):
             
     elif type(frame) == drx.Frame:
         # HACK - What should T_NOM really be at LWA1???
-        tt = frame.data.timeTag - (6660 if frame.header.timeOffset else 0)
+        tt = frame.data.timetag - (6660 if frame.header.time_offset else 0)
         sec = tt/196000000
         frac = (tt - sec*196000000)/196e6
         
@@ -591,9 +591,9 @@ def parse_lwa_metadata(filename):
     
     # Load in the command script and walk through the commands
     try:
-        cs = getCommandScript(filename)
+        cs = get_command_script(filename)
     except ValueError:
-        cs = getCommandScriptADP(filename)
+        cs = get_command_scriptADP(filename)
     for c in cs:
         ## Jump over any command that is not a BAM
         if c['commandID'] != 'BAM':
@@ -601,21 +601,21 @@ def parse_lwa_metadata(filename):
             
         ## Figure out the station, antenna layout, and antenna closest to the array center
         try:
-            refAnt
+            ref_ant
         except NameError:
             if c['subsystemID'] == 'DP':
                 site = stations.lwa1
             else:
                 site = stations.lwasv
-            ants = site.getAntennas()
+            ants = site.antennas
             
-            refAnt = 0
+            ref_ant = 0
             best = 1e20
             for i,a in enumerate(ants):
                 r = a.stand.x**2 + a.stand.y**2 + a.stand.z**2
                 if r < best:
                     best = r
-                    refAnt = i
+                    ref_ant = i
                     
         ## Parse the command to get the beamformer delays
         ### Pointing and frequency
@@ -625,13 +625,13 @@ def parse_lwa_metadata(filename):
         el = float(el)/10.0
         az = float(az)/10.0
         ### Delay calculation
-        b = calcDelay(ants, freq, az, el)
+        b = calc_delay(ants, freq, az, el)
         b = b.max() - b
         
         ## Figure out what it means and save it.  This includes a convertion to/from the MCS
         ## delay that breaks things down into a course and fine delay for DP
         t.append( c['time'] )
-        d.append( MCSDtodelay(delaytoMCSD(b[refAnt]*1e9))/1e9 )
+        d.append( MCSDtodelay(delaytoMCSd(b[ref_ant]*1e9))/1e9 )
         
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)

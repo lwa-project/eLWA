@@ -49,7 +49,7 @@ def main(args):
     
     dataDict = numpy.load(filenames[0])
     tInt = dataDict['tInt']
-    nBL, nChan = dataDict['vis1XX'].shape
+    nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
@@ -80,19 +80,19 @@ def main(args):
     nBL = len(cross)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        if nchan % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nChan /= args.decimate
+        nchan /= args.decimate
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
-    visXX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+    visXX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
     if not args.y_only:
-        visXY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+        visXY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
 
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)
@@ -192,8 +192,8 @@ def main(args):
     smth /= robust.mean(smth)
     bp = spec / smth
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-    nBad = nChan - len(good)
-    print "Masking %i of %i channels (%.1f%%)" % (nBad, nChan, 100.0*nBad/nChan)
+    nBad = nchan - len(good)
+    print "Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan)
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()

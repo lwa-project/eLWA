@@ -44,22 +44,22 @@ except ImportError:
 
 __version__ = '0.9'
 __revision__ = '$Rev$'
-__all__ = ['IDI', 'AIPS', 'ExtendedIDI', 'StokesCodes', 'NumericStokes', 
+__all__ = ['IDI', 'AIPS', 'ExtendedIDI', 'STOKES_CODES', 'NUMERIC_STOKES', 
            '__version__', '__revision__', '__all__']
 
 
 IDIVersion = (3, 0)
 
-StokesCodes = { 'I':  1,  'Q': 2,   'U':  3,  'V':  4, 
+STOKES_CODES = { 'I':  1,  'Q': 2,   'U':  3,  'V':  4, 
                'RR': -1, 'LL': -2, 'RL': -3, 'LR': -4, 
                'XX': -5, 'YY': -6, 'XY': -7, 'YX': -8}
 
-NumericStokes = { 1: 'I',   2: 'Q',   3: 'U',   4: 'V', 
+NUMERIC_STOKES = { 1: 'I',   2: 'Q',   3: 'U',   4: 'V', 
                  -1: 'RR', -2: 'LL', -3: 'RL', -4: 'LR', 
                  -5: 'XX', -6: 'YY', -7: 'XY', -8: 'YX'}
 
 
-def mergeBaseline(ant1, ant2, shift=16):
+def merge_baseline(ant1, ant2, shift=16):
     """
     Merge two stand ID numbers into a single baseline using the specified bit 
     shift size.
@@ -67,7 +67,7 @@ def mergeBaseline(ant1, ant2, shift=16):
     
     return (ant1 << shift) | ant2
 
-def splitBaseline(baseline, shift=16):
+def split_baseline(baseline, shift=16):
     """
     Given a baseline, split it into it consistent stand ID numbers.
     """
@@ -77,7 +77,7 @@ def splitBaseline(baseline, shift=16):
 
 
 
-class IDI(object):
+class Idi(object):
     """
     Class for storing visibility data and writing the data, along with array
     geometry, frequency setup, etc., to a FITS IDI file that can be read into 
@@ -123,7 +123,7 @@ class IDI(object):
         Represents one UV visibility data set for a given observation time.
         """
     
-        def __init__(self, obsTime, intTime, baselines, visibilities, pol=StokesCodes['XX'], source='z'):
+        def __init__(self, obsTime, intTime, baselines, visibilities, pol=STOKES_CODES['XX'], source='z'):
             self.obsTime = obsTime
             self.intTime = intTime
             self.baselines = baselines
@@ -187,12 +187,12 @@ class IDI(object):
                     s1, s2 = a1.stand.id, a2.stand.id
                 else:
                     s1, s2 = mapper[a1.stand.id], mapper[a2.stand.id]
-                packed.append( mergeBaseline(s1, s2, shift=shift) )
+                packed.append( merge_baseline(s1, s2, shift=shift) )
             packed = numpy.array(packed, dtype=numpy.int32)
             
             return numpy.argsort(packed)
             
-    def parseRefTime(self, refTime):
+    def parseRefTime(self, ref_time):
         """
         Given a time as either a integer, float, string, or datetime object, 
         convert it to a string in the formation 'YYYY-MM-DDTHH:MM:SS'.
@@ -201,31 +201,31 @@ class IDI(object):
         # Valid time string (modulo the 'T')
         timeRE = re.compile(r'\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?')
         
-        if type(refTime) in (int, long, float):
-            refDateTime = datetime.utcfromtimestamp(refTime)
-            refTime = refDateTime.strftime("%Y-%m-%dT%H:%M:%S")
-        elif type(refTime) == datetime:
-            refTime = refTime.strftime("%Y-%m-%dT%H:%M:%S")
-        elif type(refTime) == str:
+        if type(ref_time) in (int, long, float):
+            refDateTime = datetime.utcfromtimestamp(ref_time)
+            ref_time = refDateTime.strftime("%Y-%m-%dT%H:%M:%S")
+        elif type(ref_time) == datetime:
+            ref_time = ref_time.strftime("%Y-%m-%dT%H:%M:%S")
+        elif type(ref_time) == str:
             # Make sure that the string times are of the correct format
-            if re.match(timeRE, refTime) is None:
-                raise RuntimeError("Malformed date/time provided: %s" % refTime)
+            if re.match(timeRE, ref_time) is None:
+                raise RuntimeError("Malformed date/time provided: %s" % ref_time)
             else:
-                refTime = refTime.replace(' ', 'T', 1)
+                ref_time = ref_time.replace(' ', 'T', 1)
         else:
             raise RuntimeError("Unknown time format provided.")
             
-        return refTime
+        return ref_time
         
-    def refTime2AstroDate(self):
+    def ref_time2AstroDate(self):
         """
         Convert a reference time string to an :class:`lsl.astro.date` object.
         """
         
-        dateStr = self.refTime.replace('T', '-').replace(':', '-').split('-')
+        dateStr = self.ref_time.replace('T', '-').replace(':', '-').split('-')
         return astro.date(int(dateStr[0]), int(dateStr[1]), int(dateStr[2]), int(dateStr[3]), int(dateStr[4]), float(dateStr[5]))
         
-    def __init__(self, filename, refTime=0.0, verbose=False, memmap=None, clobber=False):
+    def __init__(self, filename, ref_time=0.0, verbose=False, memmap=None, clobber=False):
         """
         Initialize a new FITS IDI object using a filename and a reference time 
         given in seconds since the UNIX 1970 ephem, a python datetime object, or a 
@@ -245,9 +245,9 @@ class IDI(object):
         self.siteName = 'Unknown'
         
         # Observation-specific information
-        self.refTime = self.parseRefTime(refTime)
+        self.ref_time = self.parseRefTime(ref_time)
         self.nAnt = 0
-        self.nChan = 0
+        self.nchan = 0
         self.nStokes = 0
         self.refVal = 0
         self.refPix = 0
@@ -267,14 +267,14 @@ class IDI(object):
                 raise IOError("File '%s' already exists" % filename)
         self.FITS = pyfits.open(filename, mode='append', memmap=memmap)
         
-    def setStokes(self, polList):
+    def set_stokes(self, polList):
         """
         Given a list of Stokes parameters, update the object's parameters.
         """
         
         for pol in polList:
             if type(pol) == str:
-                numericPol = StokesCodes[pol.upper()]
+                numericPol = STOKES_CODES[pol.upper()]
             else:
                 numericPol = pol
                 
@@ -288,27 +288,27 @@ class IDI(object):
             
         self.nStokes = len(self.stokes)
         
-    def setFrequency(self, freq):
+    def set_frequency(self, freq):
         """
         Given a numpy array of frequencies, set the relevant common observation
         parameters and add an entry to the self.freq list.
         """
         
-        if self.nChan == 0:
-            self.nChan = len(freq)
+        if self.nchan == 0:
+            self.nchan = len(freq)
             self.refVal = freq[0]
             self.refPix = 1
             self.channelWidth = numpy.abs(freq[1] - freq[0])
             offset = 0.0
         else:
-            assert(len(freq) == self.nChan)
+            assert(len(freq) == self.nchan)
             offset = freq[0] - self.refVal
         totalWidth = numpy.abs(freq[-1] - freq[0])
         
         freqSetup = self._Frequency(offset, self.channelWidth, totalWidth)
         self.freq.append(freqSetup)
         
-    def setGeometry(self, site, antennas, bits=8):
+    def set_geometry(self, site, antennas, bits=8):
         """
         Given a station and an array of stands, set the relevant common observation
         parameters and add entries to the self.array list.
@@ -331,7 +331,7 @@ class IDI(object):
             stands.append(ant.stand.id)
         stands = numpy.array(stands)
         
-        arrayX, arrayY, arrayZ = site.getGeocentricLocation()
+        arrayX, arrayY, arrayZ = site.get_geocentric_location()
         
         xyz = numpy.zeros((len(stands),3))
         for i,ant in enumerate(antennas):
@@ -348,7 +348,7 @@ class IDI(object):
             enableMapper = False
             
         ants = []
-        topo2eci = site.getECITransform()
+        topo2eci = site.get_eci_transform()
         for i in xrange(len(stands)):
             eci = numpy.dot(topo2eci, xyz[i,:])
             ants.append( self._Antenna(stands[i], eci[0], eci[1], eci[2], bits=bits) )
@@ -390,7 +390,7 @@ class IDI(object):
         except AttributeError:
             self._history = [history,]
             
-    def addDataSet(self, obsTime, intTime, baselines, visibilities, pol='XX', source='z'):
+    def add_data_set(self, obsTime, intTime, baselines, visibilities, pol='XX', source='z'):
         """
         Create a UVData object to store a collection of visibilities.
         
@@ -406,7 +406,7 @@ class IDI(object):
         """
         
         if type(pol) == str:
-            numericPol = StokesCodes[pol.upper()]
+            numericPol = STOKES_CODES[pol.upper()]
         else:
             numericPol = pol
             
@@ -458,17 +458,17 @@ class IDI(object):
         hdr['NO_STKD'] = (self.nStokes, 'number of Stokes parameters')
         hdr['STK_1'] = (self.stokes[0], 'first Stokes parameter')
         hdr['NO_BAND'] = (len(self.freq), 'number of frequency bands')
-        hdr['NO_CHAN'] = (self.nChan, 'number of frequency channels')
+        hdr['NO_CHAN'] = (self.nchan, 'number of frequency channels')
         hdr['REF_FREQ'] = (self.refVal, 'reference frequency (Hz)')
         hdr['CHAN_BW'] = (self.channelWidth, 'channel bandwidth (Hz)')
         hdr['REF_PIXL'] = (float(self.refPix), 'reference frequency bin')
         
-        date = self.refTime.split('-')
+        date = self.ref_time.split('-')
         name = "ZA%s%s%s" % (date[0][2:], date[1], date[2])
         hdr['OBSCODE'] = (name, 'zenith all-sky image')
         
         hdr['ARRNAM'] = self.siteName      
-        hdr['RDATE'] = (self.refTime, 'file data reference date')
+        hdr['RDATE'] = (self.ref_time, 'file data reference date')
         
     def _writePrimary(self):
         """
@@ -492,7 +492,7 @@ class IDI(object):
         primary.header['LWATYPE'] = ('IDI-ZA', 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
-        primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
+        primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
@@ -563,7 +563,7 @@ class IDI(object):
         ag.header['FREQ'] = (self.refVal, 'reference frequency (Hz)')
         ag.header['TIMSYS'] = ('UTC', 'time coordinate system')
         
-        date = self.refTime2AstroDate()
+        date = self.ref_time2AstroDate()
         utc0 = date.to_jd()
         gst0 = astro.get_apparent_sidereal_time(utc0)
         ag.header['GSTIA0'] = (gst0 * 15, 'GAST (deg) at RDATE 0 hours')
@@ -576,9 +576,9 @@ class IDI(object):
         deg = ds * 15.0      
         ag.header['DEGPDY'] = (360.0 + deg, 'rotation rate of the earth (deg/day)')
         
-        refDate = self.refTime2AstroDate()
+        refDate = self.ref_time2AstroDate()
         refMJD = refDate.to_jd() - astro.MJD_OFFSET
-        eop = geodesy.getEOP(refMJD)
+        eop = geodesy.get_eop(refMJD)
         if eop is None:
             eop = geodesy.EOP(mjd=refMJD)
             
@@ -734,20 +734,20 @@ class IDI(object):
         c9 = pyfits.Column(name='REFANT_1', format='1J',
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 1)
-        c10 = pyfits.Column(name='BREAL_1', format='%iE' % (self.nChan*nBand),
-                        array=numpy.ones((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
+        c10 = pyfits.Column(name='BREAL_1', format='%iE' % (self.nchan*nBand),
+                        array=numpy.ones((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 1)
-        c11 = pyfits.Column(name='BIMAG_1', format='%iE' % (self.nChan*nBand),
-                        array=numpy.zeros((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
+        c11 = pyfits.Column(name='BIMAG_1', format='%iE' % (self.nchan*nBand),
+                        array=numpy.zeros((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Reference antenna number (pol. 2)
         c12 = pyfits.Column(name='REFANT_2', format='1J',
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 2)
-        c13 = pyfits.Column(name='BREAL_2', format='%iE' % (self.nChan*nBand),
-                        array=numpy.ones((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
+        c13 = pyfits.Column(name='BREAL_2', format='%iE' % (self.nchan*nBand),
+                        array=numpy.ones((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 2)
-        c14 = pyfits.Column(name='BIMAG_2', format='%iE' % (self.nChan*nBand),
-                        array=numpy.zeros((self.nAnt,nBand*self.nChan), dtype=numpy.float32))
+        c14 = pyfits.Column(name='BIMAG_2', format='%iE' % (self.nchan*nBand),
+                        array=numpy.zeros((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
                         
         colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13, c14])
@@ -758,7 +758,7 @@ class IDI(object):
         
         bp.header['NO_ANT'] = self.nAnt
         bp.header['NO_POL'] = 2
-        bp.header['NO_BACH'] = self.nChan
+        bp.header['NO_BACH'] = self.nchan
         bp.header['STRT_CHN'] = self.refPix
         
         bp.name = 'BANDPASS'
@@ -1020,7 +1020,7 @@ class IDI(object):
                         stand1, stand2 = antenna1.stand.id, antenna2.stand.id
                     else:
                         stand1, stand2 = mapper[antenna1.stand.id], mapper[antenna2.stand.id]
-                    baselineMapped.append( mergeBaseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
+                    baselineMapped.append( merge_baseline(stand1, stand2, shift=self._PACKING_BIT_SHIFT) ) 
                 uList.extend( uvwCoords[order,0] )
                 vList.extend( uvwCoords[order,1] )
                 wList.extend( uvwCoords[order,2] )
@@ -1041,10 +1041,10 @@ class IDI(object):
                 try:
                     matrix *= 0.0
                 except NameError:
-                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                    matrix = numpy.zeros((len(order), self.nStokes*self.nchan*nBand), dtype=numpy.complex64)
                 if matrix.shape[0] != len(order):
                     print("WARNING: baseline count changed from %i to %i at data set %i of %i and %i" % (matrix.shape[0], len(order), dsCount, dsCount+len(self.data), dataSet.pol))
-                    matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
+                    matrix = numpy.zeros((len(order), self.nStokes*self.nchan*nBand), dtype=numpy.complex64)
                     
             # Save the visibility data in the right order
             # NOTE:  This is this conjugate since there seems to be a convention mis-match
@@ -1062,7 +1062,7 @@ class IDI(object):
         nSource = len(nameList)
         
         # Visibility Data
-        c1 = pyfits.Column(name='FLUX', format='%iE' % (2*self.nStokes*self.nChan*nBand), unit='UNCALIB', 
+        c1 = pyfits.Column(name='FLUX', format='%iE' % (2*self.nStokes*self.nchan*nBand), unit='UNCALIB', 
                         array=numpy.concatenate(mList))
         # Baseline number (first*256+second)
         c2 = pyfits.Column(name='BASELINE', format='1J', 
@@ -1098,8 +1098,8 @@ class IDI(object):
         c12 = pyfits.Column(name='GATEID', format='1J', 
                         array=numpy.zeros((nBaseline,), dtype=numpy.int32))
         # Weights
-        c13 = pyfits.Column(name='WEIGHT', format='%iE' % (self.nStokes*self.nChan*nBand), 
-                        array=numpy.ones((nBaseline, self.nStokes*self.nChan*nBand), dtype=numpy.float32))
+        c13 = pyfits.Column(name='WEIGHT', format='%iE' % (self.nStokes*self.nchan*nBand), 
+                        array=numpy.ones((nBaseline, self.nStokes*self.nchan*nBand), dtype=numpy.float32))
                         
         colDefs = pyfits.ColDefs([c6, c7, c8, c3, c4, c2, c11, c9, c10, c5, 
                         c13, c12, c1])
@@ -1127,7 +1127,7 @@ class IDI(object):
         uv.header['CRPIX2'] = 1.0
         uv.header['CRVAL2'] = float(self.stokes[0])
         
-        uv.header['MAXIS3'] = (self.nChan, 'number of pixels in FREQ axis')
+        uv.header['MAXIS3'] = (self.nchan, 'number of pixels in FREQ axis')
         uv.header['CTYPE3'] = ('FREQ', 'axis 3 is FREQ axis (frequency)')
         uv.header['CDELT3'] = self.freq[0].chWidth
         uv.header['CRPIX3'] = self.refPix
@@ -1236,11 +1236,11 @@ class IDI(object):
         return (mapper, inverseMapper)
 
 
-class AIPS(IDI):
+class Aips(IDI):
     """
     Sub-class of the FITS IDI writer for making files that *should* work 
     with AIPS nicely.  AIPS imposes a limit on antenna number of two digits
-    (1-99).  This sub-class overwrite the setGeometry() function with one that
+    (1-99).  This sub-class overwrite the set_geometry() function with one that
     enforces the two digit limit and maps accordingly.  It also sets the FITS
     `LWATYPE` keyword in the primary HDU to a value of `IDI-AIPS-ZA` to 
     distinguish files written by this writer from the standard IDI writer.
@@ -1288,7 +1288,7 @@ class AIPS(IDI):
         primary.header['LWATYPE'] = ('IDI-AIPS-ZA', 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
-        primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
+        primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
@@ -1311,7 +1311,7 @@ class AIPS(IDI):
         self.FITS.flush()
 
 
-class ExtendedIDI(IDI):
+class ExtendedIdi(IDI):
     """
     Sub-class of the FITS IDI writer for making files that support up to
     65,535 antennas.  This is done by changing the packing of baselines 
@@ -1364,7 +1364,7 @@ class ExtendedIDI(IDI):
         primary.header['LWATYPE'] = ('IDI-EXTENDED-ZA', 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
-        primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
+        primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         

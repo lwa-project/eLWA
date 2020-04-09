@@ -11,14 +11,14 @@ import copy
 import numpy
 
 from lsl import astro
-from lsl.reader.errors import syncError, eofError
+from lsl.reader.errors import SyncError, EOFError
 
 
 __version__ = '0.1'
 __revision__ = '$Rev$'
-__all__ = ['FrameHeader', 'FrameData', 'Frame', 'readGUPPIHeader', 'readFrame', 
-        'getFrameSize', 'getThreadCount', 'getFramesPerBlock', 'getFramesPerSecond', 
-        'getSampleRate', 'getCentralFreq', '__version__', '__revision__', '__all__']
+__all__ = ['FrameHeader', 'FrameData', 'Frame', 'read_guppi_header', 'read_frame', 
+        'get_frame_size', 'get_thread_count', 'getFramesPerBlock', 'get_frames_per_second', 
+        'get_sample_rate', 'get_central_freq', '__version__', '__revision__', '__all__']
 
 
 class FrameHeader(object):
@@ -27,52 +27,52 @@ class FrameHeader(object):
     frame.  Most fields in the VDIF version 1.1.1 header are stored.
     """
     
-    def __init__(self, imjd=0, smjd=0, fmjd=0.0, offset=0.0, bitsPerSample=0, threadID=0, stationID=0, sampleRate=0.0, centralFreq=0.0):
+    def __init__(self, imjd=0, smjd=0, fmjd=0.0, offset=0.0, bits_per_sample=0, thread_id=0, station_id=0, sample_rate=0.0, central_freq=0.0):
         self.imjd = imjd
         self.smjd = smjd
         self.fmjd = fmjd
         self.offset = offset
         
-        self.bitsPerSample = bitsPerSample
-        self.threadID = threadID
-        self.stationID = stationID
+        self.bits_per_sample = bits_per_sample
+        self.thread_id = thread_id
+        self.station_id = station_id
         
-        self.sampleRate = sampleRate
-        self.centralFreq = centralFreq
+        self.sample_rate = sample_rate
+        self.central_freq = central_freq
         
-    def getTime(self):
+    def get_time(self):
         """
         Function to convert the time tag to seconds since the UNIX epoch.
         """
         
         mjd = self.imjd + (self.smjd + self.fmjd) / 86400.0
         seconds = astro.utcjd_to_unix(mjd + astro.MJD_OFFSET)
-        seconds += self.offset / float(self.sampleRate)
+        seconds += self.offset / float(self.sample_rate)
         
         return seconds
         
-    def parseID(self):
+    def parse_id(self):
         """
         Return a two-element tuple of the station ID and thread ID.
         
         .. note::
             The station ID is always returned as numeric.
         """
-        return (self.stationID, self.threadID)
+        return (self.station_id, self.thread_id)
         
-    def getSampleRate(self):
+    def get_sample_rate(self):
         """
         Return the sample rate of the data in samples/second.
         """
         
-        return self.sampleRate*1.0
+        return self.sample_rate*1.0
         
-    def getCentralFreq(self):
+    def get_central_freq(self):
         """
         Function to get the central frequency of the VDIF data in Hz.
         """
         
-        return self.centralFreq*1.0
+        return self.central_freq*1.0
 
 
 class FrameData(object):
@@ -108,42 +108,42 @@ class Frame(object):
             
         self.valid = True
 
-    def parseID(self):
+    def parse_id(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.parseID 
+        Convenience wrapper for the Frame.FrameHeader.parse_id 
         function.
         """
         
-        return self.header.parseID()
+        return self.header.id
         
-    def parseExtendedUserData(self):
+    def parse_extended_user_data(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.parseExtendedUserData
+        Convenience wrapper for the Frame.FrameHeader.parse_extended_user_data
         function.
         """
         
-        return self.header.parseExtendedUserData()
+        return self.header.parse_extended_user_data()
         
-    def getTime(self):
+    def get_time(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.getTime function.
-        """
-        
-        return self.header.getTime()
-        
-    def getSampleRate(self):
-        """
-        Convenience wrapper for the Frame.FrameHeader.getSampleRate function.
+        Convenience wrapper for the Frame.FrameHeader.get_time function.
         """
         
-        return self.header.getSampleRate()
+        return self.header.get_time()
         
-    def getCentralFreq(self):
+    def get_sample_rate(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.getCentralFreq function.
+        Convenience wrapper for the Frame.FrameHeader.get_sample_rate function.
         """
         
-        return self.header.getCentralFreq()
+        return self.header.sample_rate
+        
+    def get_central_freq(self):
+        """
+        Convenience wrapper for the Frame.FrameHeader.get_central_freq function.
+        """
+        
+        return self.header.central_freq
         
     def __add__(self, y):
         """
@@ -222,7 +222,7 @@ def _filenameToAntenna(filename, vdifID=False):
 _param_cache = {}
 
 
-def readGUPPIHeader(filehandle):
+def read_guppi_header(filehandle):
     """
     Read in a GUPPI header at the start of a VDIF file from the VLA.  The 
     contents of the header are returned as a dictionary.
@@ -261,7 +261,7 @@ def readGUPPIHeader(filehandle):
     return header
 
 
-def readFrame(filehandle, Verbose=False):
+def read_frame(filehandle, Verbose=False):
     try:
         _param_cache[filehandle]
     except KeyError:
@@ -269,7 +269,7 @@ def readFrame(filehandle, Verbose=False):
         
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
     last      = _param_cache[filehandle]['LAST']
@@ -303,7 +303,7 @@ def readFrame(filehandle, Verbose=False):
             raw = numpy.fromfile(filehandle, dtype=numpy.uint8, count=npol*pktsize)
             _param_cache[filehandle]['LAST'] = filehandle.tell()
         except IOError:
-            raise eofError
+            raise EOFError
             
         if nbits == 4:
             data = numpy.zeros((2,raw.size), dtype=numpy.uint8)
@@ -327,8 +327,8 @@ def readFrame(filehandle, Verbose=False):
         for j in xrange(npol):
             fpkt = data[j,:]
             fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
-                        bitsPerSample=nbits, threadID=j, stationID=ant, 
-                        sampleRate=srate, centralFreq=cfreq)
+                        bits_per_sample=nbits, thread_id=j, station_id=ant, 
+                        sample_rate=srate, central_freq=cfreq)
             fdat = FrameData(data=fpkt)
             frames.append( Frame(header=fhdr, data=fdat) )
             
@@ -341,7 +341,7 @@ def readFrame(filehandle, Verbose=False):
     return frame
 
 
-def getFrameSize(filehandle, nFrames=None):
+def get_frame_size(filehandle, nFrames=None):
     """
     Find out what the frame size is in bytes from a single observation.
     """
@@ -351,7 +351,7 @@ def getFrameSize(filehandle, nFrames=None):
     except KeyError:
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
     frameSize = _param_cache[filehandle]['PKTSIZE']
@@ -359,7 +359,7 @@ def getFrameSize(filehandle, nFrames=None):
     return frameSize
 
 
-def getThreadCount(filehandle):
+def get_thread_count(filehandle):
     """
     Find out how many thrads are present by examining the first 1024
     records.  Return the number of threads found.
@@ -370,7 +370,7 @@ def getThreadCount(filehandle):
     except KeyError:
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
     nPol = 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
@@ -389,7 +389,7 @@ def getFramesPerBlock(filehandle):
     except KeyError:
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
     nPol = 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
@@ -397,7 +397,7 @@ def getFramesPerBlock(filehandle):
     return nPol
 
 
-def getFramesPerSecond(filehandle):
+def get_frames_per_second(filehandle):
     """
     Find out the number of frames per second in a file by watching how the 
     headers change.  Returns the number of frames in a second.
@@ -407,25 +407,25 @@ def getFramesPerSecond(filehandle):
     fhStart = filehandle.tell()
     
     # Get the frame size
-    FrameSize = getFrameSize(filehandle)
+    FRAME_SIZE = get_frame_size(filehandle)
     
     # Get the number of threads
-    nThreads = getThreadCount(filehandle)
+    nThreads = get_thread_count(filehandle)
     
     # Get the current second counts for all threads
     ref = {}
     i = 0
     while i < nThreads:
         try:
-            cFrame = readFrame(filehandle)
-        except syncError:
-            filehandle.seek(FrameSize, 1)
+            cFrame = read_frame(filehandle)
+        except SyncError:
+            filehandle.seek(FRAME_SIZE, 1)
             continue
-        except eofError:
+        except EOFError:
             break
             
-        cID = cFrame.header.threadID
-        cSC = cFrame.header.offset / int(getSampleRate(filehandle))
+        cID = cFrame.header.thread_id
+        cSC = cFrame.header.offset / int(get_sample_rate(filehandle))
         ref[cID] = cSC
         i += 1
         
@@ -435,17 +435,17 @@ def getFramesPerSecond(filehandle):
     while True:
         ## Get a frame
         try:
-            cFrame = readFrame(filehandle)
-        except syncError:
-            filehandle.seek(FrameSize, 1)
+            cFrame = read_frame(filehandle)
+        except SyncError:
+            filehandle.seek(FRAME_SIZE, 1)
             continue
-        except eofError:
+        except EOFError:
             break
             
         ## Pull out the relevant metadata
-        cID = cFrame.header.threadID
-        cSC = cFrame.header.offset / int(getSampleRate(filehandle))
-        cFC = cFrame.header.offset % int(getSampleRate(filehandle)) / cFrame.data.data.size
+        cID = cFrame.header.thread_id
+        cSC = cFrame.header.offset / int(get_sample_rate(filehandle))
+        cFC = cFrame.header.offset % int(get_sample_rate(filehandle)) / cFrame.data.data.size
         
         ## Figure out what to do with it
         if cSC == ref[cID]:
@@ -481,7 +481,7 @@ def getFramesPerSecond(filehandle):
     return best
 
 
-def getSampleRate(filehandle):
+def get_sample_rate(filehandle):
     """
     Find and return the sample rate in Hz by looking at how many frames 
     there are per second and how many samples there are in a frame.
@@ -492,17 +492,17 @@ def getSampleRate(filehandle):
     except KeyError:
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
-    sampleRate = _param_cache[filehandle]['OBSBW']
-    sampleRate *= 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
+    sample_rate = _param_cache[filehandle]['OBSBW']
+    sample_rate *= 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
     
     # Return the sample rate
-    return sampleRate
+    return sample_rate
 
 
-def getCentralFreq(filehandle):
+def get_central_freq(filehandle):
     """
     Find and return the central frequency in Hz.
     """
@@ -512,10 +512,10 @@ def getCentralFreq(filehandle):
     except KeyError:
         mark = filehandle.tell()
         filehandle.seek(0)
-        readGUPPIHeader(filehandle)
+        read_guppi_header(filehandle)
         filehandle.seek(mark)
         
-    centralFreq = _param_cache[filehandle]['OBSFREQ']
+    central_freq = _param_cache[filehandle]['OBSFREQ']
     
     # Return the observing frequency
-    return centralFreq
+    return central_freq

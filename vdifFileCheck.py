@@ -80,48 +80,48 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FrameSize
+    header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
     
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    srate = junkFrame.getSampleRate()
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    srate = junkFrame.sample_rate
     vdif.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = vdif.getThreadCount(fh)
+    beam, pol = junkFrame.id
+    tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
     
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        s,p = junkFrame.parseID()
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Date
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    fh.seek(-vdif.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    fh.seek(-vdif.FRAME_SIZE, 1)
+    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
     print "Filename: %s" % os.path.basename(filename)
     print "  Date of First Frame: %s" % beginDate
     print "  Station: %i" % beam
     print "  Sample Rate: %i Hz" % srate
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
+    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
     print "  Tuning 1: %.1f Hz" % cFreq
     print " "
     
     # Determine the clip level
     if config['trim'] is None:
-        if junkFrame.header.bitsPerSample == 1:
+        if junkFrame.header.bits_per_sample == 1:
             config['trim'] = abs(1.0)**2
-        elif junkFrame.header.bitsPerSample == 2:
+        elif junkFrame.header.bits_per_sample == 2:
             config['trim'] = abs(3.3359)**2
-        elif junkFrame.header.bitsPerSample == 4:
+        elif junkFrame.header.bits_per_sample == 4:
             config['trim'] = abs(7/2.95)**2
-        elif junkFrame.header.bitsPerSample == 8:
+        elif junkFrame.header.bits_per_sample == 8:
             config['trim'] = abs(255/256.)**2
         else:
             config['trim'] = 1.0
@@ -154,14 +154,14 @@ def main(args):
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0, Verbose=False)
-            except errors.eofError:
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, Verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
             
-            beam,pol = cFrame.parseID()
+            beam,pol = cFrame.id
             aStand = pol
             
             try:
@@ -191,7 +191,7 @@ def main(args):
             print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
         
             i += 1
-            fh.seek(vdif.FrameSize*chunkSkip, 1)
+            fh.seek(vdif.FRAME_SIZE*chunkSkip, 1)
             
     clipFraction = numpy.array(clipFraction)
     meanPower = numpy.array(meanPower)

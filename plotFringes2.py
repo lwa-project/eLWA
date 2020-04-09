@@ -61,7 +61,7 @@ def main(args):
     
     dataDict = numpy.load(filenames[0])
     tInt = dataDict['tInt']
-    nBL, nChan = dataDict['vis1XX'].shape
+    nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
@@ -100,16 +100,16 @@ def main(args):
     nBL = len(cross)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        if nchan % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nChan /= args.decimate
+        nchan /= args.decimate
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
-    visToPlot = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visToMask = numpy.zeros((nInt,nBL,nChan), dtype=numpy.bool)
+    visToPlot = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visToMask = numpy.zeros((nInt,nBL,nchan), dtype=numpy.bool)
     
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)

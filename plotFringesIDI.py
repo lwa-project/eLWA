@@ -19,7 +19,7 @@ from datetime import datetime
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -198,7 +198,7 @@ def main(args):
     namMapper = {}
     for i in xrange(nStk):
         stk = stk0 - i
-        namMapper[i] = NumericStokes[stk]
+        namMapper[i] = NUMERIC_STOKES[stk]
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
     
     fig1 = plt.figure()

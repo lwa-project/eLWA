@@ -22,10 +22,10 @@ from datetime import datetime
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
-from lsl.correlator.uvUtils import computeUVW
+from lsl.correlator.uvutil import compute_uvw
 from lsl.common.constants import c as vLight
 
 from lsl.reader import drx, vdif, errors
@@ -86,7 +86,7 @@ def main(args):
     site.lat = 34.068956328 * numpy.pi/180
     site.long = -107.628103026 * numpy.pi/180
     site.elev = 2132.96837346
-    observer = site.getObserver()
+    observer = site.get_observer()
     
     # Parse the correlator configuration
     config, refSrc, filenames, metanames, foffsets, readers, antennas = read_correlator_configuration(args.filename)
@@ -109,7 +109,7 @@ def main(args):
     # Antenna report
     print "Antennas:"
     for ant in antennas:
-        print "  Antenna %i: Stand %i, Pol. %i (%.3f us offset)" % (ant.id, ant.stand.id, ant.pol, ant.cable.clockOffset*1e6)
+        print "  Antenna %i: Stand %i, Pol. %i (%.3f us offset)" % (ant.id, ant.stand.id, ant.pol, ant.cable.clock_offset*1e6)
         
     # Open and align the files
     fh = []
@@ -127,91 +127,91 @@ def main(args):
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
-        go = numpy.int32(antennas[2*i].cable.clockOffset)
-        antennas[2*i+0].cable.clockOffset -= go
-        antennas[2*i+1].cable.clockOffset -= go
+        go = numpy.int32(antennas[2*i].cable.clock_offset)
+        antennas[2*i+0].cable.clock_offset -= go
+        antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( go )
         if go != 0:
             print "Correcting time tags for gross offset of %i s" % grossOffsets[i]
-            print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clockOffset*1e6, antennas[2*i+1].cable.clockOffset*1e6)
+            print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6)
         
         if readers[i] in (vdif, guppi):
-            header = vdif.readGUPPIHeader(fh[i])
-            readers[i].FrameSize = readers[i].getFrameSize(fh[i])
+            header = vdif.read_guppi_header(fh[i])
+            readers[i].FRAME_SIZE = readers[i].get_frame_size(fh[i])
             
-        nFramesFile.append( os.path.getsize(filename) / readers[i].FrameSize )
+        nFramesFile.append( os.path.getsize(filename) / readers[i].FRAME_SIZE )
         if readers[i] is vdif:
-            junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+            junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             readers[i].DataLength = junkFrame.data.data.size
-            beam, pol = junkFrame.parseID()
+            beam, pol = junkFrame.id
         elif readers[i] is guppi:
-            junkFrame = readers[i].readFrame(fh[i])
+            junkFrame = readers[i].read_frame(fh[i])
             readers[i].DataLength = junkFrame.data.data.size
-            beam, pol = junkFrame.parseID()
+            beam, pol = junkFrame.id
         elif readers[i] is drx:
-            junkFrame = readers[i].readFrame(fh[i])
-            readers[i].DataLength = junkFrame.data.iq.size
-            beam, tune, pol = junkFrame.parseID()
-        fh[i].seek(-readers[i].FrameSize, 1)
+            junkFrame = readers[i].read_frame(fh[i])
+            readers[i].DataLength = junkFrame.payload.data.size
+            beam, tune, pol = junkFrame.id
+        fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
         beams.append( beam )
-        srate.append( junkFrame.getSampleRate() )
+        srate.append( junkFrame.sample_rate )
         
         if readers[i] in (vdif, guppi):
-            tunepols.append( readers[i].getThreadCount(fh[i]) )
+            tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
         elif readers[i] is drx:
-            beampols.append( max(readers[i].getFramesPerObs(fh[i])) )
+            beampols.append( max(readers[i].get_frames_per_obs(fh[i])) )
             
         skip = args.skip + foffset
         if skip != 0:
             print "Skipping forward %.3f s" % skip
-            print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
+            print "-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time())))
             
             offset = int(skip*srate[i] / readers[i].DataLength)
-            fh[i].seek(beampols[i]*readers[i].FrameSize*offset, 1)
+            fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
             if readers[i] is vdif:
-                junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+                junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             else:
-                junkFrame = readers[i].readFrame(fh[i])
-            fh[i].seek(-readers[i].FrameSize, 1)
+                junkFrame = readers[i].read_frame(fh[i])
+            fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
+            print "-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time())))
             
-        tStart.append( junkFrame.getTime() + grossOffsets[i] )
+        tStart.append( sum(junkFrame.get_time()) + grossOffsets[i] )
         
         # Get the frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
         for j in xrange(32):
             if readers[i] is vdif:
-                junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-                s,p = junkFrame.parseID()
+                junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+                s,p = junkFrame.id
                 if p == 0:
-                    cFreq1 = junkFrame.getCentralFreq()
+                    cFreq1 = junkFrame.central_freq
                 else:
                     pass
             elif readers[i] is guppi:
-                junkFrame = readers[i].readFrame(fh[i])
-                s,p = junkFrame.parseID()
+                junkFrame = readers[i].read_frame(fh[i])
+                s,p = junkFrame.id
                 if p == 0:
-                    cFreq1 = junkFrame.getCentralFreq()
+                    cFreq1 = junkFrame.central_freq
                 else:
                     pass
             elif readers[i] is drx:
-                junkFrame = readers[i].readFrame(fh[i])
-                b,t,p = junkFrame.parseID()
+                junkFrame = readers[i].read_frame(fh[i])
+                b,t,p = junkFrame.id
                 if p == 0:
                     if t == 1:
-                        cFreq1 = junkFrame.getCentralFreq()
+                        cFreq1 = junkFrame.central_freq
                     else:
-                        cFreq2 = junkFrame.getCentralFreq()
+                        cFreq2 = junkFrame.central_freq
                 else:
                     pass
-        fh[i].seek(-32*readers[i].FrameSize, 1)
+        fh[i].seek(-32*readers[i].FRAME_SIZE, 1)
         cFreqs.append( [cFreq1,cFreq2] )
         try:
-            bitDepths.append( junkFrame.header.bitsPerSample )
+            bitDepths.append( junkFrame.header.bits_per_sample )
         except AttributeError:
             bitDepths.append( 8 )
             
@@ -227,20 +227,20 @@ def main(args):
         elif readers[i] is guppi:
             buffers.append( GUPPIFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
-            buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nSegments=16) )
+            buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
     for i in xrange(len(filenames)):
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
-            timeTags = []
+            timetags = []
             for k in xrange(16):
-                junkFrame = readers[i].readFrame(fh[i])
-                timeTags.append(junkFrame.header.frameInSecond)
-            fh[i].seek(-16*readers[i].FrameSize, 1)
+                junkFrame = readers[i].read_frame(fh[i])
+                timetags.append(junkFrame.header.frame_in_second)
+            fh[i].seek(-16*readers[i].FRAME_SIZE, 1)
             
             j = 0
-            while (timeTags[j+0] != timeTags[j+1]):
+            while (timetags[j+0] != timetags[j+1]):
                 j += 1
-                fh[i].seek(readers[i].FrameSize, 1)
+                fh[i].seek(readers[i].FRAME_SIZE, 1)
             
             nFramesFile[i] -= j
             
@@ -252,24 +252,24 @@ def main(args):
             
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
-            junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+            junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         else:
-            junkFrame = readers[i].readFrame(fh[i])
-        fh[i].seek(-readers[i].FrameSize, 1)
+            junkFrame = readers[i].read_frame(fh[i])
+        fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
         j = 0
-        while junkFrame.getTime() + grossOffsets[i] < max(tStart):
+        while sum(junkFrame.get_time()) + grossOffsets[i] < max(tStart):
             if readers[i] is vdif:
                 for k in xrange(beampols[i]):
                     try:
-                        junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-                    except errors.syncError:
+                        junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+                    except errors.SyncError:
                         print "Error - VDIF @ %i" % (i,)
-                        fh[i].seek(vdif.FrameSize, 1)
+                        fh[i].seek(vdif.FRAME_SIZE, 1)
                         continue
             else:
                 for k in xrange(beampols[i]):
-                    junkFrame = readers[i].readFrame(fh[i])
+                    junkFrame = readers[i].read_frame(fh[i])
             j += beampols[i]
             
         jTime = j*readers[i].DataLength/srate[i]/beampols[i]
@@ -304,13 +304,13 @@ def main(args):
     beginDates = []
     for i in xrange(len(filenames)):
         if readers[i] is vdif:
-            junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+            junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         else:
-            junkFrame = readers[i].readFrame(fh[i])
-        fh[i].seek(-readers[i].FrameSize, 1)
+            junkFrame = readers[i].read_frame(fh[i])
+        fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
-        beginMJDs.append( astro.unix_to_utcjd(junkFrame.getTime()) - astro.MJD_OFFSET)
-        beginDates.append( datetime.utcfromtimestamp(junkFrame.getTime()) )
+        beginMJDs.append( astro.unix_to_utcjd(sum(junkFrame.get_time())) - astro.MJD_OFFSET)
+        beginDates.append( datetime.utcfromtimestamp(sum(junkFrame.get_time())) )
         
     # Set the output base filename
     if args.tag is None:
@@ -424,13 +424,13 @@ def main(args):
                 k = 0
                 while k < beampols[j]*nFramesV:
                     try:
-                        cFrame = readers[j].readFrame(f, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+                        cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                         buffers[j].append( cFrame )
-                    except errors.syncError:
+                    except errors.SyncError:
                         print "Error - VDIF @ %i, %i" % (i, j)
-                        f.seek(vdif.FrameSize, 1)
+                        f.seek(vdif.FRAME_SIZE, 1)
                         continue
-                    except errors.eofError:
+                    except errors.EOFError:
                         done = True
                         break
                         
@@ -439,20 +439,20 @@ def main(args):
                         continue
                         
                     for cFrame in frames:
-                        std,pol = cFrame.parseID()
+                        std,pol = cFrame.id
                         sid = 2*j + pol
                         
                         if k == 0:
-                            tStart.append( cFrame.getTime() )
+                            tStart.append( sum(cFrame.get_time()) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
                             
                             for p in (0,1):
                                 psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.secondsFromEpoch*framesPerSecondV + cFrame.header.frameInSecond
+                                vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
                                 
-                        count = cFrame.header.secondsFromEpoch*framesPerSecondV + cFrame.header.frameInSecond
+                        count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
                         count -= vdifRef[sid]
                         dataV[sid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.data
                         k += 1
@@ -462,12 +462,12 @@ def main(args):
                 k = 0
                 while k < beampols[j]*nFramesV:
                     try:
-                        cFrame = readers[j].readFrame(f)
+                        cFrame = readers[j].read_frame(f)
                         buffers[j].append( cFrame )
-                    except errors.syncError:
+                    except errors.SyncError:
                         print "Error - GUPPI @ %i, %i" % (i, j)
                         continue
-                    except errors.eofError:
+                    except errors.EOFError:
                         done = True
                         break
                         
@@ -476,11 +476,11 @@ def main(args):
                         continue
                         
                     for cFrame in frames:
-                        std,pol = cFrame.parseID()
+                        std,pol = cFrame.id
                         sid = 2*j + pol
                         
                         if k == 0:
-                            tStart.append( cFrame.getTime() )
+                            tStart.append( sum(cFrame.get_time()) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
@@ -499,12 +499,12 @@ def main(args):
                 k = 0
                 while k < beampols[j]*nFramesD:
                     try:
-                        cFrame = readers[j].readFrame(f)
+                        cFrame = readers[j].read_frame(f)
                         buffers[j].append( cFrame )
-                    except errors.syncError:
+                    except errors.SyncError:
                         print "Error - DRX @ %i, %i" % (i, j)
                         continue
-                    except errors.eofError:
+                    except errors.EOFError:
                         done = True
                         break
                         
@@ -513,22 +513,22 @@ def main(args):
                         continue
                         
                     for cFrame in frames:
-                        beam,tune,pol = cFrame.parseID()
+                        beam,tune,pol = cFrame.id
                         if tune != vdifPivot:
                             continue
                         bid = 2*(j-nVDIFInputs) + pol
                         
                         if k == 0:
-                            tStart.append( cFrame.getTime() )
+                            tStart.append( sum(cFrame.get_time()) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
                             
                             for p in (0,1):
                                 pbid = 2*(j-nVDIFInputs) + p
-                                drxRef[pbid] = cFrame.data.timeTag
+                                drxRef[pbid] = cFrame.data.timetag
                                 
-                        count = cFrame.data.timeTag
+                        count = cFrame.data.timetag
                         count -= drxRef[bid]
                         count /= (4096*int(196e6/srate[-1]))
                         ### Fix from some LWA-SV files that seem to cause the current LSL
@@ -536,7 +536,7 @@ def main(args):
                         if count < 0:
                             continue
                         try:
-                            dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.iq
+                            dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.payload.data
                             k += beampols[j]/2
                         except ValueError:
                             k = beampols[j]*nFramesD
@@ -599,8 +599,8 @@ def main(args):
         if args.verbose:
             print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
         for k in xrange(len(tStartRel)):
-            antennas[2*k+0].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
-            antennas[2*k+1].cable.clockOffset -= tStartRel[k] - oldStartRel[k]
+            antennas[2*k+0].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
+            antennas[2*k+1].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
         oldStartRel = tStartRel
         
         # Setup everything we need to loop through the sub-integrations
@@ -648,8 +648,8 @@ def main(args):
                     print "DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id)
                     print "DS - Step corresponds to %.1f deg at band center" % (360*cFreqs[0][0]*step,)
                     ## Apply the step
-                    antennas[2*k+0].cable.clockOffset += step
-                    antennas[2*k+1].cable.clockOffset += step
+                    antennas[2*k+0].cable.clock_offset += step
+                    antennas[2*k+1].cable.clock_offset += step
                     ## Update the delay step flag
                     delayStepApplied[k] = True
                 ## Clenup so we don't re-apply the step at the next iteration
@@ -679,19 +679,19 @@ def main(args):
                 
             ## Correlate
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
-                                                               LFFT=drxLFFT, SampleRate=srate[-1], 
-                                                               CentralFreq=cFreqs[-1][vdifPivot-1], 
-                                                               Pol='*', phaseCenter=refSrc)
+                                                               LFFT=drxLFFT, sample_rate=srate[-1], 
+                                                               central_freq=cFreqs[-1][vdifPivot-1], 
+                                                               Pol='*', phase_center=refSrc)
             if nVDIFInputs > 0:
                 freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
-                                                            SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
-                                                            Pol='*', phaseCenter=refSrc, 
+                                                            sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
+                                                            Pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-                                                            SampleRate=srate[-1], CentralFreq=cFreqs[-1][vdifPivot-1], 
-                                                            Pol='*', phaseCenter=refSrc, 
+                                                            sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
+                                                            Pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
@@ -779,11 +779,11 @@ def main(args):
                     freqD = freqD[goodD]
                     feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
             try:
-                nChan = freqV.size
+                nchan = freqV.size
                 fdt = feoV.dtype
                 vdt = veoV.dtype
             except NameError:
-                nChan = freqD.size
+                nchan = freqD.size
                 fdt = feoD.dtype
                 vdt = veoD.dtype
             ## Setup the intermediate F-engine products and trim the data
@@ -798,8 +798,8 @@ def main(args):
             try:
                 assert(feoX.shape[2] == nWin)
             except (NameError, AssertionError):
-                feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
-                feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nChan, nWin), dtype=fdt)
+                feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
+                feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
                 veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
                 veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
                 

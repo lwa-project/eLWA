@@ -81,36 +81,36 @@ def main(args):
     LFFT = config['LFFT']
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FrameSize
+    header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
     
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    srate = junkFrame.getSampleRate()
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    srate = junkFrame.sample_rate
     vdif.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = vdif.getThreadCount(fh)
+    beam, pol = junkFrame.id
+    tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
     
     if config['skip'] != 0:
         print "Skipping forward %.3f s" % config['skip']
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
+        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
         
         offset = int(config['skip']*srate / vdif.DataLength)
-        fh.seek(beampols*vdif.FrameSize*offset, 1)
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        fh.seek(-vdif.FrameSize, 1)
+        fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        fh.seek(-vdif.FRAME_SIZE, 1)
         
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
-        tStart = junkFrame.getTime()
+        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
+        tStart = junkFrame.get_time()
         
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        s,p = junkFrame.parseID()
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Set integration time
     tInt = config['avgTime']
@@ -123,9 +123,9 @@ def main(args):
     tFile = nFramesFile / beampols * vdif.DataLength / srate
     
     # Date
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    fh.seek(-vdif.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    fh.seek(-vdif.FRAME_SIZE, 1)
+    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
     print "Filename: %s" % os.path.basename(filename)
@@ -133,7 +133,7 @@ def main(args):
     print "  Station: %i" % beam
     print "  Sample Rate: %i Hz" % srate
     print "  Tuning 1: %.1f Hz" % cFreq
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
+    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
     print "  Integration Time: %.3f s" % tInt
     print "  Integrations in File: %i" % int(tFile/tInt)
     print " "
@@ -143,19 +143,19 @@ def main(args):
     count = [0 for i in xrange(data.shape[0])]
     for i in xrange(beampols*nFrames):
         try:
-            cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        except errors.syncError:
+            cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        except errors.SyncError:
             print "Error @ %i, %i" % (i, j)
-            f.seek(vdif.FrameSize, 1)
+            f.seek(vdif.FRAME_SIZE, 1)
             continue
-        std,pol = cFrame.parseID()
+        std,pol = cFrame.id
         sid = pol
         
         data[sid, count[sid]*vdif.DataLength:(count[sid]+1)*vdif.DataLength] = cFrame.data.data
         count[sid] += 1
         
     # Transform and trim off the negative frequencies
-    freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, SampleRate=srate, CentralFreq=header['OBSFREQ']-srate/4)
+    freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, sample_rate=srate, central_freq=header['OBSFREQ']-srate/4)
     freq, psd = freq[LFFT:], psd[:,LFFT:]
     
     # Plot
