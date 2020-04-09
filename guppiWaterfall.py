@@ -82,7 +82,7 @@ def parseOptions(args):
     config['freq1'] = 0
     config['freq2'] = 0
     config['maxFrames'] = 28000
-    config['window'] = fxc.noWindow
+    config['window'] = fxc.null_window
     config['duration'] = 0.0
     config['verbose'] = True
     config['clip'] = 0
@@ -171,7 +171,7 @@ def bestFreqUnits(freq):
     return (newFreq, units)
 
 
-def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, config, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw guppi file into linear polarization 
     products and add the contents to an HDF5 file.
@@ -181,16 +181,16 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
     LFFT = config['LFFT']
     
     # Find the start of the observation
-    junkFrame = guppi.readFrame(fh)
-    srate = junkFrame.getSampleRate()
-    t0 = junkFrame.getTime()
-    fh.seek(-guppi.FrameSize, 1)
+    junkFrame = guppi.read_frame(fh)
+    srate = junkFrame.sample_rate
+    t0 = junkFrame.get_time()
+    fh.seek(-guppi.FRAME_SIZE, 1)
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-        junkFrame = guppi.readFrame(fh)
-        srate = junkFrame.getSampleRate()
-        t0 = junkFrame.getTime()
+    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+        junkFrame = guppi.read_frame(fh)
+        srate = junkFrame.sample_rate
+        t0 = junkFrame.get_time()
     print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -198,9 +198,9 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
     except:
         duration = duration - (tDiff.seconds + tDiff.microseconds/1e6)
     
-    beam,pol = junkFrame.parseID()
-    beams = guppi.getThreadCount(fh)
-    tunepols = guppi.getThreadCount(fh)
+    beam,pol = junkFrame.id
+    beams = guppi.get_thread_count(fh)
+    tunepols = guppi.get_thread_count(fh)
     tunepol = tunepols
     beampols = tunepol
     
@@ -227,34 +227,34 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-    centralFreq1 = 0.0
-    centralFreq2 = 0.0
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    central_freq1 = 0.0
+    central_freq2 = 0.0
     for i in xrange(4):
-        junkFrame = guppi.readFrame(fh)
-        b,p = junkFrame.parseID()
+        junkFrame = guppi.read_frame(fh)
+        b,p = junkFrame.id
         if p == 0:
-            centralFreq1 = junkFrame.getCentralFreq()
+            central_freq1 = junkFrame.central_freq
         elif p == 0:
-            centralFreq2 = junkFrame.getCentralFreq()
+            central_freq2 = junkFrame.central_freq
         else:
             pass
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
     if float(fxc.__version__) < 0.8:
         freq = freq[1:]
         
-    dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
-    dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
+    dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
+    dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
     obs.attrs['tInt'] = config['average']
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
-    dataProducts = ['XX', 'YY']
+    data_products = ['XX', 'YY']
     done = False
     for i in xrange(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
@@ -279,17 +279,17 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = guppi.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
 
-            beam,pol = cFrame.parseID()
+            beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.getTime()
+                cTime = cFrame.get_time()
                 
             try:
                 data[aStand, count[aStand]*guppi.DataLength:(count[aStand]+1)*guppi.DataLength] = cFrame.data.data
@@ -311,21 +311,21 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
             
             l = 0
             for t in (1,2):
-                for p in dataProducts:
+                for p in data_products:
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,:]
                     l += 1
                     
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
             
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,:]
                 
@@ -339,7 +339,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
     return True
 
 
-def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, config, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw guppi file into Stokes parameters and 
     add the contents to an HDF5 file.
@@ -349,16 +349,16 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
     LFFT = config['LFFT']
     
     # Find the start of the observation
-    junkFrame = guppi.readFrame(fh)
-    srate = junkFrame.getSampleRate()
-    t0 = junkFrame.getTime()
-    fh.seek(-guppi.FrameSize, 1)
+    junkFrame = guppi.read_frame(fh)
+    srate = junkFrame.sample_rate
+    t0 = junkFrame.get_time()
+    fh.seek(-guppi.FRAME_SIZE, 1)
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sampleRate)
-    while datetime.utcfromtimestamp(t0) < tStart or srate != sampleRate:
-        junkFrame = guppi.readFrame(fh)
-        srate = junkFrame.getSampleRate()
-        t0 = junkFrame.getTime()
+    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
+        junkFrame = guppi.read_frame(fh)
+        srate = junkFrame.sample_rate
+        t0 = junkFrame.get_time()
     print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -366,9 +366,9 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
     except:
         duration = duration - (tDiff.seconds + tDiff.microseconds/1e6)
     
-    beam,pol = junkFrame.parseID()
-    beams = guppi.getThreadCount(fh)
-    tunepols = guppi.getThreadCount(fh)
+    beam,pol = junkFrame.id
+    beams = guppi.get_thread_count(fh)
+    tunepols = guppi.get_thread_count(fh)
     tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
     beampols = tunepol
     
@@ -396,34 +396,34 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-    centralFreq1 = 0.0
-    centralFreq2 = 0.0
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    central_freq1 = 0.0
+    central_freq2 = 0.0
     for i in xrange(4):
-        junkFrame = guppi.readFrame(fh)
-        b,p = junkFrame.parseID()
+        junkFrame = guppi.read_frame(fh)
+        b,p = junkFrame.id
         if p == 0:
-            centralFreq1 = junkFrame.getCentralFreq()
+            central_freq1 = junkFrame.central_freq
         elif p == 0:
-            centralFreq2 = junkFrame.getCentralFreq()
+            central_freq2 = junkFrame.central_freq
         else:
             pass
     freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
     if float(fxc.__version__) < 0.8:
         freq = freq[1:]
         
-    dataSets['obs%i-freq1' % obsID][:] = freq + centralFreq1
-    dataSets['obs%i-freq2' % obsID][:] = freq + centralFreq2
+    dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
+    dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
     obs.attrs['tInt'] = config['average']
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nChan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
-    dataProducts = ['I', 'Q', 'U', 'V']
+    data_products = ['I', 'Q', 'U', 'V']
     done = False
     for i in xrange(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
@@ -448,17 +448,17 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.readFrame(fh, Verbose=False)
-            except errors.eofError:
+                cFrame = guppi.read_frame(fh, Verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
                 
-            beam,pol = cFrame.parseID()
+            beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.getTime()
+                cTime = cFrame.get_time()
                 
             try:
                 data[aStand, count[aStand]*guppi.DataLength:(count[aStand]+1)*guppi.DataLength] = cFrame.data.data
@@ -480,19 +480,19 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
             
             for t in (1,2):
-                for l,p in enumerate(dataProducts):
+                for l,p in enumerate(data_products):
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
             
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
                 
@@ -516,35 +516,35 @@ def main(args):
     # Open the file and find good data (not spectrometer data)
     filename = config['args'][0]
     fh = open(filename, "rb")
-    header = guppi.readGUPPIHeader(fh)
-    guppi.FrameSize = guppi.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / guppi.FrameSize
+    header = guppi.read_guppi_header(fh)
+    guppi.FRAME_SIZE = guppi.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / guppi.FRAME_SIZE
     
     while True:
         try:
-            junkFrame = guppi.readFrame(fh)
+            junkFrame = guppi.read_frame(fh)
             try:
-                srate = junkFrame.getSampleRate()
-                t0 = junkFrame.getTime()
+                srate = junkFrame.sample_rate
+                t0 = junkFrame.get_time()
                 guppi.DataLength = junkFrame.data.data.size
                 break
             except ZeroDivisionError:
                 pass
-        except errors.syncError:
-            fh.seek(-guppi.FrameSize+1, 1)
+        except errors.SyncError:
+            fh.seek(-guppi.FRAME_SIZE+1, 1)
             
-    fh.seek(-guppi.FrameSize, 1)
+    fh.seek(-guppi.FRAME_SIZE, 1)
     
-    beam,pol = junkFrame.parseID()
+    beam,pol = junkFrame.id
     beams = 1
-    tunepols = guppi.getThreadCount(fh)
+    tunepols = guppi.get_thread_count(fh)
     tunepol = tunepols
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
     offset = int(config['offset'] * srate / guppi.DataLength * beampols)
     offset = int(1.0 * offset / beampols) * beampols
-    fh.seek(guppi.FrameSize*offset, 1)
+    fh.seek(guppi.FRAME_SIZE*offset, 1)
     
     # Iterate on the offsets until we reach the right point in the file.  This
     # is needed to deal with files that start with only one tuning and/or a 
@@ -552,13 +552,13 @@ def main(args):
     while True:
         ## Figure out where in the file we are and what the current tuning/sample 
         ## rate is
-        junkFrame = guppi.readFrame(fh)
-        srate = junkFrame.getSampleRate()
-        t1 = junkFrame.getTime()
-        tunepols = (guppi.getThreadCount(fh),)
+        junkFrame = guppi.read_frame(fh)
+        srate = junkFrame.sample_rate
+        t1 = junkFrame.get_time()
+        tunepols = (guppi.get_thread_count(fh),)
         tunepol = tunepols[0]
         beampols = 1#tunepol
-        fh.seek(-guppi.FrameSize, 1)
+        fh.seek(-guppi.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
         tDiff = t1 - (t0 + config['offset'])
@@ -573,7 +573,7 @@ def main(args):
         ## and check the location in the file again/
         if cOffset == 0:
             break
-        fh.seek(guppi.FrameSize*cOffset, 1)
+        fh.seek(guppi.FRAME_SIZE*cOffset, 1)
     
     # Update the offset actually used
     config['offset'] = t1 - t0
@@ -607,23 +607,23 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = junkFrame.getTime()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.getTime()) - DJD_OFFSET)
-    centralFreq1 = 0.0
-    centralFreq2 = 0.0
+    t1  = junkFrame.get_time()
+    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    central_freq1 = 0.0
+    central_freq2 = 0.0
     for i in xrange(4):
-        junkFrame = guppi.readFrame(fh)
-        b,p = junkFrame.parseID()
+        junkFrame = guppi.read_frame(fh)
+        b,p = junkFrame.id
         if p == 0:
-            centralFreq1 = junkFrame.getCentralFreq()
+            central_freq1 = junkFrame.central_freq
         elif p == 0:
-            centralFreq2 = junkFrame.getCentralFreq()
+            central_freq2 = junkFrame.central_freq
         else:
             pass
-    fh.seek(-guppi.FrameSize*4, 1)
+    fh.seek(-guppi.FRAME_SIZE*4, 1)
     
-    config['freq1'] = centralFreq1
-    config['freq2'] = centralFreq2
+    config['freq1'] = central_freq1
+    config['freq2'] = central_freq2
 
     # File summary
     print "Filename: %s" % filename
@@ -631,8 +631,8 @@ def main(args):
     print "Beams: %i" % beams
     print "Tune/Pols: %i" % tunepols
     print "Sample Rate: %i Hz" % srate
-    print "Bit Depth: %i" % junkFrame.header.bitsPerSample
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (centralFreq1, centralFreq2)
+    print "Bit Depth: %i" % junkFrame.header.bits_per_sample
+    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
     print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * guppi.DataLength / srate)
     print "---"
     print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
@@ -683,7 +683,7 @@ def main(args):
     # whole file.
     obsList = {}
     if config['metadata'] is not None:
-        sdf = metabundle.getSessionDefinition(config['metadata'])
+        sdf = metabundle.get_sdf(config['metadata'])
         
         sdfBeam  = sdf.sessions[0].guppiBeam
         spcSetup = sdf.sessions[0].spcSetup
@@ -691,10 +691,10 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(sdf.sessions[0].observations):
-            sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
             obsDur   = obs.dur/1000.0
-            obsSR    = guppi.filterCodes[obs.filter]
+            obsSR    = guppi.FILTER_CODES[obs.filter]
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
@@ -708,8 +708,8 @@ def main(args):
         
     elif config['sdf'] is not None:
         from lsl.common import mcs
-        from lsl.common.sdf import parseSDF
-        sdf = parseSDF(config['sdf'])
+        from lsl.common.sdf import parse_sdf
+        sdf = parse_sdf(config['sdf'])
         
         sdfBeam  = sdf.sessions[0].guppiBeam
         spcSetup = sdf.sessions[0].spcSetup
@@ -717,9 +717,9 @@ def main(args):
             raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
             
         for i,obs in enumerate(sdf.sessions[0].observations):
-            sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
-            obsChunks = int(numpy.ceil(obs.dur/1000.0 * guppi.filterCodes[obs.filter] / (spcSetup[0]*spcSetup[1])))
+            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
+            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
+            obsChunks = int(numpy.ceil(obs.dur/1000.0 * guppi.FILTER_CODES[obs.filter] / (spcSetup[0]*spcSetup[1])))
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             
@@ -731,13 +731,13 @@ def main(args):
         hdfData.fillMinimum(f, 1, beam, srate)
         
     if config['linear']:
-        dataProducts = ['XX', 'YY']
+        data_products = ['XX', 'YY']
     else:
-        dataProducts = ['I', 'Q', 'U', 'V']
+        data_products = ['I', 'Q', 'U', 'V']
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), dataProducts)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(filename)
@@ -751,10 +751,10 @@ def main(args):
         ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/config['average'])),), 'f8')
         
         for t in (1,2):
-            ds['obs%i-freq%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'freq')
-            for p in dataProducts:
-                ds["obs%i-%s%i" % (o, p, t)] = hdfData.getDataSet(f, o, t, p)
-            ds['obs%i-Saturation%i' % (o, t)] = hdfData.getDataSet(f, o, t, 'Saturation')
+            ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
+            for p in data_products:
+                ds["obs%i-%s%i" % (o, p, t)] = hdfData.get_data_set(f, o, t, p)
+            ds['obs%i-Saturation%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'Saturation')
             
     # Load in the correct analysis function
     if config['linear']:

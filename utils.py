@@ -354,7 +354,7 @@ def _read_correlator_configuration(filename):
         elif line[:8] == 'Location':
             block['location'] = [float(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:11] == 'ClockOffset':
-            block['clock_offset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
+            block['clockOffset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:10] == 'FileOffset':
             block['fileOffset'] = parse_time_string(line.split(None, 1)[1])
         elif line == 'InputDone':
@@ -439,7 +439,7 @@ def _read_correlator_configuration(filename):
                     pass
         pols = block['pols']
         location = block['location']
-        clock_offsets = block['clock_offset']
+        clock_offsets = block['clockOffset']
         
         if aid is None:
             raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
