@@ -44,7 +44,8 @@ for hdu1,hdu2 in zip(hdulist1, hdulist2):
                 print("  row %i, field %i (%s): FAILED" % (r, f, hdu1.data.columns[f]))
                 print("   - '%s' != '%s'" % (row1[f], row2[f]))
                 try:
-                    print("   - %s and %s" % (numpy.max(numpy.abs(row1[f]-row2[f])), numpy.max(numpy.abs((row1[f]-row2[f])/row2[f]))))
+                    for i in range(len(row1[f])):
+                        print("   - %i at %s vs %s -> %s and %s" % (i, row1[f][i], row2[f][i], numpy.abs(row1[f][i]-row2[f][i]), numpy.abs(row1[f][i]-row2[f][i])/row2[f][i]))
                 except TypeError:
                     pass
             assert(same_value)
