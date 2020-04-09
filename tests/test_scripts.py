@@ -40,7 +40,8 @@ _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>
 
 
 _SAFE_TO_IGNORE = ["Module 'numpy",
-                   "Module 'ephem"]
+                   "Module 'ephem",
+                   "Instance of 'HDUList'"]
 
 
 def _get_context(filename, line, before=0, after=0):
@@ -59,7 +60,21 @@ def _get_context(filename, line, before=0, after=0):
 class scripts_tests(unittest.TestCase):
     """A unittest.TestCase collection of unit tests for the commissioning scripts."""
     
-    pass     
+    def setUp(self):
+        """Make sure we have get_vla_ant_pos.py in place."""
+        
+        # get_vla_ant_pos.py
+        if not os.path.exists('../get_vla_ant_pos.py'):
+            with open('../get_vla_ant_pos.py', 'w') as fh:
+                fh.write("""class database(object):
+    def __init__(self, *args, **kwds):\
+        self._ready = True
+    def get_pad(self,ant,date):
+        return 'W40', None
+    def get_xyz(self,ant,date):
+        return (-6777.0613, -360.7018, -3550.9465)
+    def close(self):
+        return True""")
 
 
 def _test_generator(script):

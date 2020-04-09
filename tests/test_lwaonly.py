@@ -41,7 +41,7 @@ class LWA_tests(unittest.TestCase):
         return True""")
             
         # Raw data
-        if not os.path.exists(_RAW)):
+        if not os.path.exists(_RAW):
             subprocess.check_call(['curl',
                                    'https://fornax.phys.unm.edu/lwa/data/%s' % _RAW,
                                    '-o', _RAW])

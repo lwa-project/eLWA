@@ -17,6 +17,7 @@ addons:
             - python3-dev
             - libfftw3-dev
             - libgdbm-dev
+            - libhdf5-dev
             - libatlas-base-dev
 
 install:
@@ -25,6 +26,7 @@ install:
         numpy==1.13.3 \
         matplotlib==2.1.1 \
         scipy==0.19.1 \
+        h5py \
         jinja2
     - pip install \ 
         lsl==1.2.5
