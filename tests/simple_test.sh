@@ -47,6 +47,5 @@ tar xzf eLWA_test_ref.tar.gz
 cd ..
 
 # Compare
-python ./compare_results.py buildIDI_lwaonly_flagged_flagged.FITS_1 ref/buildIDI_lwaonly_flagged_flagged.FITS_1
-
 python ./compare_results.py buildIDI_elwa_flagged_flagged.FITS_1 ref/buildIDI_elwa_flagged_flagged.FITS_1
+python ./compare_results.py buildIDI_lwaonly_flagged_flagged.FITS_1 ref/buildIDI_lwaonly_flagged_flagged.FITS_1
