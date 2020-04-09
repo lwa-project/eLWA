@@ -28,10 +28,11 @@ install:
         jinja2
     - pip install \ 
         lsl==1.2.5
+    - pip install pylint
 
 script:
     - cd tests
-    - ./simple_test.sh
+    - python -m unittest discover
 
 cache:
     directories:
