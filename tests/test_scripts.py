@@ -144,13 +144,14 @@ if run_scripts_tests:
         test = _test_generator(script)
         name = 'test_%s' % os.path.splitext(os.path.basename(script))[0]
         try:
-            name = name+('_%s' % _NAMES[name])
+            testname = name+('_%s' % _NAMES[name])
         except KeyError:
+            testname = name
             _NAMES[name] = 0
         _NAMES[name] += 1
         doc = """Static analysis of the '%s' script.""" % os.path.basename(script)
         setattr(test, '__doc__', doc)
-        setattr(scripts_tests, name, test)
+        setattr(scripts_tests, testname, test)
 
 
 class scripts_test_suite(unittest.TestSuite):
