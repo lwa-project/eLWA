@@ -48,13 +48,13 @@ class LWA_tests(unittest.TestCase):
         subprocess.check_call(['tar', 'xzvf', _RAW])
         
         # Reference data
-        if not os.path.exists('ref')):
-            os.mkdir('ref'))
+        if not os.path.exists('ref'):
+            os.mkdir('ref')
             
         if not os.path.exits('ref/%s' % _REF):
             subprocess.check_call(['curl',
                                    'https://fornax.phys.unm.edu/lwa/data/%s' % _RAW,
-                                   '-o', 'ref/%s' % _REF
+                                   '-o', 'ref/%s' % _REF])
         subprocess.check_call(['tar', 'xzvf', '-C', 'ref', 'ref/%s' % _RAW])
         
         # Other variables
