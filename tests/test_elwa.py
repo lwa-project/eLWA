@@ -11,7 +11,6 @@ if sys.version_info > (3,):
     xrange = range
     
 import unittest
-unittest.TestLoader.sortTestMethodsUsing = None
 
 import os
 import re
@@ -64,7 +63,7 @@ class eLWA_tests(unittest.TestCase):
         self._BASENAME = 'elwa'
         print("Finished setUp()")
         
-    def create(self):
+    def 0_create(self):
         """Build the correlator configuration file."""
         
         files = []
@@ -76,7 +75,7 @@ class eLWA_tests(unittest.TestCase):
         status = subprocess.check_call(cmd)
         self.assertEqual(status, 0)
         
-    def correlate(self):
+    def 1_correlate(self):
         """Run the correlator on eLWA data."""
         
         cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
@@ -85,7 +84,7 @@ class eLWA_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def build(self):
+    def 2_build(self):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s-*.npz' % self._BASENAME)
@@ -95,7 +94,7 @@ class eLWA_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def flag_steps(self):
+    def 3_flag_steps(self):
         """Flag LWA delay steps in the FITS-IDI file."""
         
         cmd = ['python', '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
@@ -103,7 +102,7 @@ class eLWA_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def flag_rfi(self):
+    def 4_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
         cmd = ['python', '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
@@ -111,7 +110,7 @@ class eLWA_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def validate_headers(self):
+    def 5_validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
         _revRE = re.compile('\$Rev.*?\$')
@@ -134,7 +133,7 @@ class eLWA_tests(unittest.TestCase):
         hdulist1.close()
         hdulist2.close()
         
-    def validate_data(self):
+    def 6_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
         hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
