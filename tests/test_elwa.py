@@ -23,7 +23,7 @@ _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
-class eLWA_tests(unittest.TestCase):
+class elwa_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
         print("Starting setUp()")
@@ -175,14 +175,14 @@ class eLWA_tests(unittest.TestCase):
                     pass
 
 
-class eLWA_test_suite(unittest.TestSuite):
+class elwa_test_suite(unittest.TestSuite):
     """A unittest.TestSuite class which contains all of the eLWA correlation tests."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)
         
         loader = unittest.TestLoader()
-        self.addTests(loader.loadTestsFromTestCase(eLWA_tests)) 
+        self.addTests(loader.loadTestsFromTestCase(elwa_tests)) 
 
 
 if __name__ == '__main__':
