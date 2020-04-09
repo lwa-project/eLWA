@@ -43,7 +43,8 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Module 'numpy",
                    "Module 'ephem",
                    "Instance of 'HDUList'",
-                   "Unable to import 'polycos"]
+                   "Unable to import 'polycos",
+                   "No name 'ccompiler"]
 
 
 def _get_context(filename, line, before=0, after=0):

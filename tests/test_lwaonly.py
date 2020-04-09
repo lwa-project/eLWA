@@ -46,23 +46,23 @@ class lwa_tests(unittest.TestCase):
             subprocess.check_call(['curl',
                                    'https://fornax.phys.unm.edu/lwa/data/%s' % _RAW,
                                    '-o', _RAW])
-        subprocess.check_call(['tar', 'xzvf', _RAW])
-        
+            subprocess.check_call(['tar', 'xzf', _RAW])
+            
         # Reference data
         if not os.path.exists('ref'):
             os.mkdir('ref')
             
-        if not os.path.exits('ref/%s' % _REF):
+        if not os.path.exists('ref/%s' % _REF):
             subprocess.check_call(['curl',
-                                   'https://fornax.phys.unm.edu/lwa/data/%s' % _RAW,
+                                   'https://fornax.phys.unm.edu/lwa/data/%s' % _REF,
                                    '-o', 'ref/%s' % _REF])
-        subprocess.check_call(['tar', 'xzvf', '-C', 'ref', 'ref/%s' % _RAW])
-        
+            subprocess.check_call(['tar', '-C', 'ref', '-x', '-z', '-f', 'ref/%s' % _REF])
+            
         # Other variables
         self._FILES = ['0*', 'LT004_*.tgz']
         self._BASENAME = 'lwaonly'
         
-    def create(self):
+    def test_0_create(self):
         """Build the correlator configuration file."""
         
         files = []
@@ -74,20 +74,20 @@ class lwa_tests(unittest.TestCase):
         status = subprocess.check_call(cmd)
         self.assertEqual(status, 0)
         
-    def correlate(self):
+    def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w' '1'
+        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
                '-j', '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-L.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w' '2'
+        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
                '-j', '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         
-    def build(self):
+    def test_2_build(self):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s[LH]-*.npz' % self._BASENAME)
@@ -97,7 +97,7 @@ class lwa_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def flag_steps(self):
+    def test_3_flag_steps(self):
         """Flag LWA delay steps in the FITS-IDI file."""
         
         cmd = ['python', '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
@@ -105,7 +105,7 @@ class lwa_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def flag_rfi(self):
+    def test_4_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
         cmd = ['python', '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
@@ -113,7 +113,7 @@ class lwa_tests(unittest.TestCase):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def validate_headers(self):
+    def test_5_validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
         _revRE = re.compile('\$Rev.*?\$')
@@ -136,7 +136,7 @@ class lwa_tests(unittest.TestCase):
         hdulist1.close()
         hdulist2.close()
         
-    def validate_data(self):
+    def test_6_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
         hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
@@ -161,21 +161,6 @@ class lwa_tests(unittest.TestCase):
                     
         hdulist1.close()
         hdulist2.close()
-        
-    def tearDown(self):
-        """Cleanup"""
-        
-        for regex in ('%s.config' % self._BASENAME,
-                      '%s-*.log' % self._BASENAME,
-                      '%s[LH]-*.npz' % self._BASENAME,
-                      'buildIDI_%s_*.FITS_*' % self._BASENAME,
-                      '*.d'):
-            files = glob.glob(regex)
-            for file in files:
-                try:
-                    os.unlink(file)
-                except OSError:
-                    pass
 
 
 class lwa_test_suite(unittest.TestSuite):
