@@ -68,7 +68,7 @@ class LWA_tests(unittest.TestCase):
         for regex in self._FILES:
             files.extend(glob.glob(regex))
             
-        cmd = ['python', '../createConfigFile.py', '-o', '%s.config' % self._BASNENAME]
+        cmd = ['python', '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
         status = subprocess.check_call(cmd)
         self.assertEqual(status, 0)
