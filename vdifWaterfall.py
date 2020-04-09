@@ -731,7 +731,7 @@ def main(args):
             sdfStart = mcs.mjdmpm2datetime(obs.mjd, obs.mpm)
             sdfStop  = mcs.mjdmpm2datetime(obs.mjd, obs.mpm + obs.dur)
             obsDur   = obs.dur/1000.0
-            obsSR    = vdif.filterCodes[obs.filter]
+            obsSR    = srate
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             

@@ -138,9 +138,16 @@ if run_scripts_tests:
         _SCRIPTS.extend(glob.glob(os.path.join(*path)))
     _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
     _SCRIPTS.sort()
+    
+    _NAMES = {}
     for script in _SCRIPTS:
         test = _test_generator(script)
         name = 'test_%s' % os.path.splitext(os.path.basename(script))[0]
+        try:
+            name = name+('_%s' % _NAMES[name])
+        except KeyError:
+            _NAMES[name] = 0
+        _NAMES[name] += 1
         doc = """Static analysis of the '%s' script.""" % os.path.basename(script)
         setattr(test, '__doc__', doc)
         setattr(scripts_tests, name, test)

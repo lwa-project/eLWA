@@ -100,7 +100,7 @@ class EnhancedFixedBody(ephem.FixedBody):
     """
     
     def __init__(self, body=None):
-        super(self.__class__, self).__init__()
+        ephem.FixedBody.__init__(self)
         
         if type(body) is ephem.FixedBody:
             for attr in ('name', '_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):

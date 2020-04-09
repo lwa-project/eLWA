@@ -112,6 +112,8 @@ class eLWA_tests(unittest.TestCase):
     def validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
+        _revRE = re.compile('\$Rev.*?\$')
+        
         hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         hdulist2 = pyfits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
