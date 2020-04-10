@@ -541,7 +541,7 @@ def get_better_time(frame):
       * fractional second
     """
     
-    return frame.time
+    return list(frame.time)
 
 
 def parse_lwa_metadata(filename):
@@ -585,7 +585,7 @@ def parse_lwa_metadata(filename):
         ## Parse the command to get the beamformer delays
         ### Pointing and frequency
         beam, df, gf = c['data'].split(None, 2)
-        freq, el, az = df.replace('.df','').split('_', 2)
+        freq, el, az = df.replace(b'.df',b'').split(b'_', 2)
         freq = float(freq)/10.0 * 1e6
         el = float(el)/10.0
         az = float(az)/10.0
