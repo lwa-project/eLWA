@@ -22,6 +22,18 @@ _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
+MTOL = 1e-6 # Relative tolerance at the mean magnitude
+RTOL = 1e-1
+
+def compare(result, gold):
+    #numpy.allclose(result, gold, RTOL, ATOL)
+    # Note: We compare using an absolute tolerance equal to a fraction of the
+    #         mean magnitude. This ignores large relative errors on values with
+    #         magnitudes much smaller than the mean.
+    absmean = numpy.abs(gold).mean()
+    return numpy.allclose(result, gold, rtol=RTOL, atol=MTOL * absmean)
+
+
 class elwa_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
@@ -148,7 +160,7 @@ class elwa_tests(unittest.TestCase):
             for row1,row2 in zip(hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
-                        same_value = numpy.allclose(row2[f], row1[f], atol=8e-7)
+                        same_value = compare(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row2[f], row1[f])
                     self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
