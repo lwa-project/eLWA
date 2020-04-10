@@ -87,7 +87,7 @@ def main(args):
     
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     srate = junkFrame.sample_rate
-    vdif.DataLength = junkFrame.data.data.size
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
     beam, pol = junkFrame.id
     tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
@@ -130,11 +130,11 @@ def main(args):
         print(" ")
         
     # Convert chunk length to total frame count
-    chunkLength = int(config['length'] * srate / vdif.DataLength * tunepols)
+    chunkLength = int(config['length'] * srate / vdif.DATA_LENGTH * tunepols)
     chunkLength = int(1.0 * chunkLength / tunepols) * tunepols
     
     # Convert chunk skip to total frame count
-    chunkSkip = int(config['skip'] * srate / vdif.DataLength * tunepols)
+    chunkSkip = int(config['skip'] * srate / vdif.DATA_LENGTH * tunepols)
     chunkSkip = int(1.0 * chunkSkip / tunepols) * tunepols
     
     # Output arrays
@@ -151,7 +151,7 @@ def main(args):
     
     while True:
         count = {0:0, 1:0}
-        data = numpy.empty((2,chunkLength*vdif.DataLength/tunepols), dtype=numpy.float32)
+        data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH/tunepols), dtype=numpy.float32)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
@@ -166,7 +166,7 @@ def main(args):
             aStand = pol
             
             try:
-                data[aStand, count[aStand]*vdif.DataLength:(count[aStand]+1)*vdif.DataLength] = cFrame.data.data
+                data[aStand, count[aStand]*vdif.DATA_LENGTH:(count[aStand]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] += 1

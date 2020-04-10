@@ -85,7 +85,7 @@ def main(args):
     
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     srate = junkFrame.sample_rate
-    vdif.DataLength = junkFrame.data.data.size
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
     beam, pol = junkFrame.id
     tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
@@ -94,7 +94,7 @@ def main(args):
         print("Skipping forward %.3f s" % config['skip'])
         print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         
-        offset = int(config['skip']*srate / vdif.DataLength)
+        offset = int(config['skip']*srate / vdif.DATA_LENGTH)
         fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         fh.seek(-vdif.FRAME_SIZE, 1)
@@ -112,13 +112,13 @@ def main(args):
             
     # Set integration time
     tInt = config['avgTime']
-    nFrames = int(round(tInt*srate/vdif.DataLength))
-    tInt = nFrames*vdif.DataLength/srate
+    nFrames = int(round(tInt*srate/vdif.DATA_LENGTH))
+    tInt = nFrames*vdif.DATA_LENGTH/srate
     
-    nFrames = int(round(tInt*srate/vdif.DataLength))
+    nFrames = int(round(tInt*srate/vdif.DATA_LENGTH))
     
     # Read in some data
-    tFile = nFramesFile / beampols * vdif.DataLength / srate
+    tFile = nFramesFile / beampols * vdif.DATA_LENGTH / srate
     
     # Date
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
@@ -137,7 +137,7 @@ def main(args):
     print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, vdif.DataLength*nFrames), dtype=numpy.complex64)
+    data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
     count = [0 for i in xrange(data.shape[0])]
     for i in xrange(beampols*nFrames):
         try:
@@ -149,7 +149,7 @@ def main(args):
         std,pol = cFrame.id
         sid = pol
         
-        data[sid, count[sid]*vdif.DataLength:(count[sid]+1)*vdif.DataLength] = cFrame.data.data
+        data[sid, count[sid]*vdif.DATA_LENGTH:(count[sid]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
         count[sid] += 1
         
     # Plot

@@ -69,8 +69,13 @@ def getSourceName(src):
     count) name within 2" of the provided position.
     """
     
-    import urllib
-    
+    try:
+        from urllib import quote_plus
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.parse import quote_plus
+        from urllib.request import urlopen
+        
     # Pull out what we know about the source
     name = src.name
     ra = str(src._ra)
@@ -89,7 +94,7 @@ def getSourceName(src):
     # If not, we need to query Simbad to find out what to call it
     try:
         ## Query
-        result = urllib.urlopen('http://simbad.u-strasbg.fr/simbad/sim-coo?Coord=%s&CooFrame=FK5&CooEpoch=%s&CooEqui=%s&CooDefinedFrames=none&Radius=2&Radius.unit=arcsec&submit=submit%%20query&CoordList=&output.format=ASCII' % (urllib.quote_plus('%s %s' % (ra, dec)), epoch, epoch))
+        result = urlopen('http://simbad.u-strasbg.fr/simbad/sim-coo?Coord=%s&CooFrame=FK5&CooEpoch=%s&CooEqui=%s&CooDefinedFrames=none&Radius=2&Radius.unit=arcsec&submit=submit%%20query&CoordList=&output.format=ASCII' % (quote_plus('%s %s' % (ra, dec)), epoch, epoch))
         matches = result.readlines()
         
         ## Parse

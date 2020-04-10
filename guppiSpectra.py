@@ -93,7 +93,7 @@ def main(args):
     
     junkFrame = guppi.read_frame(fh)
     srate = junkFrame.sample_rate
-    guppi.DataLength = junkFrame.data.data.size
+    guppi.DATA_LENGTH = junkFrame.payload.data.size
     beam, pol = junkFrame.id
     tunepols = guppi.get_thread_count(fh)
     beampols = tunepols
@@ -102,7 +102,7 @@ def main(args):
         print("Skipping forward %.3f s" % config['skip'])
         print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         
-        offset = int(config['skip']*srate / guppi.DataLength )
+        offset = int(config['skip']*srate / guppi.DATA_LENGTH )
         fh.seek(guppi.FRAME_SIZE*beampols*(offset - 1), 1)
         junkFrame = guppi.read_frame(fh)
         fh.seek(-guppi.FRAME_SIZE, 1)
@@ -120,13 +120,13 @@ def main(args):
             
     # Set integration time
     tInt = config['avgTime']
-    nFrames = int(round(tInt*srate/guppi.DataLength))
-    tInt = nFrames*guppi.DataLength/srate
+    nFrames = int(round(tInt*srate/guppi.DATA_LENGTH))
+    tInt = nFrames*guppi.DATA_LENGTH/srate
     
-    nFrames = int(round(tInt*srate/guppi.DataLength))
+    nFrames = int(round(tInt*srate/guppi.DATA_LENGTH))
     
     # Read in some data
-    tFile = nFramesFile / beampols * guppi.DataLength / srate
+    tFile = nFramesFile / beampols * guppi.DATA_LENGTH / srate
     
     # Date
     junkFrame = guppi.read_frame(fh)
@@ -145,7 +145,7 @@ def main(args):
     print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, guppi.DataLength*nFrames), dtype=numpy.complex64)
+    data = numpy.zeros((beampols, guppi.DATA_LENGTH*nFrames), dtype=numpy.complex64)
     count = [0 for i in xrange(data.shape[0])]
     for i in xrange(beampols*nFrames):
         try:
@@ -157,7 +157,7 @@ def main(args):
         std,pol = cFrame.id
         sid = pol
         
-        data[sid, count[sid]*guppi.DataLength:(count[sid]+1)*guppi.DataLength] = cFrame.data.data
+        data[sid, count[sid]*guppi.DATA_LENGTH:(count[sid]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
         count[sid] += 1
         
     # Transform and trim off the negative frequencies

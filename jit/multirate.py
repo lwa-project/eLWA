@@ -17,7 +17,7 @@ vLight = vLight.to('m/s').value
 
 from lsl.common import dp as dp_common
 from lsl.correlator import _core
-from lsl.correlator.fx import pol_to_pol, null_window
+from lsl.correlator.fx import pol_to_pols, null_window
 
 from jit import JustInTimeOptimizer
 
@@ -28,7 +28,7 @@ __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xeng
 JIT_OPT = JustInTimeOptimizer()
 
 
-def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None, CentralFreq=0.0, Pol='XX', phaseCenter='z'):
+def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=None, central_freq=0.0, Pol='XX', phase_center='z'):
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
     if Pol == '*':
@@ -36,7 +36,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None
         antennas2 = antennaSet2
         
     else:
-        pol1, pol2 = pol_to_pol(Pol)
+        pol1, pol2 = pol_to_pols(Pol)
         
         antennas1 = [a for a in antennaSet1 if a.pol == pol1]
         antennas2 = [a for a in antennaSet2 if a.pol == pol1]
@@ -46,24 +46,24 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None
     nStands = len(antennas1)
     
     # Create a reasonable mock setup for computing the delays
-    if SampleRate is None:
-        SampleRate = dp_common.fS
-    freq = numpy.fft.fftfreq(LFFT, d=1.0/SampleRate)
-    freq += float(CentralFreq)
+    if sample_rate is None:
+        sample_rate = dp_common.fS
+    freq = numpy.fft.fftfreq(LFFT, d=1.0/sample_rate)
+    freq += float(central_freq)
     freq = numpy.fft.fftshift(freq)
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
-    if phaseCenter == 'z':
+    if phase_center == 'z':
         azPC = 0.0
         elPC = numpy.pi/2.0
     else:
-        if isinstance(phaseCenter, ephem.Body):
-            azPC = phaseCenter.az * 1.0
-            elPC = phaseCenter.alt * 1.0
+        if isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phaseCenter[0]*numpy.pi/180.0
-            elPC = phaseCenter[1]*numpy.pi/180.0
+            azPC = phase_center[0]*numpy.pi/180.0
+            elPC = phase_center[1]*numpy.pi/180.0
             
     source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
                     numpy.cos(elPC)*numpy.cos(azPC), 
@@ -84,7 +84,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=null_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -96,7 +96,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=Fa
         signalsIndex1 = [i for (i, a) in enumerate(antennas)]
         
     else:
-        pol1, pol2 = pol_to_pol(Pol)
+        pol1, pol2 = pol_to_pols(Pol)
         
         antennas1 = [a for a in antennas if a.pol == pol1]
         signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]
@@ -109,30 +109,30 @@ def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=Fa
     if signals.dtype.kind == 'c':
         lFactor = 1
         doFFTShift = True
-        CentralFreq = float(CentralFreq)
+        central_freq = float(central_freq)
     else:
         lFactor = 2
         doFFTShift = False
         
-    if SampleRate is None:
-        SampleRate = dp_common.fS
-    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/SampleRate) + CentralFreq
+    if sample_rate is None:
+        sample_rate = dp_common.fS
+    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
         freq = numpy.fft.fftshift(freq)
     freq = freq[:LFFT]
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
-    if phaseCenter == 'z':
+    if phase_center == 'z':
         azPC = 0.0
         elPC = numpy.pi/2.0
     else:
-        if isinstance(phaseCenter, ephem.Body):
-            azPC = phaseCenter.az * 1.0
-            elPC = phaseCenter.alt * 1.0
+        if isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phaseCenter[0]*numpy.pi/180.0
-            elPC = phaseCenter[1]*numpy.pi/180.0
+            azPC = phase_center[0]*numpy.pi/180.0
+            elPC = phase_center[1]*numpy.pi/180.0
             
     source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
                     numpy.cos(elPC)*numpy.cos(azPC), 
@@ -152,20 +152,20 @@ def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=Fa
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
     else:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, overlap=overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
     
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
-        signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, SampleRate=SampleRate)
+        signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, sample_rate=sample_rate)
     else:
-        signalsF1, validF1 = FEngine(signals, freq, delays1, SampleRate=SampleRate)
+        signalsF1, validF1 = FEngine(signals, freq, delays1, sample_rate=sample_rate)
     
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=null_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate PFB-based F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -177,7 +177,7 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=
         signalsIndex1 = [i for (i, a) in enumerate(antennas)]
         
     else:
-        pol1, pol2 = pol_to_pol(Pol)
+        pol1, pol2 = pol_to_pols(Pol)
         
         antennas1 = [a for a in antennas if a.pol == pol1]
         signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]
@@ -190,30 +190,30 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=
     if signals.dtype.kind == 'c':
         lFactor = 1
         doFFTShift = True
-        CentralFreq = float(CentralFreq)
+        central_freq = float(central_freq)
     else:
         lFactor = 2
         doFFTShift = False
         
-    if SampleRate is None:
-        SampleRate = dp_common.fS
-    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/SampleRate) + CentralFreq
+    if sample_rate is None:
+        sample_rate = dp_common.fS
+    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
         freq = numpy.fft.fftshift(freq)
     freq = freq[:LFFT]
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
-    if phaseCenter == 'z':
+    if phase_center == 'z':
         azPC = 0.0
         elPC = numpy.pi/2.0
     else:
-        if isinstance(phaseCenter, ephem.Body):
-            azPC = phaseCenter.az * 1.0
-            elPC = phaseCenter.alt * 1.0
+        if isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phaseCenter[0]*numpy.pi/180.0
-            elPC = phaseCenter[1]*numpy.pi/180.0
+            azPC = phase_center[0]*numpy.pi/180.0
+            elPC = phase_center[1]*numpy.pi/180.0
             
     source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
                     numpy.cos(elPC)*numpy.cos(azPC), 
@@ -233,15 +233,15 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = JIT_OPT.get_function('PFBEngine', signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function('PFBEngine', signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
     else:
-        FEngine = JIT_OPT.get_function('PFBEngine', signals, freq, delays1, LFFT=LFFT, overlap=overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function('PFBEngine', signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
         
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
-        signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, SampleRate=SampleRate)
+        signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, sample_rate=sample_rate)
     else:
-        signalsF1, validF1 = FEngine(signals, freq, delays1, SampleRate=SampleRate)
+        signalsF1, validF1 = FEngine(signals, freq, delays1, sample_rate=sample_rate)
     
     return freq, signalsF1, validF1, delays1
 

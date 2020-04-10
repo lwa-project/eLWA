@@ -164,8 +164,8 @@ def main(args):
     
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     sample_rate = junkFrame.sample_rate
-    vdif.DataLength = junkFrame.data.data.size
-    nSampsFrame = vdif.DataLength
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
+    nSampsFrame = vdif.DATA_LENGTH
     station, thread = junkFrame.id
     tunepols = nThreads
     beampols = tunepols
@@ -178,20 +178,20 @@ def main(args):
     prevFrame = junkFrame.header.frame_in_second
 
     # Skip ahead
-    fh.seek(int(skip*sample_rate/vdif.DataLength)*vdif.FRAME_SIZE, 1)
+    fh.seek(int(skip*sample_rate/vdif.DATA_LENGTH)*vdif.FRAME_SIZE, 1)
     
     # Report on the file
     print("Filename: %s" % os.path.basename(args[0]))
     print("  Station: %i" % station)
     print("  Thread count: %i" % nThreads)
     print("  Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
-    print("  Samples per frame: %i" % vdif.DataLength)
+    print("  Samples per frame: %i" % vdif.DATA_LENGTH)
     print("  Frames per second: %i" % nFramesSecond)
     print("  Sample rate: %i Hz" % sample_rate)
     print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
     print(" ")
     if skip != 0:
-        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DataLength)*4, int(skip*sample_rate/vdif.DataLength)*vdif.DataLength/sample_rate))
+        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DATA_LENGTH)*4, int(skip*sample_rate/vdif.DATA_LENGTH)*vdif.DATA_LENGTH/sample_rate))
         print(" ")
         
     prevDate = ['' for i in xrange(nThreads)]

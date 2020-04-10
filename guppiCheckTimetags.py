@@ -40,8 +40,8 @@ def main(args):
     
     junkFrame = guppi.read_frame(fh)
     sample_rate = junkFrame.sample_rate
-    guppi.DataLength = junkFrame.data.data.size
-    nSampsFrame = guppi.DataLength
+    guppi.DATA_LENGTH = junkFrame.payload.data.size
+    nSampsFrame = guppi.DATA_LENGTH
     station, thread = junkFrame.id
     tunepols = nThreads
     beampols = tunepols
@@ -51,23 +51,23 @@ def main(args):
     # an ephem.Date object.
     prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.get_time()) - astro.DJD_OFFSET)
     prevTime = junkFrame.header.offset / int(sample_rate)
-    prevFrame = junkFrame.header.offset % int(sample_rate) / guppi.DataLength
+    prevFrame = junkFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH
 
     # Skip ahead
-    fh.seek(int(skip*sample_rate/guppi.DataLength)*guppi.FRAME_SIZE, 1)
+    fh.seek(int(skip*sample_rate/guppi.DATA_LENGTH)*guppi.FRAME_SIZE, 1)
     
     # Report on the file
     print("Filename: %s" % os.path.basename(args[0]))
     print("  Station: %i" % station)
     print("  Thread count: %i" % nThreads)
     print("  Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
-    print("  Samples per frame: %i" % guppi.DataLength)
+    print("  Samples per frame: %i" % guppi.DATA_LENGTH)
     print("  Frames per second: %i" % nFramesSecond)
     print("  Sample rate: %i Hz" % sample_rate)
     print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
     print(" ")
     if skip != 0:
-        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/guppi.DataLength)*4, int(skip*sample_rate/guppi.DataLength)*guppi.DataLength/sample_rate))
+        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/guppi.DATA_LENGTH)*4, int(skip*sample_rate/guppi.DATA_LENGTH)*guppi.DATA_LENGTH/sample_rate))
         print(" ")
         
     prevDate = ['' for i in xrange(nThreads)]
@@ -79,7 +79,7 @@ def main(args):
         station, thread = currFrame.id		
         prevDate[thread] = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
         prevTime[thread] = currFrame.header.offset / int(sample_rate)
-        prevFrame[thread] = currFrame.header.offset % int(sample_rate) / guppi.DataLength
+        prevFrame[thread] = currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH
         
     inError = False
     while True:
@@ -100,9 +100,9 @@ def main(args):
             
         station, thread = currFrame.id
         currDate = ephem.Date(astro.unix_to_utcjd(currFrame.get_time()) - astro.DJD_OFFSET)
-        print("->", thread, get_better_time(currFrame), currFrame.header.offset % int(sample_rate) / guppi.DataLength)
+        print("->", thread, get_better_time(currFrame), currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH)
         currTime = currFrame.header.offset / int(sample_rate)
-        currFrame = currFrame.header.offset % int(sample_rate) / guppi.DataLength
+        currFrame = currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH
         
         if thread == 0 and currTime % 10 == 0 and currFrame == 0:
             print("station %i, thread %i: t.t. %i @ frame %i -> %s" % (station, thread, currTime, currFrame, currDate))

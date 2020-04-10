@@ -596,7 +596,7 @@ def parse_lwa_metadata(filename):
         ## Figure out what it means and save it.  This includes a convertion to/from the MCS
         ## delay that breaks things down into a course and fine delay for DP
         t.append( c['time'] )
-        d.append( mcsd_to_delay(delaytoMCSd(b[ref_ant]*1e9))/1e9 )
+        d.append( mcsd_to_delay(delay_to_mcsd(b[ref_ant]*1e9))/1e9 )
         
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)

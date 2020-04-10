@@ -145,17 +145,17 @@ def main(args):
         nFramesFile.append( os.path.getsize(filename) / readers[i].FRAME_SIZE )
         if readers[i] is vdif:
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
-            readers[i].DataLength = junkFrame.data.data.size
+            readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
         elif readers[i] is guppi:
             junkFrame = readers[i].read_frame(fh[i])
-            readers[i].DataLength = junkFrame.data.data.size
+            readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
         elif readers[i] is drx:
             junkFrame = readers[i].read_frame(fh[i])
             while junkFrame.header.decimation == 0:
                 junkFrame = readers[i].read_frame(fh[i])
-            readers[i].DataLength = junkFrame.payload.data.size
+            readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, tune, pol = junkFrame.id
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
@@ -173,7 +173,7 @@ def main(args):
             print("Skipping forward %.3f s" % skip)
             print("-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time()))))
             
-            offset = int(skip*srate[i] / readers[i].DataLength)
+            offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
             if readers[i] is vdif:
                 junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
@@ -277,27 +277,27 @@ def main(args):
                     junkFrame = readers[i].read_frame(fh[i])
             j += beampols[i]
             
-        jTime = j*readers[i].DataLength/srate[i]/beampols[i]
+        jTime = j*readers[i].DATA_LENGTH/srate[i]/beampols[i]
         print("Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime))
         
     # Set integration time
     tRead = 1.0
-    nFrames = int(round(tRead*srate[-1]/readers[-1].DataLength))
-    tRead = nFrames*readers[-1].DataLength/srate[-1]
+    nFrames = int(round(tRead*srate[-1]/readers[-1].DATA_LENGTH))
+    tRead = nFrames*readers[-1].DATA_LENGTH/srate[-1]
     
-    nFramesV = tRead*srate[0]/readers[0].DataLength
+    nFramesV = tRead*srate[0]/readers[0].DATA_LENGTH
     nFramesD = nFrames
     while nFramesV != int(nFramesV):
         nFrames += 1
-        tRead = nFrames*readers[-1].DataLength/srate[-1]
+        tRead = nFrames*readers[-1].DATA_LENGTH/srate[-1]
         
-        nFramesV = tRead*srate[0]/readers[0].DataLength
+        nFramesV = tRead*srate[0]/readers[0].DATA_LENGTH
         nFramesD = nFrames
     nFramesV = int(nFramesV)
     
     # Read in some data
-    tFileV = nFramesFile[ 0] / beampols[ 0] * readers[ 0].DataLength / srate[ 0]
-    tFileD = nFramesFile[-1] / beampols[-1] * readers[-1].DataLength / srate[-1]
+    tFileV = nFramesFile[ 0] / beampols[ 0] * readers[ 0].DATA_LENGTH / srate[ 0]
+    tFileD = nFramesFile[-1] / beampols[-1] * readers[-1].DATA_LENGTH / srate[-1]
     tFile = min([tFileV, tFileD])
     if args.duration > 0.0:
         duration = args.duration
@@ -349,10 +349,10 @@ def main(args):
     print("Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs))
     print(" ")
     
-    nFramesV = int(round(tRead*srate[0]/readers[0].DataLength))
-    framesPerSecondV = int(srate[0] / readers[0].DataLength)
+    nFramesV = int(round(tRead*srate[0]/readers[0].DATA_LENGTH))
+    framesPerSecondV = int(srate[0] / readers[0].DATA_LENGTH)
     nFramesB = nFrames
-    framesPerSecondB = srate[-1] / readers[-1].DataLength
+    framesPerSecondB = srate[-1] / readers[-1].DATA_LENGTH
     if nVDIFInputs:
         print("VDIF Frames/s: %.6f" % framesPerSecondV)
         print("VDIF Frames/Integration: %i" % nFramesV)
@@ -360,7 +360,7 @@ def main(args):
         print("DRX Frames/s: %.6f" % framesPerSecondB)
         print("DRX Frames/Integration: %i" % nFramesB)
     if nVDIFInputs*nDRXInputs:
-        print("Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DataLength)/(nFramesB*4096),))
+        print("Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096),))
         print("Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],))
     print(" ")
     
@@ -421,8 +421,8 @@ def main(args):
             dataV *= 0.0
             dataD *= 0.0
         except NameError:
-            dataV = numpy.zeros((len(vdifRef), readers[ 0].DataLength*nFramesV), dtype=numpy.float32)
-            dataD = numpy.zeros((len(drxRef),  readers[-1].DataLength*nFramesD), dtype=numpy.complex64)
+            dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
+            dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
         for j,f in enumerate(fh):
             if readers[j] is vdif:
                 ## VDIF
@@ -459,7 +459,7 @@ def main(args):
                                 
                         count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
                         count -= vdifRef[sid]
-                        dataV[sid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.data
+                        dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                         k += 1
                         
             elif readers[j] is guppi:
@@ -492,11 +492,11 @@ def main(args):
                             
                             for p in (0,1):
                                 psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.offset / readers[j].DataLength
+                                vdifRef[psid] = cFrame.header.offset / readers[j].DATA_LENGTH
                                 
-                        count = cFrame.header.offset / readers[j].DataLength
+                        count = cFrame.header.offset / readers[j].DATA_LENGTH
                         count -= vdifRef[sid]
-                        dataV[sid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.data.data
+                        dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                         k += 1
                         
             elif readers[j] is drx:
@@ -531,9 +531,9 @@ def main(args):
                             
                             for p in (0,1):
                                 pbid = 2*(j-nVDIFInputs) + p
-                                drxRef[pbid] = cFrame.data.timetag
+                                drxRef[pbid] = cFrame.payload.timetag
                                 
-                        count = cFrame.data.timetag
+                        count = cFrame.payload.timetag
                         count -= drxRef[bid]
                         count /= (4096*int(196e6/srate[-1]))
                         ### Fix from some LWA-SV files that seem to cause the current LSL
@@ -541,7 +541,7 @@ def main(args):
                         if count < 0:
                             continue
                         try:
-                            dataD[bid, count*readers[j].DataLength:(count+1)*readers[j].DataLength] = cFrame.payload.data
+                            dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                             k += beampols[j]/2
                         except ValueError:
                             k = beampols[j]*nFramesD

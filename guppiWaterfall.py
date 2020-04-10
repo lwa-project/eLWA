@@ -210,15 +210,15 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
+    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
     
     # Number of frames per second 
-    nFramesSecond = int(srate) / guppi.DataLength
+    nFramesSecond = int(srate) / guppi.DATA_LENGTH
     
     # Number of frames to integrate over
-    nFramesAvg = int(round(config['average'] * srate / guppi.DataLength * beampols))
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DataLength / srate
+    nFramesAvg = int(round(config['average'] * srate / guppi.DATA_LENGTH * beampols))
+    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
+    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
@@ -270,18 +270,18 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*guppi.DataLength/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((4,framesWork*guppi.DATA_LENGTH/beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
             
         # Inner loop that actually reads the frames into the data array
-        print("Working on %.1f ms of data" % ((framesWork*guppi.DataLength/beampols/srate)*1000.0))
+        print("Working on %.1f ms of data" % ((framesWork*guppi.DATA_LENGTH/beampols/srate)*1000.0))
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.read_frame(fh, Verbose=False)
+                cFrame = guppi.read_frame(fh, verbose=False)
             except errors.EOFError:
                 done = True
                 break
@@ -294,7 +294,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                 cTime = cFrame.get_time()
                 
             try:
-                data[aStand, count[aStand]*guppi.DataLength:(count[aStand]+1)*guppi.DataLength] = cFrame.data.data
+                data[aStand, count[aStand]*guppi.DATA_LENGTH:(count[aStand]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
                 count[aStand] +=  1
             except ValueError:
                 raise RuntimeError("Invalid Shape")
@@ -371,23 +371,23 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     beam,pol = junkFrame.id
     beams = guppi.get_thread_count(fh)
     tunepols = guppi.get_thread_count(fh)
-    tunepol = tunepols[0] + tunepols[1] + tunepols[2] + tunepols[3]
+    tunepol = tunepols
     beampols = tunepol
     
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
+    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
     
     # Number of frames per second 
-    nFramesSecond = int(srate) / guppi.DataLength
+    nFramesSecond = int(srate) / guppi.DATA_LENGTH
     
     # Number of frames to integrate over
-    nFramesAvg = int(round(config['average'] * srate / guppi.DataLength * beampols))
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
+    nFramesAvg = int(round(config['average'] * srate / guppi.DATA_LENGTH * beampols))
+    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
     print('KK', nFramesAvg)
-    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DataLength / srate
+    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
@@ -439,18 +439,18 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*guppi.DataLength/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((4,framesWork*guppi.DATA_LENGTH/beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
             
         # Inner loop that actually reads the frames into the data array
-        print("Working on %.1f ms of data" % ((framesWork*guppi.DataLength/beampols/srate)*1000.0))
+        print("Working on %.1f ms of data" % ((framesWork*guppi.DATA_LENGTH/beampols/srate)*1000.0))
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.read_frame(fh, Verbose=False)
+                cFrame = guppi.read_frame(fh, verbose=False)
             except errors.EOFError:
                 done = True
                 break
@@ -463,7 +463,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 cTime = cFrame.get_time()
                 
             try:
-                data[aStand, count[aStand]*guppi.DataLength:(count[aStand]+1)*guppi.DataLength] = cFrame.data.data
+                data[aStand, count[aStand]*guppi.DATA_LENGTH:(count[aStand]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
                 count[aStand] +=  1
             except ValueError:
                 raise RuntimeError("Invalid Shape")
@@ -528,7 +528,7 @@ def main(args):
             try:
                 srate = junkFrame.sample_rate
                 t0 = junkFrame.get_time()
-                guppi.DataLength = junkFrame.data.data.size
+                guppi.DATA_LENGTH = junkFrame.payload.data.size
                 break
             except ZeroDivisionError:
                 pass
@@ -544,7 +544,7 @@ def main(args):
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(config['offset'] * srate / guppi.DataLength * beampols)
+    offset = int(config['offset'] * srate / guppi.DATA_LENGTH * beampols)
     offset = int(1.0 * offset / beampols) * beampols
     fh.seek(guppi.FRAME_SIZE*offset, 1)
     
@@ -567,7 +567,7 @@ def main(args):
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
-        cOffset = int(tCorr * srate / guppi.DataLength * beampols)
+        cOffset = int(tCorr * srate / guppi.DATA_LENGTH * beampols)
         cOffset = int(1.0 * cOffset / beampols) * beampols
         offset += cOffset
         
@@ -579,19 +579,19 @@ def main(args):
     
     # Update the offset actually used
     config['offset'] = t1 - t0
-    offset = int(round(config['offset'] * srate / guppi.DataLength * beampols))
+    offset = int(round(config['offset'] * srate / guppi.DATA_LENGTH * beampols))
     offset = int(1.0 * offset / beampols) * beampols
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
+    maxFrames = int(1.0*config['maxFrames']/beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
 
     # Number of frames to integrate over
-    nFramesAvg = int(config['average'] * srate / guppi.DataLength * beampols)
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DataLength/float(2*LFFT))*2*LFFT/guppi.DataLength*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DataLength / srate
+    nFramesAvg = int(config['average'] * srate / guppi.DATA_LENGTH * beampols)
+    nFramesAvg = int(1.0 * nFramesAvg / beampols*guppi.DATA_LENGTH/float(2*LFFT))*2*LFFT/guppi.DATA_LENGTH*beampols
+    config['average'] = 1.0 * nFramesAvg / beampols * guppi.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
@@ -599,10 +599,10 @@ def main(args):
     if config['metadata'] is not None:
         config['duration'] = 0
     if config['duration'] == 0:
-        config['duration'] = 1.0 * nFramesFile / beampols * guppi.DataLength / srate
+        config['duration'] = 1.0 * nFramesFile / beampols * guppi.DATA_LENGTH / srate
         config['duration'] -= config['offset']
     else:
-        config['duration'] = int(round(config['duration'] * srate * beampols / guppi.DataLength) / beampols * guppi.DataLength / srate)
+        config['duration'] = int(round(config['duration'] * srate * beampols / guppi.DATA_LENGTH) / beampols * guppi.DATA_LENGTH / srate)
     nChunks = int(round(config['duration'] / config['average']))
     if nChunks == 0:
         nChunks = 1
@@ -635,7 +635,7 @@ def main(args):
     print("Sample Rate: %i Hz" % srate)
     print("Bit Depth: %i" % junkFrame.header.bits_per_sample)
     print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
-    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * guppi.DataLength / srate))
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * guppi.DATA_LENGTH / srate))
     print("---")
     print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
     print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg / beampols))

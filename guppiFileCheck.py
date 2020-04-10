@@ -88,7 +88,7 @@ def main(args):
     
     junkFrame = guppi.read_frame(fh)
     srate = junkFrame.sample_rate
-    guppi.DataLength = junkFrame.data.data.size
+    guppi.DATA_LENGTH = junkFrame.payload.data.size
     beam, pol = junkFrame.id
     tunepols = guppi.get_thread_count(fh)
     beampols = tunepols
@@ -131,11 +131,11 @@ def main(args):
         print(" ")
         
     # Convert chunk length to total frame count
-    chunkLength = int(config['length'] * srate / guppi.DataLength * tunepols)
+    chunkLength = int(config['length'] * srate / guppi.DATA_LENGTH * tunepols)
     chunkLength = int(1.0 * chunkLength / tunepols) * tunepols
     
     # Convert chunk skip to total frame count
-    chunkSkip = int(config['skip'] * srate / guppi.DataLength * tunepols)
+    chunkSkip = int(config['skip'] * srate / guppi.DATA_LENGTH * tunepols)
     chunkSkip = int(1.0 * chunkSkip / tunepols) * tunepols
     
     # Output arrays
@@ -152,11 +152,11 @@ def main(args):
     
     while True:
         count = {0:0, 1:0}
-        data = numpy.empty((2,chunkLength*guppi.DataLength/tunepols), dtype=numpy.float32)
+        data = numpy.empty((2,chunkLength*guppi.DATA_LENGTH/tunepols), dtype=numpy.float32)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = guppi.read_frame(fh, Verbose=False)
+                cFrame = guppi.read_frame(fh, verbose=False)
             except errors.EOFError:
                 done = True
                 break
@@ -167,7 +167,7 @@ def main(args):
             aStand = pol
             
             try:
-                data[aStand, count[aStand]*guppi.DataLength:(count[aStand]+1)*guppi.DataLength] = cFrame.data.data
+                data[aStand, count[aStand]*guppi.DATA_LENGTH:(count[aStand]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] += 1
