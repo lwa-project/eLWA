@@ -5,7 +5,6 @@ language: python
 python:
     - 2.7
 
-dist: bionic
 addons:
     apt:
         packages:
@@ -32,7 +31,6 @@ install:
     - pip install \ 
         lsl==1.2.5
     - pip install pylint
-    - curl https://fornax.phys.unm.edu/lwa/data/finals2000A.data -o $HOME/.lsl/geodesy_cache/finals2000A.data --create-dirs
 
 script:
     - cd tests
