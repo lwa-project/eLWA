@@ -154,7 +154,7 @@ class lwa_tests(unittest.TestCase):
             for row1,row2 in zip(hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=6e-7)
+                        same_value = numpy.allclose(row1[f], row2[f], atol=5e-7)
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
