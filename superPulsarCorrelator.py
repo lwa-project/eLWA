@@ -536,9 +536,9 @@ def main(args):
                             
                             for p in (0,1):
                                 psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.offset / readers[j].DATA_LENGTH
+                                vdifRef[psid] = cFrame.header.offset // readers[j].DATA_LENGTH
                                 
-                        count = cFrame.header.offset / readers[j].DATA_LENGTH
+                        count = cFrame.header.offset // readers[j].DATA_LENGTH
                         count -= vdifRef[sid]
                         dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                         k += 1
@@ -579,14 +579,14 @@ def main(args):
                                 
                         count = cFrame.payload.timetag
                         count -= drxRef[bid]
-                        count /= (4096*int(196e6/srate[-1]))
+                        count //= (4096*int(196e6/srate[-1]))
                         ### Fix from some LWA-SV files that seem to cause the current LSL
                         ### ring buffer problems
                         if count < 0:
                             continue
                         try:
                             dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                            k += beampols[j]/2
+                            k += beampols[j]//2
                         except ValueError:
                             k = beampols[j]*nFramesD
                             break
@@ -664,8 +664,8 @@ def main(args):
         # Loop over sub-integrations
         for j in xrange(nSub):
             ## Select the data to work with
-            tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0]
-            tSubIntB = (tStartB[0][0], tStartB[0][1] + (j+1)*nSampV/srate[0] - nSampV/2/srate[0])
+            tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV//2/srate[0]
+            tSubIntB = (tStartB[0][0], tStartB[0][1] + (j+1)*nSampV/srate[0] - nSampV//2/srate[0])
             #tVSub    = tV[j*nSampV:(j+1)*nSampV]
             if nDRXInputs > 0:
                 tDSub    = tD[j*nSampD:(j+1)*nSampD]
