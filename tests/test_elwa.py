@@ -89,8 +89,9 @@ class elwa_tests(unittest.TestCase):
         
         cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
                '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
-        with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+        #with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
+        os.system('cat %s.config' % self._BASENAME)
+        status = subprocess.check_call(cmd)#, stdout=logfile)
         self.assertEqual(status, 0)
         
     def test_2_build(self):
