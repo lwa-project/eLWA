@@ -1,13 +1,14 @@
-# -*- coding: utf-8 -*-
-
 """
 Utility module for the various scripts needed to correlate LWA and VLA data.
 
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import time
@@ -32,7 +33,6 @@ import guppi
 
 
 __version__ = '0.8'
-__revision__ = '$Rev$'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
            'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
            'nsround', 'read_correlator_configuration', 'get_better_time', 
@@ -242,7 +242,7 @@ def multi_column_print(items, sep=';  ', width=86):
         if r != nRow-1:
             out += sep
         ## Print
-        print out
+        print(out)
 
 
 _timeRE = re.compile('^[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>(([kmun]?s)|h|m))?[ \t]*$')

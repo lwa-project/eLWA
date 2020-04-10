@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unit tests for the a small eLWA correlation job.
 """
@@ -15,7 +13,7 @@ import os
 import re
 import glob
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import subprocess
 
 _RAW = 'eLWA_test_raw.tar.gz'
@@ -113,9 +111,9 @@ class database(object):
         
         _revRE = re.compile('\$Rev.*?\$')
         
-        hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = pyfits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Loop through the HDUs
@@ -134,9 +132,9 @@ class database(object):
     def test_6_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
-        hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = pyfits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Loop through the HDUs

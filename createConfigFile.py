@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script to take in a collection of observation files and build up a 
 superCorrelator.py configuration script.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -214,7 +215,7 @@ def main(args):
     
     metadata = {}
     for filename in filenames:
-        #print "%s:" % os.path.basename(filename)
+        #print("%s:" % os.path.basename(filename))
         
         # Skip over empty files
         if os.path.getsize(filename) == 0:
@@ -336,8 +337,8 @@ def main(args):
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
                 x,y,z = db.get_xyz(pad, tStart)
-                #print "  Pad: %s" % pad
-                #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+                #print("  Pad: %s" % pad)
+                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF
@@ -391,8 +392,8 @@ def main(args):
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
                 x,y,z = db.get_xyz(pad, tStart)
-                #print "  Pad: %s" % pad
-                #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+                #print("  Pad: %s" % pad)
+                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF

@@ -1,18 +1,19 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 A FITS-IDI compatible version of plotFringes2.py.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -45,9 +46,9 @@ def main(args):
         args.polToPlot = 'YY'
     filename = args.filename
     
-    print "Working on '%s'" % os.path.basename(filename)
+    print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     fgdata = None

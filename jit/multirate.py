@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
-
 """
 Module that provide the multi-rate F-engine needed to correlate data at 
 different sample rates.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import ephem
 import numpy
 
@@ -21,7 +21,6 @@ from lsl.correlator.fx import pol2pol, noWindow
 from jit import JustInTimeOptimizer
 
 __version__ = '0.2'
-__revision__ = '$Rev$'
 __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xengine3']
 
 

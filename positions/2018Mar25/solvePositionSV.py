@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -47,7 +53,7 @@ def main(args):
     el = el[valid]
     snr = snr[valid]
     delay = delay[valid]
-    print az.shape, el.shape, delay.shape
+    print(az.shape, el.shape, delay.shape)
     
     import pylab
     pylab.title('Before')
@@ -88,9 +94,9 @@ def main(args):
     x[x.size/2:] = el
     p0 = [0, 0, 0, delay.min()]
     p, stat = leastsq(err, p0, args=(x, delay))
-    print stat, p
-    print '!!', (delay-fnc(p,x))*1e9
-    print 'II', numpy.sqrt((delay-delay.mean()*1e9)**2).mean(), numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean())
+    print(stat, p)
+    print('!!', (delay-fnc(p,x))*1e9)
+    print('II', numpy.sqrt((delay-delay.mean()*1e9)**2).mean(), numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean()))
     
     delayFixed = err(p, x, delay)
     pylab.title('After')
@@ -130,16 +136,16 @@ def main(args):
     enz[1] *= -1
     
     enz += p[0:3]
-    print 'Offsets:', 'ENZ', enz, 'Clock', p[3]
+    print('Offsets:', 'ENZ', enz, 'Clock', p[3])
     enz[1] *= -1
     sez = enz[[1,0,2]]
     rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     xyz = rho + LWA1_ECEF
-    print xyz, xyz-LWASV_ECEF
+    print(xyz, xyz-LWASV_ECEF)
     lat, lon, elev = ecef2geo(*xyz)
-    print LWASV_LAT*180/numpy.pi, lat*180/numpy.pi
-    print LWASV_LON*180/numpy.pi, lon*180/numpy.pi
-    print lwasv.elev, elev
+    print(LWASV_LAT*180/numpy.pi, lat*180/numpy.pi)
+    print(LWASV_LON*180/numpy.pi, lon*180/numpy.pi)
+    print(lwasv.elev, elev)
 
 
 if __name__ == "__main__":

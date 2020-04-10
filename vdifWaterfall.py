@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Given a vdif file, plot the time averaged spectra for each beam output over some 
+Given a VDIF file, plot the time averaged spectra for each beam output over some 
 period.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import h5py
@@ -36,7 +37,7 @@ import data as hdfData
 
 
 def usage(exitCode=None):
-    print """vdifWaterfall.py - Read in VDIF files and create a collection of 
+    print("""vdifWaterfall.py - Read in VDIF files and create a collection of 
 time-averaged spectra.  These spectra are saved to a HDF5 file called <filename>-waterfall.hdf5.
 
 Usage: vdifWaterfall.py [OPTIONS] file
@@ -65,7 +66,7 @@ Note:  Both the -m/--metadata and -i/--sdf options provide the same additional
 
 Note:  Specifying the -m/--metadata or -i/--sdf optiosn overrides the 
     -d/--duration setting and the entire file is reduced.
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -96,9 +97,9 @@ def parseOptions(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "force", "stokes", "without-sats"])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -186,12 +187,12 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     t0 = junkFrame.get_time()
     fh.seek(-vdif.FRAME_SIZE, 1)
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
         t0 = junkFrame.get_time()
-    print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
         duration = duration - tDiff.total_seconds()
@@ -284,7 +285,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
         data = numpy.zeros((4,framesWork*vdif.DataLength/beampols), dtype=numpy.csingle)
@@ -293,7 +294,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*vdif.DataLength/beampols/srate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*vdif.DataLength/beampols/srate)*1000.0))
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
@@ -373,12 +374,12 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     t0 = junkFrame.get_time()
     fh.seek(-vdif.FRAME_SIZE, 1)
     
-    print 'Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate)
+    print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
         t0 = junkFrame.get_time()
-    print '... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate)
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
         duration = duration - tDiff.total_seconds()
@@ -471,7 +472,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print "Working on chunk %i, %i frames remaining" % (i+1, framesRemaining)
+        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
         data = numpy.zeros((4,framesWork*vdif.DataLength/beampols), dtype=numpy.csingle)
@@ -480,7 +481,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        print "Working on %.1f ms of data" % ((framesWork*vdif.DataLength/beampols/srate)*1000.0)
+        print("Working on %.1f ms of data" % ((framesWork*vdif.DataLength/beampols/srate)*1000.0))
         
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
@@ -663,20 +664,20 @@ def main(args):
     config['freq2'] = central_freq2
 
     # File summary
-    print "Filename: %s" % filename
-    print "Date of First Frame: %s" % str(beginDate)
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i" % tunepols
-    print "Sample Rate: %i Hz" % srate
-    print "Bit Depth: %i" % junkFrame.header.bits_per_sample
-    print "Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2)
-    print "Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * vdif.DataLength / srate)
-    print "---"
-    print "Offset: %.3f s (%i frames)" % (config['offset'], offset)
-    print "Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg / beampols)
-    print "Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols)
-    print "Chunks: %i" % nChunks
-    print " "
+    print("Filename: %s" % filename)
+    print("Date of First Frame: %s" % str(beginDate))
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i" % tunepols)
+    print("Sample Rate: %i Hz" % srate)
+    print("Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
+    print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * vdif.DataLength / srate))
+    print("---")
+    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
+    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg / beampols))
+    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols))
+    print("Chunks: %i" % nChunks)
+    print(" ")
     
     # Get the clip levels
     clip1 = config['clip']
@@ -735,11 +736,11 @@ def main(args):
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
-        print "Observations:"
+        print("Observations:")
         for i in sorted(obsList.keys()):
             obs = obsList[i]
-            print " #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6)
-        print " "
+            print(" #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6))
+        print(" ")
             
         hdfData.fillFromMetabundle(f, config['metadata'])
         
@@ -804,7 +805,7 @@ def main(args):
         try:
             processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
         except RuntimeError, e:
-            print "Observation #%i: %s, abandoning this observation" % (o, str(e))
+            print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
     # Save the output to a HDF5 file
     f.close()

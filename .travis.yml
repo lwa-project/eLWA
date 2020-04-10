@@ -38,12 +38,11 @@ install:
         jinja2
     - pip install git+https://github.com/lwa-project/lsl.git
     - pip install pylint
-    - curl https://fornax.phys.unm.edu/lwa/data/finals2000A.data -o $HOME/.lsl/geodesy_cache/finals2000A.data --create-dirs
 
 script:
     - cd tests
     - python -m unittest discover
 
 cache:
-    directories:
-      - $HOME/.lsl
+  directories:
+    - $HOME/.astropy/cache

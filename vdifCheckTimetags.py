@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Check the time times in a VDIF file for flow.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Check the time in a VDIF file for flow.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -128,13 +129,15 @@ def get_frames_per_second(filehandle):
     
     # Pull out the mode
     mode = {}
-    for key,value in cur.iteritems():
+    for key in cur.keys():
+        value = cur[key]
         try:
             mode[value] += 1
         except KeyError:
             mode[value] = 1
     best, bestValue = 0, 0
-    for key,value in mode.iteritems():
+    for key in mode.keys():
+        value = mode[key]
         if value > bestValue:
             best = key
             bestValue = value
@@ -178,18 +181,18 @@ def main(args):
     fh.seek(int(skip*sample_rate/vdif.DataLength)*vdif.FRAME_SIZE, 1)
     
     # Report on the file
-    print "Filename: %s" % os.path.basename(args[0])
-    print "  Station: %i" % station
-    print "  Thread count: %i" % nThreads
-    print "  Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "  Samples per frame: %i" % vdif.DataLength
-    print "  Frames per second: %i" % nFramesSecond
-    print "  Sample rate: %i Hz" % sample_rate
-    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
-    print " "
+    print("Filename: %s" % os.path.basename(args[0]))
+    print("  Station: %i" % station)
+    print("  Thread count: %i" % nThreads)
+    print("  Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("  Samples per frame: %i" % vdif.DataLength)
+    print("  Frames per second: %i" % nFramesSecond)
+    print("  Sample rate: %i Hz" % sample_rate)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print(" ")
     if skip != 0:
-        print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DataLength)*4, int(skip*sample_rate/vdif.DataLength)*vdif.DataLength/sample_rate)
-        print " "
+        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DataLength)*4, int(skip*sample_rate/vdif.DataLength)*vdif.DataLength/sample_rate))
+        print(" ")
         
     prevDate = ['' for i in xrange(nThreads)]
     prevTime = [0 for i in xrange(nThreads)]
@@ -207,11 +210,11 @@ def main(args):
         try:
             currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             if inError:
-                print "ERROR: sync. error cleared @ byte %i" % (fh.tell() - vdif.FRAME_SIZE,)
+                print("ERROR: sync. error cleared @ byte %i" % (fh.tell() - vdif.FRAME_SIZE,))
             inError = False
         except errors.SyncError:
             if not inError:
-                print "ERROR: invalid frame (sync. word error) @ byte %i" % fh.tell()
+                print("ERROR: invalid frame (sync. word error) @ byte %i" % fh.tell())
                 inError = True
             fh.seek(vdif.FRAME_SIZE, 1)
             continue
@@ -225,19 +228,19 @@ def main(args):
         currFrame = currFrame.header.frame_in_second
         
         if thread == 0 and currTime % 10 == 0 and currFrame == 0:
-            print "station %i, thread %i: t.t. %i @ frame %i -> %s" % (station, thread, currTime, currFrame, currDate)
+            print("station %i, thread %i: t.t. %i @ frame %i -> %s" % (station, thread, currTime, currFrame, currDate))
             
         deltaT = (currTime - prevTime[thread])*nFramesSecond + (currFrame - prevFrame[thread])
-        #print station, thread, deltaT, fh.tell()
+        #print(station, thread, deltaT, fh.tell())
 
         if deltaT < 1:
-            print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread])
-            print "       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate))
-            print "       -> station %i, thread %i" % (station, thread)
+            print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread]))
+            print("       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate)))
+            print("       -> station %i, thread %i" % (station, thread))
         elif deltaT > 1:
-            print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread])
-            print "       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate))
-            print "       -> station %i, thread %i" % (station, thread)
+            print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread]))
+            print("       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate)))
+            print("       -> station %i, thread %i" % (station, thread))
         else:
             pass
         

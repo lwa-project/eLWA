@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Run through a DRX file and determine if it is bad or not.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Run through a VDIF file and determine if it is bad or not.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -23,7 +24,7 @@ from utils import *
 
 
 def usage(exitCode=None):
-    print """vdifFileCheck.py - Run through a VDIF file and determine if it is bad or not.
+    print("""vdifFileCheck.py - Run through a VDIF file and determine if it is bad or not.
 
 Usage: vdifFileCheck.py [OPTIONS] filename
 
@@ -33,7 +34,7 @@ Options:
 -s, --skip         Skip period in seconds between chunks (default 900 s)
 -t, --trim-level   Trim level for power analysis with clipping (default is 
                 set by bit depth)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -49,9 +50,9 @@ def parseConfig(args):
     
     try:
         opts, args = getopt.getopt(args, "hl:s:t:", ["help", "length=", "skip=", "trim-level="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
 
     # Work through opts
@@ -105,13 +106,13 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print(" ")
     
     # Determine the clip level
     if config['trim'] is None:
@@ -125,8 +126,8 @@ def main(args):
             config['trim'] = abs(255/256.)**2
         else:
             config['trim'] = 1.0
-        print "Setting clip level to %.3f" % config['trim']
-        print " "
+        print("Setting clip level to %.3f" % config['trim'])
+        print(" ")
         
     # Convert chunk length to total frame count
     chunkLength = int(config['length'] * srate / vdif.DataLength * tunepols)
@@ -144,9 +145,9 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "    |      Clipping   |     Power     |      RMS      |"
-    print "    |      1X      1Y |     1X     1Y |     1X     1Y |"
-    print "----+-----------------+---------------+---------------+"
+    print("    |      Clipping   |     Power     |      RMS      |")
+    print("    |      1X      1Y |     1X     1Y |     1X     1Y |")
+    print("----+-----------------+---------------+---------------+")
     
     while True:
         count = {0:0, 1:0}
@@ -188,7 +189,7 @@ def main(args):
                 
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
+            print("%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
         
             i += 1
             fh.seek(vdif.FRAME_SIZE*chunkSkip, 1)
@@ -201,8 +202,8 @@ def main(args):
     power = meanPower.mean(axis=0)
     rms = meanRMS.mean(axis=0)
     
-    print "----+-----------------+---------------+---------------+"
-    print "%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
+    print("----+-----------------+---------------+---------------+")
+    print("%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -16,7 +21,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """vdifHistogram.py - Read in a VDIF file and plot sample histograms
+    print("""vdifHistogram.py - Read in a VDIF file and plot sample histograms
 
 Usage:
 vdifHistogram.py [OPTIONS] <vdif_file>
@@ -27,7 +32,7 @@ Options:
                             default = 0 s)
 -t, --avg-time              Window to average visibilities in time (seconds; 
                             default = 1 s)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -45,9 +50,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "ht:s:", ["help", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -86,15 +91,15 @@ def main(args):
     beampols = tunepols
     
     if config['skip'] != 0:
-        print "Skipping forward %.3f s" % config['skip']
-        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
+        print("Skipping forward %.3f s" % config['skip'])
+        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         
         offset = int(config['skip']*srate / vdif.DataLength)
         fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         fh.seek(-vdif.FRAME_SIZE, 1)
         
-        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
+        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         tStart = junkFrame.get_time()
         
     # Get the frequencies
@@ -121,15 +126,15 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
-    print "  Integration Time: %.3f s" % tInt
-    print "  Integrations in File: %i" % int(tFile/tInt)
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Integration Time: %.3f s" % tInt)
+    print("  Integrations in File: %i" % int(tFile/tInt))
+    print(" ")
 
     # Go!
     data = numpy.zeros((beampols, vdif.DataLength*nFrames), dtype=numpy.complex64)
@@ -138,7 +143,7 @@ def main(args):
         try:
             cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         except errors.SyncError:
-            print "Error @ %i" % i
+            print("Error @ %i" % i)
             fh.seek(vdif.FRAME_SIZE, 1)
             continue
         std,pol = cFrame.id

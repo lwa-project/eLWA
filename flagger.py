@@ -1,11 +1,13 @@
 """
 RFI flagging module for use with eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import sys
 import time
 import numpy
@@ -179,7 +181,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         if subpower.sum() == 0.0:
             mask[:,i,:] = True
             if verbose:
-                print "Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2)
+                print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
             continue
             
         ##
@@ -218,7 +220,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         
         ## Report, if requested
         if verbose:
-            print "Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2)
+            print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
             
         ## Update the global mask
         mask[:,i,:] = subpower.mask
@@ -316,7 +318,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         
         ## Report, if requested
         if len(bad) > 0 and verbose:
-            print "Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2)
+            print("Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2))
             
     # Cleanup the StringIO instance
     sys.stderr.close()
@@ -370,7 +372,7 @@ def summarize_mask(antennas, times, freq, mask):
     antennaFracs = {}
     
     # Loop over baselines
-    print "Baseline Statistics:"
+    print("Baseline Statistics:")
     for i,bl in enumerate(blList):
         try:
             ant1, ant2 = bl[0].stand.id, bl[1].stand.id
@@ -393,16 +395,16 @@ def summarize_mask(antennas, times, freq, mask):
                 antennaFracs[ant2] = [frac,]
                 
         ## Baseline report
-        print "  %3i) Flagged %.1f%% on baseline %2i, %2i" % (i+1, frac, ant1, ant2)
+        print("  %3i) Flagged %.1f%% on baseline %2i, %2i" % (i+1, frac, ant1, ant2))
         
     frac = 100.0*mask.sum() / mask.size
-    print "Global Statistics:"
-    print "  Flagged %.1f%% globally" % frac
-    print "  Antenna Breakdown:"
+    print("Global Statistics:")
+    print("  Flagged %.1f%% globally" % frac)
+    print("  Antenna Breakdown:")
     for ant in sorted(antennaFracs.keys()):
         fracs = antennaFracs[ant]
         frac = 1.0 * sum(fracs) / len(fracs)
-        print "    %2i flagged %.1f%% on average" % (ant, frac)
+        print("    %2i flagged %.1f%% on average" % (ant, frac))
 
 
 def create_flag_groups(times, freq, mask):

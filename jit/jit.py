@@ -1,13 +1,13 @@
-# -*- coding: utf-8 -*-
-
 """
 Module for creating optimized data processing code when it is needed.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import glob
@@ -26,7 +26,6 @@ from lsl.correlator.fx import noWindow
 
 
 __version__ = '0.1'
-__revision__ = '$Rev$'
 __all__ = ['JustInTimeOptimizer', '__version__', '__revision__', '__all__']
 
 
@@ -89,7 +88,7 @@ class JustInTimeOptimizer(object):
         """
         
         if verbose:
-            print "JIT cache directory: %s" % self.cacheDir
+            print("JIT cache directory: %s" % self.cacheDir)
             
         # Make sure the cache directory is in the path as well
         if self.cacheDir not in sys.path:
@@ -107,7 +106,7 @@ class JustInTimeOptimizer(object):
             if soTime < refTime:
                 ## This file is too old, clean it out
                 if verbose:
-                    print " -> Purged %s as outdated" % module
+                    print(" -> Purged %s as outdated" % module)
                 for ext in ('.c', '.o', '.so'):
                     try:
                         os.unlink(os.path.join(self.cacheDir, '%s%s' % (module, ext)))
@@ -117,7 +116,7 @@ class JustInTimeOptimizer(object):
             else:
                 ## This file is OK, load it and cache it
                 if verbose:
-                    print " -> Loaded %s" % module
+                    print(" -> Loaded %s" % module)
                 exec("import %s as loadedModule" % module)
                 exec("self._cache['%s'] = loadedModule" % module)
                 

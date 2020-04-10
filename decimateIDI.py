@@ -2,17 +2,19 @@
 
 """
 Frequency decimation script for FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -27,9 +29,9 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print "Working on '%s'" % os.path.basename(filename)
+        print("Working on '%s'" % os.path.basename(filename))
         # Open the FITS IDI file and access the UV_DATA extension
-        hdulist = pyfits.open(filename, mode='readonly')
+        hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
         fgdata = None
@@ -124,11 +126,11 @@ def main(args):
                         
         # Decimate
         ## Setup
-        print "  Found %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3)
+        print("  Found %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3))
         if freq.size % args.decimation != 0:
             to_trim = (freq.size/args.decimation)*args.decimation
             to_drop = freq.size - to_trim
-            print "  WARNING: Dropped %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3)
+            print("  WARNING: Dropped %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3))
             freq = freq[:to_trim]
             flux = flux[:,:,:to_trim,:]
             weight = weight[:,:,:to_trim,:]
@@ -143,10 +145,10 @@ def main(args):
         mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimation, args.decimation, mask.shape[3])
         mask = mask.mean(axis=3).astype(numpy.bool)
         nFreq = freq.size
-        print "  Decimated to %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3)
+        print("  Decimated to %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3))
         
         # Convert the masks into a format suitable for writing to a FLAG table
-        print "  Building FLAG table"
+        print("  Building FLAG table")
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
         ## New Flags
         nBL = len(ubls)
@@ -154,7 +156,7 @@ def main(args):
             blset = numpy.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print "    Baseline %i of %i" % (i+1, nBL)
+                print("    Baseline %i of %i" % (i+1, nBL))
                 
             if len(blset) == 0:
                 continue
@@ -186,22 +188,22 @@ def main(args):
                     sevs.append( -1 )
                     
         ## Build the FLAG table
-        print '    FITS HDU'
+        print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = pyfits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = pyfits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = pyfits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = pyfits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = pyfits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
+        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
-        flags = pyfits.new_table(colDefs)
+        flags = astrofits.new_table(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
@@ -226,7 +228,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print "  WARNING: removing old FLAG table - version %i" % ver 
+                print("  WARNING: removing old FLAG table - version %i" % ver )
         else:
             for hdu in hdulist:
                 try: 
@@ -245,7 +247,7 @@ def main(args):
         hdulist.insert(-1, flags)
         
         # Save
-        print "  Saving to disk"
+        print("  Saving to disk")
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
@@ -262,8 +264,8 @@ def main(args):
             else:
                 raise RuntimeError("Output file '%s' already exists" % outname)
         ## Open and create a new primary HDU
-        hdulist2 = pyfits.open(outname, mode='append')
-        primary =	pyfits.PrimaryHDU()
+        hdulist2 = astrofits.open(outname, mode='append')
+        primary =	astrofits.PrimaryHDU()
         processed = []
         for key in hdulist[0].header:
             if key in ('COMMENT', 'HISTORY'):
@@ -309,10 +311,10 @@ def main(args):
                         temp.shape = (temp.shape[0], temp.shape[1]*temp.shape[2])
                         temp = temp.astype(hdu.data[col.name].dtype)
                         fmt = '%i%s' % (nBand*nFreq, col.format[-1])
-                    columns.append( pyfits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
-                colDefs = pyfits.ColDefs(columns)
+                    columns.append( astrofits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
+                colDefs = astrofits.ColDefs(columns)
                 
-                hduprime = pyfits.new_table(colDefs)
+                hduprime = astrofits.new_table(colDefs)
                 processed = []
                 for key in hdu.header:
                     if key in ('COMMENT', 'HISTORY'):
@@ -346,10 +348,10 @@ def main(args):
                         temp = weight.astype(hdu.data[col.name].dtype)
                         temp.shape = (temp.shape[0], temp.shape[1]*temp.shape[2]*temp.shape[3])
                         fmt = '%i%s' % (nStk*nFreq*nBand, col.format[-1])
-                    columns.append( pyfits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
-                colDefs = pyfits.ColDefs(columns)
+                    columns.append( astrofits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
+                colDefs = astrofits.ColDefs(columns)
                 
-                hduprime = pyfits.new_table(colDefs)
+                hduprime = astrofits.new_table(colDefs)
                 processed = ['NAXIS1', 'NAXIS2']
                 for key in hdu.header:
                     if key in ('COMMENT', 'HISTORY'):
@@ -366,8 +368,8 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print "  -> Decimated FITS IDI file is '%s'" % outname
-        print "  Finished in %.3f s" % (time.time()-t0,)
+        print("  -> Decimated FITS IDI file is '%s'" % outname)
+        print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":

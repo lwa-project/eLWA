@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a collection of .npz files create a FITS-IDI file that can be read in by
 AIPS.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -170,7 +171,7 @@ def main(args):
             args.linear = False
             args.circular = False
             args.stokes = True
-        print "NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis']
+        print("NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis'])
         
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
     visXY = dataDict['vis1XY'].astype(numpy.complex64)
@@ -210,9 +211,9 @@ def main(args):
     for i in range(len(master_antennas)):
         master_antennas[i].id = i+1
         
-    print "Antennas:"
+    print("Antennas:")
     for ant in master_antennas:
-        print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
+        print("  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol))
         
     nchan = visXX.shape[1]
     master_blList = uvutil.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
@@ -221,7 +222,7 @@ def main(args):
         to_trim = (freq.size/args.decimate)*args.decimate
         to_drop = freq.size - to_trim
         if to_drop != 0:
-            print "Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3)
+            print("Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3))
             
         nchan /= args.decimate
         if to_drop != 0:
@@ -232,7 +233,7 @@ def main(args):
     # Figure out the visibility conjugation problem in LSL, pre-1.1.4
     conjugateVis = False
     if float(fitsidi.__version__) < 0.9:
-        print "Warning: Applying conjugate to visibility data"
+        print("Warning: Applying conjugate to visibility data")
         conjugateVis = True
         
     # Fill in the data
@@ -370,10 +371,10 @@ def main(args):
             fits.set_frequency(freqH)
             fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
-            print "Opening %s for writing" % outname
+            print("Opening %s for writing" % outname)
             
         if i % 10 == 0:
-            print i
+            print(i)
             
         ## Save any delay step information
         for step,ant in zip(delayStepApplied, [ant for ant in antennas if ant.pol == 0]):

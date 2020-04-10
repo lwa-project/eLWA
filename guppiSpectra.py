@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -17,7 +22,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """guppiSpectra.py - Read in a GUPPI file and plot spectra
+    print("""guppiSpectra.py - Read in a GUPPI file and plot spectra
 
 Usage:
 guppiSpectra.py [OPTIONS] <guppi_file>
@@ -29,7 +34,7 @@ Options:
                             default = 0 s)
 -t, --avg-time              Window to average visibilities in time (seconds; 
                             default = 1 s)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -48,9 +53,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -94,15 +99,15 @@ def main(args):
     beampols = tunepols
     
     if config['skip'] != 0:
-        print "Skipping forward %.3f s" % config['skip']
-        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
+        print("Skipping forward %.3f s" % config['skip'])
+        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         
         offset = int(config['skip']*srate / guppi.DataLength )
         fh.seek(guppi.FRAME_SIZE*beampols*(offset - 1), 1)
         junkFrame = guppi.read_frame(fh)
         fh.seek(-guppi.FRAME_SIZE, 1)
         
-        print "-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time()))
+        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
         tStart = junkFrame.get_time()
         
     # Get the frequencies
@@ -129,15 +134,15 @@ def main(args):
     beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print "  Bit Depth: %i" % junkFrame.header.bits_per_sample
-    print "  Integration Time: %.3f s" % tInt
-    print "  Integrations in File: %i" % int(tFile/tInt)
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Integration Time: %.3f s" % tInt)
+    print("  Integrations in File: %i" % int(tFile/tInt))
+    print(" ")
 
     # Go!
     data = numpy.zeros((beampols, guppi.DataLength*nFrames), dtype=numpy.complex64)
@@ -146,7 +151,7 @@ def main(args):
         try:
             cFrame = guppi.read_frame(fh)
         except errors.SyncError:
-            print "Error @ %i" % i
+            print("Error @ %i" % i)
             fh.seek(guppi.FRAME_SIZE, 1)
             continue
         std,pol = cFrame.id

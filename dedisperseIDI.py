@@ -2,17 +2,19 @@
 
 """
 Incoherent dedispersion for FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -25,7 +27,7 @@ from flagger import *
 
 def get_source_blocks(hdulist):
     """
-    Given a pyfits hdulist, look at the source IDs listed in the UV_DATA table
+    Given a astrofits hdulist, look at the source IDs listed in the UV_DATA table
     and generate a list of contiguous blocks for each source.  This list is 
     returned as a list of blocks where each block is itself a two-element list.
     This two-element list contains the the start and stop rows for the block.
@@ -64,7 +66,7 @@ def get_source_blocks(hdulist):
 
 def get_flags_as_mask(hdulist, selection=None, version=0):
     """
-    Given a pyfits hdulist, build a mask for the visibility data based using 
+    Given a astrofits hdulist, build a mask for the visibility data based using 
     the specified version of the FLAG table.  This can also be done for a 
     sub-set of the full visibility data by using the 'selection' keyword to 
     provide a list of visility entries to create the mask for.
@@ -152,7 +154,7 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
     
     if os.path.exists(nextname):
         # Open up the next file
-        hdulist = pyfits.open(nextname, mode='readonly', memmap=True)
+        hdulist = astrofits.open(nextname, mode='readonly', memmap=True)
         srdata = hdulist['SOURCE']
         uvdata = hdulist['UV_DATA']
         
@@ -209,9 +211,9 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print "Working on '%s'" % os.path.basename(filename)
+        print("Working on '%s'" % os.path.basename(filename))
         # Open the FITS IDI file and access the UV_DATA extension
-        hdulist = pyfits.open(filename, mode='readonly')
+        hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
         srdata = hdulist['SOURCE']
@@ -277,7 +279,7 @@ def main(args):
         mask = numpy.zeros(flux.shape, dtype=numpy.bool)
         for i,block in enumerate(blocks):
             tS = time.time()
-            print '  Working on scan %i of %i' % (i+1, len(blocks))
+            print('  Working on scan %i of %i' % (i+1, len(blocks)))
             match = range(block[0],block[1]+1)
             
             bbls = numpy.unique(bls[match])
@@ -285,7 +287,7 @@ def main(args):
             ints = inttimes[match]
             scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
             scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
-            print '    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S'))
+            print('    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S')))
             
             freq_comb = []
             for b,offset in enumerate(fqoffsets):
@@ -308,14 +310,14 @@ def main(args):
                     to_trim = ofm.shape[0]
                     vis = numpy.concatenate([vis, nextflux])
                     ofm = numpy.concatenate([ofm, nextmask])
-                    print '      Appended %i times from the next file in the sequence' % (nextflux.shape[0]/nBL)
+                    print('      Appended %i times from the next file in the sequence' % (nextflux.shape[0]/nBL))
                     
             vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
             ofm.shape = (ofm.shape[0]/nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
-            print '      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape
+            print('      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape)
             
             if vis.shape[0] < 5:
-                print '        Too few integrations, skipping'
+                print('        Too few integrations, skipping')
                 vis[:,:,:,:] = numpy.nan
                 ofm[:,:,:,:] = True
             else:
@@ -327,26 +329,26 @@ def main(args):
             ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]/len(fqoffsets), ofm.shape[3])
             
             if to_trim != -1:
-                print '      Removing the appended times'
+                print('      Removing the appended times')
                 vis = vis[:to_trim,...]
                 ofm = ofm[:to_trim,...]
             flux[match,:,:,:] = vis
             
-            print '      Saving polarization masks'
+            print('      Saving polarization masks')
             submask = numpy.where(numpy.isfinite(vis), False, True)
             submask.shape = (len(match), flux.shape[1], flux.shape[2], flux.shape[3])
             mask[match,:,:,:] = submask
             
-            print '      Statistics for this scan'
-            print '      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,)
-            print '      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,)
-            print '      -> Elapsed - %.3f s' % (time.time()-tS,)
+            print('      Statistics for this scan')
+            print('      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,))
+            print('      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,))
+            print('      -> Elapsed - %.3f s' % (time.time()-tS,))
             
             # Add in the original flag mask
             mask[match,:,:,:] |= ofm
             
         # Convert the masks into a format suitable for writing to a FLAG table
-        print "  Building FLAG table"
+        print("  Building FLAG table")
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
         ## New Flags
         nBL = len(ubls)
@@ -354,7 +356,7 @@ def main(args):
             blset = numpy.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print "    Baseline %i of %i" % (i+1, nBL)
+                print("    Baseline %i of %i" % (i+1, nBL))
                 
             if len(blset) == 0:
                 continue
@@ -386,22 +388,22 @@ def main(args):
                     sevs.append( -1 )
                     
         ## Build the FLAG table
-        print '    FITS HDU'
+        print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = pyfits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = pyfits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = pyfits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = pyfits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = pyfits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
+        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
-        flags = pyfits.new_table(colDefs)
+        flags = astrofits.new_table(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
@@ -427,12 +429,12 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print "  WARNING: removing old FLAG table - version %i" % ver 
+                print("  WARNING: removing old FLAG table - version %i" % ver )
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
         # Save
-        print "  Saving to disk"
+        print("  Saving to disk")
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
@@ -449,8 +451,8 @@ def main(args):
             else:
                 raise RuntimeError("Output file '%s' already exists" % outname)
         ## Open and create a new primary HDU
-        hdulist2 = pyfits.open(outname, mode='append')
-        primary =   pyfits.PrimaryHDU()
+        hdulist2 = astrofits.open(outname, mode='append')
+        primary =   astrofits.PrimaryHDU()
         processed = []
         for key in hdulist[0].header:
             if key in ('COMMENT', 'HISTORY'):
@@ -479,8 +481,8 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print "  -> Dedispersed FITS IDI file is '%s'" % outname
-        print "  Finished in %.3f s" % (time.time()-t0,)
+        print("  -> Dedispersed FITS IDI file is '%s'" % outname)
+        print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":

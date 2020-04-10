@@ -28,7 +28,7 @@ import re
 import math
 import ephem
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 from datetime import datetime
 
 from lsl import astro
@@ -265,7 +265,7 @@ class Idi(object):
                 os.unlink(filename)
             else:
                 raise IOError("File '%s' already exists" % filename)
-        self.FITS = pyfits.open(filename, mode='append', memmap=memmap)
+        self.FITS = astrofits.open(filename, mode='append', memmap=memmap)
         
     def set_stokes(self, polList):
         """
@@ -360,7 +360,8 @@ class Idi(object):
         # If the mapper has been enabled, tell the user about it
         if enableMapper and self.verbose:
             print("FITS IDI: stand ID mapping enabled")
-            for key, value in mapper.iteritems():
+            for key in mapper.keys():
+                value = mapper[key]
                 print("FITS IDI:  stand #%i -> mapped #%i" % (key, value))
                 
         self.nAnt = len(ants)
@@ -475,7 +476,7 @@ class Idi(object):
         Write the primary HDU to file.
         """
         
-        primary = pyfits.PrimaryHDU()
+        primary = astrofits.PrimaryHDU()
         
         primary.header['NAXIS'] = (0, 'indicates IDI file')
         primary.header['EXTEND'] = (True, 'indicates IDI file')
@@ -528,32 +529,32 @@ class Idi(object):
             names.append(ant.getName())
             
         # Antenna name
-        c1 = pyfits.Column(name='ANNAME', format='A8', 
+        c1 = astrofits.Column(name='ANNAME', format='A8', 
                         array=numpy.array([ant.getName() for ant in self.array[0]['ants']]))
         # Station coordinates in meters
-        c2 = pyfits.Column(name='STABXYZ', unit='METERS', format='3D', 
+        c2 = astrofits.Column(name='STABXYZ', unit='METERS', format='3D', 
                         array=xyz)
         # First order derivative of station coordinates in m/s
-        c3 = pyfits.Column(name='DERXYZ', unit='METERS/S', format='3E', 
+        c3 = astrofits.Column(name='DERXYZ', unit='METERS/S', format='3E', 
                         array=numpy.zeros((self.nAnt,3), dtype=numpy.float32))
         # Orbital elements
-        c4 = pyfits.Column(name='ORBPARM', format='1D', 
+        c4 = astrofits.Column(name='ORBPARM', format='1D', 
                         array=numpy.zeros((self.nAnt,), dtype=numpy.float64))
         # Station number
-        c5 = pyfits.Column(name='NOSTA', format='1J', 
+        c5 = astrofits.Column(name='NOSTA', format='1J', 
                         array=numpy.array([self.array[0]['mapper'][ant.id] for ant in self.array[0]['ants']]))
         # Mount type (0 == alt-azimuth)
-        c6 = pyfits.Column(name='MNTSTA', format='1J', 
+        c6 = astrofits.Column(name='MNTSTA', format='1J', 
                         array=numpy.zeros((self.nAnt,), dtype=numpy.int32))
         # Axis offset in meters
-        c7 = pyfits.Column(name='STAXOF', unit='METERS', format='3E', 
+        c7 = astrofits.Column(name='STAXOF', unit='METERS', format='3E', 
                         array=numpy.zeros((self.nAnt,3), dtype=numpy.float32))
                         
         # Define the collection of columns
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7])
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7])
         
         # Create the table and fill in the header
-        ag = pyfits.new_table(colDefs)
+        ag = astrofits.new_table(colDefs)
         self._addCommonKeywords(ag.header, 'ARRAY_GEOMETRY', 1)
         
         ag.header['EXTVER'] = (1, 'array ID')
@@ -608,29 +609,29 @@ class Idi(object):
         nBand = len(self.freq)
         
         # Frequency setup number
-        c1 = pyfits.Column(name='FREQID', format='1J', 
+        c1 = astrofits.Column(name='FREQID', format='1J', 
                         array=numpy.array([self.freq[0].id,], dtype=numpy.int32))
         # Frequency offsets in Hz
-        c2 = pyfits.Column(name='BANDFREQ', format='%iD' % nBand, unit='HZ', 
+        c2 = astrofits.Column(name='BANDFREQ', format='%iD' % nBand, unit='HZ', 
                         array=numpy.array([f.bandFreq for f in self.freq], dtype=numpy.float64).reshape(1,nBand))
         # Channel width in Hz
-        c3 = pyfits.Column(name='CH_WIDTH', format='%iE' % nBand, unit='HZ', 
+        c3 = astrofits.Column(name='CH_WIDTH', format='%iE' % nBand, unit='HZ', 
                         array=numpy.array([f.chWidth for f in self.freq], dtype=numpy.float32).reshape(1,nBand))
         # Total bandwidths of bands
-        c4 = pyfits.Column(name='TOTAL_BANDWIDTH', format='%iE' % nBand, unit='HZ', 
+        c4 = astrofits.Column(name='TOTAL_BANDWIDTH', format='%iE' % nBand, unit='HZ', 
                         array=numpy.array([f.totalBW for f in self.freq], dtype=numpy.float32).reshape(1,nBand))
         # Sideband flag
-        c5 = pyfits.Column(name='SIDEBAND', format='%iJ' % nBand, 
+        c5 = astrofits.Column(name='SIDEBAND', format='%iJ' % nBand, 
                         array=numpy.array([f.sideBand for f in self.freq], dtype=numpy.int32).reshape(1,nBand))
         # Baseband channel
-        c6 = pyfits.Column(name='BB_CHAN', format='%iJ' % nBand, 
+        c6 = astrofits.Column(name='BB_CHAN', format='%iJ' % nBand, 
                         array=numpy.array([f.baseBand for f in self.freq], dtype=numpy.int32).reshape(1,nBand))
                         
         # Define the collection of columns
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6])
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6])
         
         # Create the table and header
-        fq = pyfits.new_table(colDefs)
+        fq = astrofits.new_table(colDefs)
         self._addCommonKeywords(fq.header, 'FREQUENCY', 1)
         
         # Add the table to the file
@@ -646,50 +647,50 @@ class Idi(object):
         nBand = len(self.freq)
         
         # Central time of period covered by record in days
-        c1 = pyfits.Column(name='TIME', unit='DAYS', format='1D', 
+        c1 = astrofits.Column(name='TIME', unit='DAYS', format='1D', 
                         array=numpy.zeros((self.nAnt,), dtype=numpy.float64))
         # Duration of period covered by record in days
-        c2 = pyfits.Column(name='TIME_INTERVAL', unit='DAYS', format='1E', 
+        c2 = astrofits.Column(name='TIME_INTERVAL', unit='DAYS', format='1E', 
                         array=(2*numpy.ones((self.nAnt,), dtype=numpy.float32)))
         # Antenna name
-        c3 = pyfits.Column(name='ANNAME', format='A8', 
+        c3 = astrofits.Column(name='ANNAME', format='A8', 
                         array=self.FITS['ARRAY_GEOMETRY'].data.field('ANNAME'))
         # Antenna number
-        c4 = pyfits.Column(name='ANTENNA_NO', format='1J', 
+        c4 = astrofits.Column(name='ANTENNA_NO', format='1J', 
                         array=self.FITS['ARRAY_GEOMETRY'].data.field('NOSTA'))
         # Array number
-        c5 = pyfits.Column(name='ARRAY', format='1J', 
+        c5 = astrofits.Column(name='ARRAY', format='1J', 
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Frequency setup number
-        c6 = pyfits.Column(name='FREQID', format='1J', 
+        c6 = astrofits.Column(name='FREQID', format='1J', 
                         array=(numpy.zeros((self.nAnt,), dtype=numpy.int32) + self.freq[0].id))
         # Number of digitizer levels
-        c7 = pyfits.Column(name='NO_LEVELS', format='1J', 
+        c7 = astrofits.Column(name='NO_LEVELS', format='1J', 
                         array=numpy.array([ant.levels for ant in self.array[0]['ants']]))
         # Feed A polarization label
-        c8 = pyfits.Column(name='POLTYA', format='A1', 
+        c8 = astrofits.Column(name='POLTYA', format='A1', 
                         array=numpy.array([ant.polA['Type'] for ant in self.array[0]['ants']]))
         # Feed A orientation in degrees
-        c9 = pyfits.Column(name='POLAA', format='%iE' % nBand,  unit='DEGREES', 
+        c9 = astrofits.Column(name='POLAA', format='%iE' % nBand,  unit='DEGREES', 
                         array=numpy.array([[ant.polA['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed A polarization parameters
-        c10 = pyfits.Column(name='POLCALA', format='%iE' % (2*nBand), 
+        c10 = astrofits.Column(name='POLCALA', format='%iE' % (2*nBand), 
                         array=numpy.concatenate([[ant.polA['Cal'],]*nBand for ant in self.array[0]['ants']]).astype(numpy.float32))
         # Feed B polarization label
-        c11 = pyfits.Column(name='POLTYB', format='A1', 
+        c11 = astrofits.Column(name='POLTYB', format='A1', 
                         array=numpy.array([ant.polB['Type'] for ant in self.array[0]['ants']]))
         # Feed B orientation in degrees
-        c12 = pyfits.Column(name='POLAB', format='%iE' % nBand,  unit='DEGREES', 
+        c12 = astrofits.Column(name='POLAB', format='%iE' % nBand,  unit='DEGREES', 
                         array=numpy.array([[ant.polB['Angle'],]*nBand for ant in self.array[0]['ants']], dtype=numpy.float32))
         # Feed B polarization parameters
-        c13 = pyfits.Column(name='POLCALB', format='%iE' % (2*nBand), 
+        c13 = astrofits.Column(name='POLCALB', format='%iE' % (2*nBand), 
                         array=numpy.concatenate([[ant.polB['Cal'],]*nBand for ant in self.array[0]['ants']]).astype(numpy.float32))
                         
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13])
                             
         # Create the Antenna table and update it's header
-        an = pyfits.new_table(colDefs)
+        an = astrofits.new_table(colDefs)
         self._addCommonKeywords(an.header, 'ANTENNA', 1)
         
         an.header['NOPCAL'] = (2, 'number of polarization parameters')
@@ -707,53 +708,53 @@ class Idi(object):
         nBand = len(self.freq)
         
         # Central time of period covered by record in days
-        c1 = pyfits.Column(name='TIME', unit='DAYS', format='1D', 
+        c1 = astrofits.Column(name='TIME', unit='DAYS', format='1D', 
                         array=numpy.zeros((self.nAnt,), dtype=numpy.float64))
         # Duration of period covered by record in days
-        c2 = pyfits.Column(name='TIME_INTERVAL', unit='DAYS', format='1E',
+        c2 = astrofits.Column(name='TIME_INTERVAL', unit='DAYS', format='1E',
                         array=(2*numpy.ones((self.nAnt,), dtype=numpy.float32)))
         # Source ID
-        c3 = pyfits.Column(name='SOURCE_ID', format='1J', 
+        c3 = astrofits.Column(name='SOURCE_ID', format='1J', 
                         array=numpy.zeros((self.nAnt,), dtype=numpy.int32))
         # Antenna number
-        c4 = pyfits.Column(name='ANTENNA_NO', format='1J', 
+        c4 = astrofits.Column(name='ANTENNA_NO', format='1J', 
                         array=self.FITS['ANTENNA'].data.field('ANTENNA_NO'))
         # Array number
-        c5 = pyfits.Column(name='ARRAY', format='1J', 
+        c5 = astrofits.Column(name='ARRAY', format='1J', 
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Frequency setup number
-        c6 = pyfits.Column(name='FREQID', format='1J',
+        c6 = astrofits.Column(name='FREQID', format='1J',
                         array=(numpy.zeros((self.nAnt,), dtype=numpy.int32) + self.freq[0].id))
         # Bandwidth in Hz
-        c7 = pyfits.Column(name='BANDWIDTH', unit='HZ', format='1E',
+        c7 = astrofits.Column(name='BANDWIDTH', unit='HZ', format='1E',
                         array=(numpy.zeros((self.nAnt,), dtype=numpy.float32)+self.freq[0].totalBW))
         # Band frequency in Hz
-        c8 = pyfits.Column(name='BAND_FREQ', unit='HZ', format='%iD' % nBand,
+        c8 = astrofits.Column(name='BAND_FREQ', unit='HZ', format='%iD' % nBand,
                         array=(numpy.zeros((self.nAnt,nBand,), dtype=numpy.float64)+[f.bandFreq for f in self.freq]))
         # Reference antenna number (pol. 1)
-        c9 = pyfits.Column(name='REFANT_1', format='1J',
+        c9 = astrofits.Column(name='REFANT_1', format='1J',
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 1)
-        c10 = pyfits.Column(name='BREAL_1', format='%iE' % (self.nchan*nBand),
+        c10 = astrofits.Column(name='BREAL_1', format='%iE' % (self.nchan*nBand),
                         array=numpy.ones((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 1)
-        c11 = pyfits.Column(name='BIMAG_1', format='%iE' % (self.nchan*nBand),
+        c11 = astrofits.Column(name='BIMAG_1', format='%iE' % (self.nchan*nBand),
                         array=numpy.zeros((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Reference antenna number (pol. 2)
-        c12 = pyfits.Column(name='REFANT_2', format='1J',
+        c12 = astrofits.Column(name='REFANT_2', format='1J',
                         array=numpy.ones((self.nAnt,), dtype=numpy.int32))
         # Real part of the bandpass (pol. 2)
-        c13 = pyfits.Column(name='BREAL_2', format='%iE' % (self.nchan*nBand),
+        c13 = astrofits.Column(name='BREAL_2', format='%iE' % (self.nchan*nBand),
                         array=numpy.ones((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
         # Imaginary part of the bandpass (pol. 2)
-        c14 = pyfits.Column(name='BIMAG_2', format='%iE' % (self.nchan*nBand),
+        c14 = astrofits.Column(name='BIMAG_2', format='%iE' % (self.nchan*nBand),
                         array=numpy.zeros((self.nAnt,nBand*self.nchan), dtype=numpy.float32))
                         
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13, c14])
                             
         # Create the Bandpass table and update its header
-        bp = pyfits.new_table(colDefs)
+        bp = astrofits.new_table(colDefs)
         self._addCommonKeywords(bp.header, 'BANDPASS', 1)
         
         bp.header['NO_ANT'] = self.nAnt
@@ -854,84 +855,84 @@ class Idi(object):
         self._sourceTable = nameList
         
         # Source ID number
-        c1 = pyfits.Column(name='SOURCE_ID', format='1J', 
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J', 
                         array=numpy.arange(1, nSource+1, dtype=numpy.int32))
         # Source name
-        c2 = pyfits.Column(name='SOURCE', format='A16', 
+        c2 = astrofits.Column(name='SOURCE', format='A16', 
                         array=numpy.array(nameList))
         # Source qualifier
-        c3 = pyfits.Column(name='QUAL', format='1J', 
+        c3 = astrofits.Column(name='QUAL', format='1J', 
                         array=numpy.zeros((nSource,), dtype=numpy.int32))
         # Calibrator code
-        c4 = pyfits.Column(name='CALCODE', format='A4', 
+        c4 = astrofits.Column(name='CALCODE', format='A4', 
                         array=numpy.array(codeList))
         # Frequency group ID
-        c5 = pyfits.Column(name='FREQID', format='1J', 
+        c5 = astrofits.Column(name='FREQID', format='1J', 
                         array=(numpy.zeros((nSource,), dtype=numpy.int32)+self.freq[0].id))
         # Stokes I flux density in Jy
-        c6 = pyfits.Column(name='IFLUX', format='%iE' % nBand, unit='JY', 
+        c6 = astrofits.Column(name='IFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c7 = pyfits.Column(name='QFLUX', format='%iE' % nBand, unit='JY', 
+        c7 = astrofits.Column(name='QFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c8 = pyfits.Column(name='UFLUX', format='%iE' % nBand, unit='JY', 
+        c8 = astrofits.Column(name='UFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Stokes I flux density in Jy
-        c9 = pyfits.Column(name='VFLUX', format='%iE' % nBand, unit='JY', 
+        c9 = astrofits.Column(name='VFLUX', format='%iE' % nBand, unit='JY', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Spectral index
-        c10 = pyfits.Column(name='ALPHA', format='%iE' % nBand, 
+        c10 = astrofits.Column(name='ALPHA', format='%iE' % nBand, 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Frequency offset in Hz
-        c11 = pyfits.Column(name='FREQOFF', format='%iE' % nBand, unit='HZ', 
+        c11 = astrofits.Column(name='FREQOFF', format='%iE' % nBand, unit='HZ', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float32))
         # Mean equinox and epoch
-        c12 = pyfits.Column(name='EQUINOX', format='A8',
+        c12 = astrofits.Column(name='EQUINOX', format='A8',
                         array=numpy.array(('J2000',)).repeat(nSource))
-        c13 = pyfits.Column(name='EPOCH', format='1D', unit='YEARS', 
+        c13 = astrofits.Column(name='EPOCH', format='1D', unit='YEARS', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64) + 2000.0)
         # Apparent right ascension in degrees
-        c14 = pyfits.Column(name='RAAPP', format='1D', unit='DEGREES', 
+        c14 = astrofits.Column(name='RAAPP', format='1D', unit='DEGREES', 
                         array=numpy.array(raList))
         # Apparent declination in degrees
-        c15 = pyfits.Column(name='DECAPP', format='1D', unit='DEGREES', 
+        c15 = astrofits.Column(name='DECAPP', format='1D', unit='DEGREES', 
                         array=numpy.array(decList))
         # Right ascension at mean equinox in degrees
-        c16 = pyfits.Column(name='RAEPO', format='1D', unit='DEGREES', 
+        c16 = astrofits.Column(name='RAEPO', format='1D', unit='DEGREES', 
                         array=numpy.array(raPoList))
         # Declination at mean equinox in degrees
-        c17 = pyfits.Column(name='DECEPO', format='1D', unit='DEGREES', 
+        c17 = astrofits.Column(name='DECEPO', format='1D', unit='DEGREES', 
                         array=numpy.array(decPoList))
         # Systemic velocity in m/s
-        c18 = pyfits.Column(name='SYSVEL', format='%iD' % nBand, unit='M/SEC', 
+        c18 = astrofits.Column(name='SYSVEL', format='%iD' % nBand, unit='M/SEC', 
                         array=numpy.zeros((nSource,nBand), dtype=numpy.float64))
         # Velocity type
-        c19 = pyfits.Column(name='VELTYP', format='A8', 
+        c19 = astrofits.Column(name='VELTYP', format='A8', 
                         array=numpy.array(('GEOCENTR',)).repeat(nSource))
         # Velocity definition
-        c20 = pyfits.Column(name='VELDEF', format='A8', 
+        c20 = astrofits.Column(name='VELDEF', format='A8', 
                         array=numpy.array(('OPTICAL',)).repeat(nSource))
         # Line rest frequency in Hz
-        c21 = pyfits.Column(name='RESTFREQ', format='%iD' % nBand, unit='HZ', 
+        c21 = astrofits.Column(name='RESTFREQ', format='%iD' % nBand, unit='HZ', 
                         array=(numpy.zeros((nSource,nBand), dtype=numpy.float64) + [f.bandFreq+self.refVal for f in self.freq]))
         # Proper motion in RA in degrees/day
-        c22 = pyfits.Column(name='PMRA', format='1D', unit='DEG/DAY', 
+        c22 = astrofits.Column(name='PMRA', format='1D', unit='DEG/DAY', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64))
         # Proper motion in Dec in degrees/day
-        c23 = pyfits.Column(name='PMDEC', format='1D', unit='DEG/DAY', 
+        c23 = astrofits.Column(name='PMDEC', format='1D', unit='DEG/DAY', 
                         array=numpy.zeros((nSource,), dtype=numpy.float64))
         # Parallax of source in arc sec.
-        c24 = pyfits.Column(name='PARALLAX', format='1E', unit='ARCSEC', 
+        c24 = astrofits.Column(name='PARALLAX', format='1E', unit='ARCSEC', 
                         array=numpy.zeros((nSource,), dtype=numpy.float32))
                         
         # Define the collection of columns
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, 
                             c11, c12, c13, c14, c15, c16, c17, c18, c19, c20, 
                             c21, c22, c23, c24])
                             
         # Create the Source table and update its header
-        sr = pyfits.new_table(colDefs)
+        sr = astrofits.new_table(colDefs)
         self._addCommonKeywords(sr.header, 'SOURCE', 1)
         
         sr.name = 'SOURCE'
@@ -1062,50 +1063,50 @@ class Idi(object):
         nSource = len(nameList)
         
         # Visibility Data
-        c1 = pyfits.Column(name='FLUX', format='%iE' % (2*self.nStokes*self.nchan*nBand), unit='UNCALIB', 
+        c1 = astrofits.Column(name='FLUX', format='%iE' % (2*self.nStokes*self.nchan*nBand), unit='UNCALIB', 
                         array=numpy.concatenate(mList))
         # Baseline number (first*256+second)
-        c2 = pyfits.Column(name='BASELINE', format='1J', 
+        c2 = astrofits.Column(name='BASELINE', format='1J', 
                         array=numpy.array(blineList))
         # Julian date at 0h
-        c3 = pyfits.Column(name='DATE', format='1D', unit='DAYS',
+        c3 = astrofits.Column(name='DATE', format='1D', unit='DAYS',
                         array = numpy.array(dateList))
         # Time elapsed since 0h
-        c4 = pyfits.Column(name='TIME', format='1D', unit = 'DAYS', 
+        c4 = astrofits.Column(name='TIME', format='1D', unit = 'DAYS', 
                         array = numpy.array(timeList))
         # Integration time (seconds)
-        c5 = pyfits.Column(name='INTTIM', format='1D', unit='SECONDS', 
+        c5 = astrofits.Column(name='INTTIM', format='1D', unit='SECONDS', 
                         array=numpy.array(intTimeList, dtype=numpy.float32))
         # U coordinate (light seconds)
-        c6 = pyfits.Column(name='UU', format='1E', unit='SECONDS', 
+        c6 = astrofits.Column(name='UU', format='1E', unit='SECONDS', 
                         array=numpy.array(uList, dtype=numpy.float32))
         # V coordinate (light seconds)
-        c7 = pyfits.Column(name='VV', format='1E', unit='SECONDS', 
+        c7 = astrofits.Column(name='VV', format='1E', unit='SECONDS', 
                         array=numpy.array(vList, dtype=numpy.float32))
         # W coordinate (light seconds)
-        c8 = pyfits.Column(name='WW', format='1E', unit='SECONDS', 
+        c8 = astrofits.Column(name='WW', format='1E', unit='SECONDS', 
                         array=numpy.array(wList, dtype=numpy.float32))
         # Source ID number
-        c9 = pyfits.Column(name='SOURCE', format='1J', 
+        c9 = astrofits.Column(name='SOURCE', format='1J', 
                         array=numpy.array(sourceList))
         # Frequency setup number
-        c10 = pyfits.Column(name='FREQID', format='1J', 
+        c10 = astrofits.Column(name='FREQID', format='1J', 
                         array=(numpy.zeros((nBaseline,), dtype=numpy.int32) + self.freq[0].id))
         # Filter number
-        c11 = pyfits.Column(name='FILTER', format='1J', 
+        c11 = astrofits.Column(name='FILTER', format='1J', 
                         array=numpy.zeros((nBaseline,), dtype=numpy.int32))
         # Gate ID number
-        c12 = pyfits.Column(name='GATEID', format='1J', 
+        c12 = astrofits.Column(name='GATEID', format='1J', 
                         array=numpy.zeros((nBaseline,), dtype=numpy.int32))
         # Weights
-        c13 = pyfits.Column(name='WEIGHT', format='%iE' % (self.nStokes*self.nchan*nBand), 
+        c13 = astrofits.Column(name='WEIGHT', format='%iE' % (self.nStokes*self.nchan*nBand), 
                         array=numpy.ones((nBaseline, self.nStokes*self.nchan*nBand), dtype=numpy.float32))
                         
-        colDefs = pyfits.ColDefs([c6, c7, c8, c3, c4, c2, c11, c9, c10, c5, 
+        colDefs = astrofits.ColDefs([c6, c7, c8, c3, c4, c2, c11, c9, c10, c5, 
                         c13, c12, c1])
                         
         # Create the UV Data table and update its header
-        uv = pyfits.new_table(colDefs)
+        uv = astrofits.new_table(colDefs)
         self._addCommonKeywords(uv.header, 'UV_DATA', 1)
         
         uv.header['NMATRIX'] = (1, 'number of UV data matricies')
@@ -1168,17 +1169,17 @@ class Idi(object):
         the names, but this makes the extraction more programmatic.
         """
         
-        c1 = pyfits.Column(name='ANNAME', format='A8', 
+        c1 = astrofits.Column(name='ANNAME', format='A8', 
                         array=numpy.array([ant.getName() for ant in self.array[0]['ants']]))
-        c2 = pyfits.Column(name='NOSTA', format='1J', 
+        c2 = astrofits.Column(name='NOSTA', format='1J', 
                         array=numpy.array([self.array[0]['mapper'][ant.id] for ant in self.array[0]['ants']]))
-        c3 = pyfits.Column(name='NOACT', format='1J', 
+        c3 = astrofits.Column(name='NOACT', format='1J', 
                         array=numpy.array([ant.id for ant in self.array[0]['ants']]))
                         
-        colDefs = pyfits.ColDefs([c1, c2, c3])
+        colDefs = astrofits.ColDefs([c1, c2, c3])
         
         # Create the ID mapping table and update its header
-        nsm = pyfits.new_table(colDefs)
+        nsm = astrofits.new_table(colDefs)
         self._addCommonKeywords(nsm.header, 'NOSTA_MAPPER', 1)
         
         nsm.name = 'NOSTA_MAPPER'
@@ -1271,7 +1272,7 @@ class Aips(IDI):
         Write the primary HDU to file.
         """
         
-        primary = pyfits.PrimaryHDU()
+        primary = astrofits.PrimaryHDU()
         
         primary.header['NAXIS'] = (0, 'indicates IDI file')
         primary.header['EXTEND'] = (True, 'indicates IDI file')
@@ -1347,7 +1348,7 @@ class ExtendedIdi(IDI):
         Write the primary HDU to file.
         """
         
-        primary = pyfits.PrimaryHDU()
+        primary = astrofits.PrimaryHDU()
         
         primary.header['NAXIS'] = (0, 'indicates IDI file')
         primary.header['EXTEND'] = (True, 'indicates IDI file')

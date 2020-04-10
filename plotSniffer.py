@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a collection of .npz files search for course delays and rates.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import glob
@@ -123,18 +124,18 @@ def main(args):
         
         dataDict.close()
             
-    print "Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0]))
+    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
     for i in xrange(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max())
+    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max()))
     iSize = int(round(args.interval/robust.mean(iTimes)))
-    print " -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes))
+    print(" -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes)))
     iCount = times.size/iSize
-    print " -> Working with %i chunks of data" % iCount
+    print(" -> Working with %i chunks of data" % iCount)
     
-    print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0])
+    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
 
     dTimes = times - times[0]
     ref_time = (int(times[0]) / 60) * 60
@@ -172,9 +173,9 @@ def main(args):
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
     
-    print "Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres)
-    print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres)
-    print " "
+    print("Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres))
+    print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
+    print(" ")
     
     delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
     drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
@@ -197,7 +198,7 @@ def main(args):
     bp = spec / smth
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nchan - len(good)
-    print "Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan)
+    print("Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan))
     
     freq2 = freq*1.0
     freq2.shape += (1,)

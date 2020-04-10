@@ -1,13 +1,14 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Correlator for LWA and/or VLA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
 
 import os
 import re
@@ -93,7 +94,7 @@ def main(args):
     if config is not None:
         args.fft_length = config['channels']
         args.dump_time = config['inttime']
-        print "NOTE: Set FFT length to %i and dump time to %.3f s per user defined configuration" % (args.fft_length, args.dump_time)
+        print("NOTE: Set FFT length to %i and dump time to %.3f s per user defined configuration" % (args.fft_length, args.dump_time))
     if args.duration == 0.0:
         args.duration = refSrc.duration
     args.duration = min([args.duration, refSrc.duration])
@@ -107,9 +108,9 @@ def main(args):
     fh.close()
     
     # Antenna report
-    print "Antennas:"
+    print("Antennas:")
     for ant in antennas:
-        print "  Antenna %i: Stand %i, Pol. %i (%.3f us offset)" % (ant.id, ant.stand.id, ant.pol, ant.cable.clock_offset*1e6)
+        print("  Antenna %i: Stand %i, Pol. %i (%.3f us offset)" % (ant.id, ant.stand.id, ant.pol, ant.cable.clock_offset*1e6))
         
     # Open and align the files
     fh = []
@@ -132,8 +133,8 @@ def main(args):
         antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( go )
         if go != 0:
-            print "Correcting time tags for gross offset of %i s" % grossOffsets[i]
-            print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6)
+            print("Correcting time tags for gross offset of %i s" % grossOffsets[i])
+            print("  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6))
         
         if readers[i] in (vdif, guppi):
             header = vdif.read_guppi_header(fh[i])
@@ -167,8 +168,8 @@ def main(args):
             
         skip = args.skip + foffset
         if skip != 0:
-            print "Skipping forward %.3f s" % skip
-            print "-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time())))
+            print("Skipping forward %.3f s" % skip)
+            print("-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time()))))
             
             offset = int(skip*srate[i] / readers[i].DataLength)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -178,7 +179,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print "-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time())))
+            print("-> %.6f (%s)" % (sum(junkFrame.get_time()), datetime.utcfromtimestamp(sum(junkFrame.get_time()))))
             
         tStart.append( sum(junkFrame.get_time()) + grossOffsets[i] )
         
@@ -266,7 +267,7 @@ def main(args):
                     try:
                         junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                     except errors.SyncError:
-                        print "Error - VDIF @ %i" % (i,)
+                        print("Error - VDIF @ %i" % (i,))
                         fh[i].seek(vdif.FRAME_SIZE, 1)
                         continue
             else:
@@ -275,7 +276,7 @@ def main(args):
             j += beampols[i]
             
         jTime = j*readers[i].DataLength/srate[i]/beampols[i]
-        print "Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime)
+        print("Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime))
         
     # Set integration time
     tRead = 1.0
@@ -323,43 +324,43 @@ def main(args):
         
     # Report
     for i in xrange(len(filenames)):
-        print "Filename: %s" % os.path.basename(filenames[i])
-        print "  Type/Reader: %s" % readers[i].__name__
-        print "  Delay Steps Avaliable: %s" % ('No' if delaySteps[i] is None else 'Yes',)
-        print "  Date of First Frame: %s" % beginDates[i]
-        print "  Sample Rate: %i Hz" % srate[i]
-        print "  Tuning 1: %.3f Hz" % cFreqs[i][0]
-        print "  Tuning 2: %.3f Hz" % cFreqs[i][1]
-        print "  Bit Depth: %i" % bitDepths[i]
-    print "  ==="
-    print "  Phase Center:"
-    print "    Name: %s" % refSrc.name
-    print "    RA: %s" % refSrc._ra
-    print "    Dec: %s" % refSrc._dec
-    print "  ==="
-    print "  Data Read Time: %.3f s" % tRead
-    print "  Data Reads in File: %i" % int(tFile/tRead)
-    print " "
+        print("Filename: %s" % os.path.basename(filenames[i]))
+        print("  Type/Reader: %s" % readers[i].__name__)
+        print("  Delay Steps Avaliable: %s" % ('No' if delaySteps[i] is None else 'Yes',))
+        print("  Date of First Frame: %s" % beginDates[i])
+        print("  Sample Rate: %i Hz" % srate[i])
+        print("  Tuning 1: %.3f Hz" % cFreqs[i][0])
+        print("  Tuning 2: %.3f Hz" % cFreqs[i][1])
+        print("  Bit Depth: %i" % bitDepths[i])
+    print("  ===")
+    print("  Phase Center:")
+    print("    Name: %s" % refSrc.name)
+    print("    RA: %s" % refSrc._ra)
+    print("    Dec: %s" % refSrc._dec)
+    print("  ===")
+    print("  Data Read Time: %.3f s" % tRead)
+    print("  Data Reads in File: %i" % int(tFile/tRead))
+    print(" ")
     
     nVDIFInputs = sum([1 for reader in readers if reader is vdif]) + sum([1 for reader in readers if reader is guppi])
     nDRXInputs = sum([1 for reader in readers if reader is drx])
-    print "Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs)
-    print " "
+    print("Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs))
+    print(" ")
     
     nFramesV = int(round(tRead*srate[0]/readers[0].DataLength))
     framesPerSecondV = int(srate[0] / readers[0].DataLength)
     nFramesB = nFrames
     framesPerSecondB = srate[-1] / readers[-1].DataLength
     if nVDIFInputs:
-        print "VDIF Frames/s: %.6f" % framesPerSecondV
-        print "VDIF Frames/Integration: %i" % nFramesV
+        print("VDIF Frames/s: %.6f" % framesPerSecondV)
+        print("VDIF Frames/Integration: %i" % nFramesV)
     if nDRXInputs:
-        print "DRX Frames/s: %.6f" % framesPerSecondB
-        print "DRX Frames/Integration: %i" % nFramesB
+        print("DRX Frames/s: %.6f" % framesPerSecondB)
+        print("DRX Frames/Integration: %i" % nFramesB)
     if nVDIFInputs*nDRXInputs:
-        print "Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DataLength)/(nFramesB*4096),)
-        print "Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],)
-    print " "
+        print("Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DataLength)/(nFramesB*4096),))
+        print("Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],))
+    print(" ")
     
     vdifLFFT = LFFT * (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = vdifLFFT * srate[-1] / srate[0]
@@ -369,10 +370,10 @@ def main(args):
     vdifLFFT = vdifLFFT / (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = int(drxLFFT)
     if nVDIFInputs:
-        print "VDIF Transform Size: %i" % vdifLFFT
+        print("VDIF Transform Size: %i" % vdifLFFT)
     if nDRXInputs:
-        print "DRX Transform Size: %i" % drxLFFT
-    print " "
+        print("DRX Transform Size: %i" % drxLFFT)
+    print(" ")
     
     vdifPivot = 1
     if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
@@ -380,10 +381,10 @@ def main(args):
     if nVDIFInputs == 0 and args.which != 0:
         vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
-        print "VDIF appears to correspond to tuning #%i in DRX" % vdifPivot
+        print("VDIF appears to correspond to tuning #%i in DRX" % vdifPivot)
     elif nDRXInputs:
-        print "Correlating DRX tuning #%i" % vdifPivot
-    print " "
+        print("Correlating DRX tuning #%i" % vdifPivot)
+    print(" ")
     
     nChunks = int(tFile/tRead)
     tSub = args.subint_time
@@ -393,9 +394,9 @@ def main(args):
     nDump = int(tDump / tSub)
     tDump = nDump * tSub
     nInt = int((nChunks*tRead) / tDump)
-    print "Sub-integration time is: %.3f s" % tSub
-    print "Integration (dump) time is: %.3f s" % tDump
-    print " "
+    print("Sub-integration time is: %.3f s" % tSub)
+    print("Integration (dump) time is: %.3f s" % tDump)
+    print(" ")
     
     subIntTimes = []
     subIntCount = 0
@@ -429,7 +430,7 @@ def main(args):
                         cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                         buffers[j].append( cFrame )
                     except errors.SyncError:
-                        print "Error - VDIF @ %i, %i" % (i, j)
+                        print("Error - VDIF @ %i, %i" % (i, j))
                         f.seek(vdif.FRAME_SIZE, 1)
                         continue
                     except errors.EOFError:
@@ -467,7 +468,7 @@ def main(args):
                         cFrame = readers[j].read_frame(f)
                         buffers[j].append( cFrame )
                     except errors.SyncError:
-                        print "Error - GUPPI @ %i, %i" % (i, j)
+                        print("Error - GUPPI @ %i, %i" % (i, j))
                         continue
                     except errors.EOFError:
                         done = True
@@ -504,7 +505,7 @@ def main(args):
                         cFrame = readers[j].read_frame(f)
                         buffers[j].append( cFrame )
                     except errors.SyncError:
-                        print "Error - DRX @ %i, %i" % (i, j)
+                        print("Error - DRX @ %i, %i" % (i, j))
                         continue
                     except errors.EOFError:
                         done = True
@@ -546,7 +547,7 @@ def main(args):
         if done:
             break
             
-        print 'RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead)
+        print('RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead))
         
         # Figure out which DRX tuning corresponds to the VDIF data
         if nDRXInputs > 0:
@@ -556,7 +557,7 @@ def main(args):
         ## Initial time tags for each stream and the relative start time for each stream
         if args.verbose:
             ### TT = time tag
-            print 'TT - Start', tStartB
+            print('TT - Start', tStartB)
         tStartMin = min([sec for sec,frac in tStartB])
         tStartRel = [(sec-tStartMin)+frac for sec,frac in tStartB]
         
@@ -565,7 +566,7 @@ def main(args):
         for j in xrange(nVDIFInputs+nDRXInputs):
             offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
         if args.verbose:
-            print 'TT - Offsets', offsets
+            print('TT - Offsets', offsets)
             
         ## Roll the data to apply the sample offsets and then trim the ends to get rid 
         ## of the rolled part
@@ -594,12 +595,12 @@ def main(args):
         ## Apply the corrections to the original time tags and report on the sub-sample
         ## residuals
         if args.verbose:
-            print 'TT - Adjusted', tStartB
+            print('TT - Adjusted', tStartB)
         tStartMinSec  = min([sec  for sec,frac in tStartB])
         tStartMinFrac = min([frac for sec,frac in tStartB])
         tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
         if args.verbose:
-            print 'TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel]
+            print('TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel])
         for k in xrange(len(tStartRel)):
             antennas[2*k+0].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
             antennas[2*k+1].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
@@ -647,8 +648,8 @@ def main(args):
                 step = delaySteps[k][1][nextStep]
                 if step != 0.0:
                     ## Report on the delay step
-                    print "DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id)
-                    print "DS - Step corresponds to %.1f deg at band center" % (360*cFreqs[0][0]*step,)
+                    print("DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id))
+                    print("DS - Step corresponds to %.1f deg at band center" % (360*cFreqs[0][0]*step,))
                     ## Apply the step
                     antennas[2*k+0].cable.clock_offset += step
                     antennas[2*k+1].cable.clock_offset += step
@@ -703,7 +704,7 @@ def main(args):
                 if i == 0 and j == 0:
                     ## FC = frequency correction
                     tv,tu = bestFreqUnits(subChanFreqOffset)
-                    print "FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu)
+                    print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
                     
                 for w in xrange(feoD.shape[2]):
                     feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
@@ -765,10 +766,10 @@ def main(args):
                         
                         ## FS = frequency selection
                         tv,tu = bestFreqUnits(freqV[1]-freqV[0])
-                        print "FS - Found %i, %.3f %s overalapping channels" % (len(goodV), tv, tu)
+                        print("FS - Found %i, %.3f %s overalapping channels" % (len(goodV), tv, tu))
                         tv,tu = bestFreqUnits(freqV[goodV[-1]]-freqV[goodV[0]])
-                        print "FS - Bandwidth is %.3f %s" % (tv, tu)
-                        print "FS - Channels span %.3f MHz to %.3f MHz" % (freqV[goodV[0]]/1e6, freqV[goodV[-1]]/1e6)
+                        print("FS - Bandwidth is %.3f %s" % (tv, tu))
+                        print("FS - Channels span %.3f MHz to %.3f MHz" % (freqV[goodV[0]]/1e6, freqV[goodV[-1]]/1e6))
                             
                     except AssertionError:
                         raise RuntimeError("Cannot find a common frequency set between the input data: offsets range between %.3f Hz and %.3f Hz, expected %.3f Hz" % (fd.min(), fd.max(), subChanFreqOffset))
@@ -866,24 +867,24 @@ def main(args):
                             tStart=numpy.mean(subIntTimes), tInt=tDump,
                             delayStepApplied=delayStepApplied)
                 delayStepApplied = [False for step in delaySteps]
-                print "CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes))
+                print("CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes)))
                 if fileCount == 1:
-                    print "CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,)
+                    print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
                 if (fileCount-1) % 25 == 0:
-                    print "CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/fileCount,)
+                    print("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/fileCount,))
                     etc = (nInt - fileCount) * (time.time() - wallStart)/fileCount
                     eth = int(etc/60.0) / 60
                     etm = int(etc/60.0) % 60
                     ets = etc % 60
-                    print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
+                    print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
                         
     # Cleanup
     etc = time.time() - wallStart
     eth = int(etc/60.0) / 60
     etm = int(etc/60.0) % 60
     ets = etc % 60
-    print "Processing finished after %i:%02i:%04.1f" % (eth, etm, ets)
-    print "Average time per integration was %.3f s" % (etc/fileCount,)
+    print("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))
+    print("Average time per integration was %.3f s" % (etc/fileCount,))
     for f in fh:
         f.close()
 

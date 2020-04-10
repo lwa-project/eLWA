@@ -1,13 +1,13 @@
-# -*- coding: utf-8 -*-
-
 """
-Module for working with VLA SDM files for flagging purposes
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Module for working with VLA SDM files for flagging purposes.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import numpy
 import struct

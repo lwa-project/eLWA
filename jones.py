@@ -2,12 +2,14 @@
 
 """
 Module for working with polarization to get LWA and VLA into the same frame.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import time
@@ -17,7 +19,6 @@ import numpy
 from lsl.common.paths import data as dataPath
 
 __version__ = '0.3'
-__revision__ = '$Rev$'
 __all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 
            'apply_matrix']
 
