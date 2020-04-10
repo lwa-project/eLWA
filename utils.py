@@ -24,7 +24,7 @@ from lsl import astro
 from lsl.common import stations
 from lsl.reader import drx, vdif
 from lsl.common.dp import fS
-from lsl.common.mcs import datetime_to_mjdmpm, delaytoMCSD, MCSDtodelay
+from lsl.common.mcs import datetime_to_mjdmpm, delay_to_mcsd, mcsd_to_delay
 from lsl.common.metabundle import get_command_script
 from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
@@ -631,7 +631,7 @@ def parse_lwa_metadata(filename):
         ## Figure out what it means and save it.  This includes a convertion to/from the MCS
         ## delay that breaks things down into a course and fine delay for DP
         t.append( c['time'] )
-        d.append( MCSDtodelay(delaytoMCSd(b[ref_ant]*1e9))/1e9 )
+        d.append( mcsd_to_delay(delaytoMCSd(b[ref_ant]*1e9))/1e9 )
         
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)

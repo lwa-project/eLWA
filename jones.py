@@ -16,7 +16,7 @@ import time
 import ephem
 import numpy
 
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 
 __version__ = '0.3'
 __all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 

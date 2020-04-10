@@ -20,6 +20,9 @@ import numpy
 import argparse
 from datetime import datetime
 
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
@@ -27,7 +30,6 @@ from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
 from lsl.correlator.uvutil import compute_uvw
-from lsl.common.constants import c as vLight
 
 from lsl.reader import drx, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer

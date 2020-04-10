@@ -11,8 +11,11 @@ if sys.version_info > (3,):
 import sys
 import time
 import numpy
-from StringIO import StringIO
-
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+    
 from lsl.common.stations import lwa1
 from lsl.statistics import robust
 from lsl.correlator import uvutil

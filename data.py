@@ -1,9 +1,13 @@
-﻿# -*- coding: utf-8 -*-
-
-"""
+﻿"""
 Module to help with manipulating HDF5 beam data files.
 """
 
+# Python3 compatiability
+from __future__ import print_function, division
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import h5py
 import numpy
@@ -26,18 +30,18 @@ __all__ = ['createNewFile', 'fillMinimum', 'fillFromMetabundle', 'fillFromSDF',
 
 def _valuetoDelay(value):
     try:
-        return mcs.MCSDtodelay(value)
+        return mcs.mcsd_to_delay(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.DPDtodelay(value)
+        return dp.dpd_to_delay(value)
 
 
 def _valuetoGain(value):
     try:
-        return mcs.MCSGtogain(value)
+        return mcs.mcsg_to_gain(value)
     except:
         value = ((value & 0xFF) << 8) | ((value >>8) & 0xFF)
-        return dp.DPGtogain(value)
+        return dp.dpg_to_gain(value)
 
 
 class _HDFFileRegistry(object):
@@ -95,8 +99,8 @@ class HDFFileWrapper(h5py.File):
     
     def __init__(self, name, mode=None, driver=None, libver=None, userblock_size=None, **kwds):
         super(HDFFileWrapper, self).__init__(name, mode=mode, driver=driver, libver=libver, userblock_size=userblock_size, **kwds)
-	self.alt_filename = self.filename  # We need to store this because it
-					   # disappears when close() is called
+        self.alt_filename = self.filename  # We need to store this because it
+                                           # disappears when close() is called
         _open_hdf_files.add(self)
         
     def close(self):

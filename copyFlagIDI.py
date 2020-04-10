@@ -14,7 +14,7 @@ import os
 import sys
 import time
 import numpy
-import astrofits
+from astropy.io import fits as astrofits
 import argparse
 
 

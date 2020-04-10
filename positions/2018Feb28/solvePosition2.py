@@ -12,8 +12,10 @@ import ephem
 import numpy
 from scipy.optimize import leastsq
 
-from lsl.common.stations import ecef2geo, lwa1, lwasv
-from lsl.common.constants import c as vLight
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
+from lsl.common.stations import ecef_to_geo, lwa1, lwasv
 
 
 _SOURCES = {'3C295' : ('14:11:20.45',  '52:12:09.36' ),
@@ -163,7 +165,7 @@ def main(args):
     LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
                             [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
                             [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
-    print(ecef2geo(*LWA1_ECEF), LWA1_LAT, LWA1_LON, lwa1.lat*1.0, lwa1.lon*1.0)
+    print(ecef_to_geo(*LWA1_ECEF), LWA1_LAT, LWA1_LON, lwa1.lat*1.0, lwa1.lon*1.0)
 
     ## Derived from the 2017 Oct 27 LWA-SV SSMIF
     LWASV_ECEF = numpy.array((-1531554.7717322097, -5045440.9839560054, 3579249.988606174))
@@ -186,7 +188,7 @@ def main(args):
     ##rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     ##xyz = rho + LWA1_ECEF
     ##print(xyz, xyz-LWASV_ECEF)
-    ##lat, lon, elev = ecef2geo(*xyz)
+    ##lat, lon, elev = ecef_to_geo(*xyz)
     ##print(LWASV_LAT*180/numpy.pi, lat*180/numpy.pi)
     ##print(LWASV_LON*180/numpy.pi, lon*180/numpy.pi)
     ##print(lwasv.elev, elev)
@@ -199,7 +201,7 @@ def main(args):
     rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     xyz = rho + LWA1_ECEF
     print(xyz, xyz-LWA1_ECEF)
-    lat, lon, elev = ecef2geo(*xyz)
+    lat, lon, elev = ecef_to_geo(*xyz)
     print(LWA1_LAT*180/numpy.pi, lat*180/numpy.pi)
     print(LWA1_LON*180/numpy.pi, lon*180/numpy.pi)
     print(lwa1.elev, elev)

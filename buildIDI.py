@@ -22,6 +22,9 @@ import argparse
 import tempfile
 from datetime import datetime, timedelta, tzinfo
 
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
@@ -29,7 +32,6 @@ from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
 from lsl.correlator.uvutil import compute_uvw
-from lsl.common.constants import c as vLight
 from lsl.common.mcs import datetime_to_mjdmpm
 
 from utils import read_correlator_configuration

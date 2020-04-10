@@ -18,7 +18,6 @@ from lsl.misc.lru_cache import lru_cache
 
 
 __version__ = '0.5'
-__revision__ = '$Rev$'
 __all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'get_antennas', 
            'get_flags', 'filter_flags', 
            'get_noise_diode_values', 'filter_noise_diode_values', 

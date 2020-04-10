@@ -158,7 +158,7 @@ class database(object):
 
 class jit_test_suite(unittest.TestSuite):
     """A unittest.TestSuite class which contains all of the eLWA correlation tests
-    for the just-in-time version of the correlator."""
+    for the just-in-time version of the correlator ."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)

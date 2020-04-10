@@ -12,8 +12,10 @@ import ephem
 import numpy
 from scipy.optimize import leastsq
 
-from lsl.common.stations import ecef2geo, lwa1, lwasv
-from lsl.common.constants import c as vLight
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
+from lsl.common.stations import ecef_to_geo, lwa1, lwasv
 
 
 _SOURCES = {'3C295' : ('14:11:20.45',  '52:12:09.36' ),
@@ -142,7 +144,7 @@ def main(args):
     rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     xyz = rho + LWA1_ECEF
     print(xyz, xyz-LWASV_ECEF)
-    lat, lon, elev = ecef2geo(*xyz)
+    lat, lon, elev = ecef_to_geo(*xyz)
     print(LWASV_LAT*180/numpy.pi, lat*180/numpy.pi)
     print(LWASV_LON*180/numpy.pi, lon*180/numpy.pi)
     print(lwasv.elev, elev)

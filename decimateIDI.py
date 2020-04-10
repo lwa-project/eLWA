@@ -203,7 +203,7 @@ def main(args):
         c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
-        flags = astrofits.new_table(colDefs)
+        flags = astrofits.BinTableHDU.from_columns(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
@@ -314,7 +314,7 @@ def main(args):
                     columns.append( astrofits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
                 colDefs = astrofits.ColDefs(columns)
                 
-                hduprime = astrofits.new_table(colDefs)
+                hduprime = astrofits.BinTableHDU.from_columns(colDefs)
                 processed = []
                 for key in hdu.header:
                     if key in ('COMMENT', 'HISTORY'):
@@ -351,7 +351,7 @@ def main(args):
                     columns.append( astrofits.Column(name=col.name, unit=col.unit, format=fmt, array=temp) )
                 colDefs = astrofits.ColDefs(columns)
                 
-                hduprime = astrofits.new_table(colDefs)
+                hduprime = astrofits.BinTableHDU.from_columns(colDefs)
                 processed = ['NAXIS1', 'NAXIS2']
                 for key in hdu.header:
                     if key in ('COMMENT', 'HISTORY'):

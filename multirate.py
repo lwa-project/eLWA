@@ -12,7 +12,9 @@ if sys.version_info > (3,):
 import ephem
 import numpy
 
-from lsl.common.constants import c as vLight
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
 from lsl.common import dp as dp_common
 from lsl.common.constants import *
 from lsl.correlator import _core
@@ -79,7 +81,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, Overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -153,9 +155,9 @@ def fengine(signals, antennas, LFFT=64, Overlap=1, include_auto=False, verbose=F
         else:
             FEngine = _core.FEngineR2
         if len(signalsIndex1) != signals.shape[0]:
-            signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, sample_rate=sample_rate, clip_level=clip_level)
+            signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
         else:
-            signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, sample_rate=sample_rate, clip_level=clip_level)
+            signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
         
     else:
         # Data with a window function provided
@@ -164,9 +166,9 @@ def fengine(signals, antennas, LFFT=64, Overlap=1, include_auto=False, verbose=F
         else:
             FEngine = _core.FEngineR3
         if len(signalsIndex1) != signals.shape[0]:
-            signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, sample_rate=sample_rate, clip_level=clip_level, window=window)
+            signalsF1, validF1 = FEngine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level, window=window)
         else:
-            signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, sample_rate=sample_rate, clip_level=clip_level, window=window)
+            signalsF1, validF1 = FEngine(signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level, window=window)
             
     return freq, signalsF1, validF1, delays1
 

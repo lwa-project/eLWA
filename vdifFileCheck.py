@@ -155,7 +155,7 @@ def main(args):
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, Verbose=False)
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
             except errors.EOFError:
                 done = True
                 break

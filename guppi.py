@@ -1,31 +1,36 @@
-# -*- coding: utf-8 -*-
 """
-Module for working with GUPPI raw data from the VLA
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Module for working with GUPPI raw data from the VLA.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import copy
 import numpy
 
 from lsl import astro
+from lsl.reader.base import *
+from lsl.reader.vdif import read_guppi_header as _lsl_read_guppi_header
 from lsl.reader.errors import SyncError, EOFError
 
 
-__version__ = '0.1'
-__revision__ = '$Rev$'
+__version__ = '0.2'
 __all__ = ['FrameHeader', 'FrameData', 'Frame', 'read_guppi_header', 'read_frame', 
-        'get_frame_size', 'get_thread_count', 'getFramesPerBlock', 'get_frames_per_second', 
-        'get_sample_rate', 'get_central_freq', '__version__', '__revision__', '__all__']
+        'get_frame_size', 'get_thread_count', 'get_frames_per_second', 
+        'get_sample_rate', 'get_central_freq']
 
 
-class FrameHeader(object):
+class FrameHeader(FrameHeaderBase):
     """
     Class that stores the information found in the header of a VDIF 
     frame.  Most fields in the VDIF version 1.1.1 header are stored.
     """
+    
+    _header_attrs = ['imjd', 'smjd', 'fmjd', 'offset', 'bits_per_sample', 'thread_id', 
+                     'station_id', 'sample_rate', 'central_freq']
     
     def __init__(self, imjd=0, smjd=0, fmjd=0.0, offset=0.0, bits_per_sample=0, thread_id=0, station_id=0, sample_rate=0.0, central_freq=0.0):
         self.imjd = imjd
@@ -40,7 +45,10 @@ class FrameHeader(object):
         self.sample_rate = sample_rate
         self.central_freq = central_freq
         
-    def get_time(self):
+        FrameHeaderBase.__init__(self)
+        
+    @property
+    def time(self):
         """
         Function to convert the time tag to seconds since the UNIX epoch.
         """
@@ -48,10 +56,13 @@ class FrameHeader(object):
         mjd = self.imjd + (self.smjd + self.fmjd) / 86400.0
         seconds = astro.utcjd_to_unix(mjd + astro.MJD_OFFSET)
         seconds += self.offset / float(self.sample_rate)
+        seconds_i = int(seconds)
+        seconds_f = seconds - seconds_i     # Could be more accurate
         
-        return seconds
+        return (seconds_i, seconds_f)
         
-    def parse_id(self):
+    @property
+    def id(self):
         """
         Return a two-element tuple of the station ID and thread ID.
         
@@ -59,23 +70,9 @@ class FrameHeader(object):
             The station ID is always returned as numeric.
         """
         return (self.station_id, self.thread_id)
-        
-    def get_sample_rate(self):
-        """
-        Return the sample rate of the data in samples/second.
-        """
-        
-        return self.sample_rate*1.0
-        
-    def get_central_freq(self):
-        """
-        Function to get the central frequency of the VDIF data in Hz.
-        """
-        
-        return self.central_freq*1.0
 
 
-class FrameData(object):
+class FramePayload(FramePayloadBase):
     """
     Class that stores the information found in the data section of a VDIF
     frame.
@@ -86,111 +83,53 @@ class FrameData(object):
     """
     
     def __init__(self, data=None):
-        self.data = data
+        FramePayloadBase(self, data)
 
 
-class Frame(object):
+class Frame(FrameBase):
     """
     Class that stores the information contained within a single VDIF 
     frame.  It's properties are FrameHeader and FrameData objects.
     """
+    
+    _header_class = FrameHeader
+    _payload_class = FramePayload
+    valid = True
 
-    def __init__(self, header=None, data=None):
-        if header is None:
-            self.header = FrameHeader()
-        else:
-            self.header = header
-            
-        if data is None:
-            self.data = FrameData()
-        else:
-            self.data = data
-            
-        self.valid = True
-
+    @property
     def parse_id(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.parse_id 
-        function.
+        Convenience wrapper for the Frame.FrameHeader.id property
         """
         
         return self.header.id
         
-    def parse_extended_user_data(self):
+    @property
+    def time(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.parse_extended_user_data
-        function.
-        """
-        
-        return self.header.parse_extended_user_data()
-        
-    def get_time(self):
-        """
-        Convenience wrapper for the Frame.FrameHeader.get_time function.
+        Convenience wrapper for the Frame.FrameHeader.time property.
         """
         
-        return self.header.get_time()
+        return self.header.time
         
-    def get_sample_rate(self):
+    @property
+    def sample_rate(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.get_sample_rate function.
+        Convenience wrapper for the Frame.FrameHeader.sample_rate property.
         """
         
         return self.header.sample_rate
         
-    def get_central_freq(self):
+    @property
+    def central_freq(self):
         """
-        Convenience wrapper for the Frame.FrameHeader.get_central_freq function.
+        Convenience wrapper for the Frame.FrameHeader.central_freq property.
         """
         
         return self.header.central_freq
-        
-    def __add__(self, y):
-        """
-        Add the data sections of two frames together or add a number 
-        to every element in the data section.
-        """
-    
-        newFrame = copy.deepcopy(self)
-        newFrame += y	
-        return newFrame
-            
-    def __iadd__(self, y):
-        """
-        In-place add the data sections of two frames together or add 
-        a number to every element in the data section.
-        """
-        
-        try:
-            self.data.data += y.data.data
-        except AttributeError:
-            self.data.data += y
-        return self
-        
-    def __mul__(self, y):
-        """
-        Multiple the data sections of two frames together or multiply 
-        a number to every element in the data section.
-        """
-        
-        newFrame = copy.deepcopy(self)
-        newFrame *= y
-        return newFrame
-        
-    def __imul__(self, y):
-        """
-        In-place multiple the data sections of two frames together or 
-        multiply a number to every element in the data section.
-        """
-        
-        try:
-            self.data.data *= y.data.data
-        except AttributeError:
-            self.data.data *= y
-        return self
 
 
-def _filenameToAntenna(filename, vdifID=False):
+def _filename_to_antenna(filename, vdifID=False):
     try:
         ant = filename.split('BD-', 1)[1]
         ant = ant.split('.', 1)[0]
@@ -231,30 +170,10 @@ def read_guppi_header(filehandle):
     global _param_cache
     
     # Read in the GUPPI header
-    header = {}
-    while True:
-        line = filehandle.read(80)
-        if line[:3] == 'END':
-            break
-        elif line[:8] == 'CONTINUE':
-            junk, value2 = line.split(None, 1)
-            value = "%s%s" % (value[:-1], value2[:-1])
-        else:
-            name, value = line.split('=', 1)
-            name = name.strip()
-        try:
-            value = int(value, 10)
-        except:
-            try:
-                value = float(value)
-            except:
-                value = value.strip().replace("'", '')
-        header[name.strip()] = value
-    header['OBSBW'] *= 1e6
-    header['OBSFREQ'] *= 1e6
+    header = _lsl_read_guppi_header(filehandle)
     
     _param_cache[filehandle] = header
-    _param_cache[filehandle]['ANTENNA']   = _filenameToAntenna(filehandle.name, vdifID=True)
+    _param_cache[filehandle]['ANTENNA']   = _filename_to_antenna(filehandle.name, vdifID=True)
     _param_cache[filehandle]['DATASTART'] = filehandle.tell()
     _param_cache[filehandle]['LAST']      = filehandle.tell()
     
@@ -265,7 +184,7 @@ def read_frame(filehandle, Verbose=False):
     try:
         _param_cache[filehandle]
     except KeyError:
-        print "MISS"
+        print("MISS")
         
         mark = filehandle.tell()
         filehandle.seek(0)
@@ -379,24 +298,6 @@ def get_thread_count(filehandle):
     return nPol
 
 
-def getFramesPerBlock(filehandle):
-    """
-    Find and return the number of frames per block.
-    """
-    
-    try:
-        _param_cache[filehandle]
-    except KeyError:
-        mark = filehandle.tell()
-        filehandle.seek(0)
-        read_guppi_header(filehandle)
-        filehandle.seek(mark)
-        
-    nPol = 2 if _param_cache[filehandle]['PKTFMT'].rstrip() == 'VDIF' else 1
-    
-    return nPol
-
-
 def get_frames_per_second(filehandle):
     """
     Find out the number of frames per second in a file by watching how the 
@@ -465,13 +366,15 @@ def get_frames_per_second(filehandle):
     
     # Pull out the mode
     mode = {}
-    for key,value in cur.iteritems():
+    for key,value in cur.keys():
+        value = cur[key]
         try:
             mode[value] += 1
         except KeyError:
             mode[value] = 1
     best, bestValue = 0, 0
-    for key,value in mode.iteritems():
+    for key in mode.keys():
+        value = mode[key]
         if value > bestValue:
             best = key
             bestValue = value

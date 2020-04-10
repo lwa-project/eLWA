@@ -13,7 +13,10 @@ import sys
 import glob
 import time
 import numpy
-import StringIO
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import platform
 import warnings
 import subprocess
@@ -22,11 +25,11 @@ from distutils import ccompiler
 
 from jinja2 import Environment, FileSystemLoader, Template
 
-from lsl.correlator.fx import noWindow
+from lsl.correlator.fx import no_window
 
 
 __version__ = '0.1'
-__all__ = ['JustInTimeOptimizer', '__version__', '__revision__', '__all__']
+__all__ = ['JustInTimeOptimizer',]
 
 
 # Setup
@@ -159,8 +162,8 @@ class JustInTimeOptimizer(object):
         ldflags.append( '-lm' )
         
         # ATLAS
-        sys.stdout = StringIO.StringIO()
-        sys.stderr = StringIO.StringIO()
+        sys.stdout = StringIO()
+        sys.stderr = StringIO()
         from numpy.distutils.system_info import get_info
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore",category=DeprecationWarning)
@@ -373,17 +376,17 @@ return 0;
             nSamps = args[0].shape[1]
             nChan = kwds['LFFT']
         try:
-            nOverlap = kwds['Overlap']
+            nOverlap = kwds['overlap']
         except KeyError:
             nOverlap = 1
         try:
-            ClipLevel = kwds['ClipLevel']
+            ClipLevel = kwds['clip_level']
         except KeyError:
             ClipLevel = 0
         try:
             window = kwds['window']
         except KeyError:
-            window = noWindow
+            window = no_window
             
         # Get the optimized module
         mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)

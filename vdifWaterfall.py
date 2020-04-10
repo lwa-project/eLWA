@@ -299,7 +299,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, Verbose=False)
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
             except errors.EOFError:
                 done = True
                 break
@@ -486,7 +486,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, Verbose=False)
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
             except errors.EOFError:
                 done = True
                 break
@@ -804,7 +804,7 @@ def main(args):
     for o in sorted(obsList.keys()):
         try:
             processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
-        except RuntimeError, e:
+        except RuntimeError as e:
             print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
     # Save the output to a HDF5 file
