@@ -22,18 +22,6 @@ _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
-MTOL = 1e-6 # Relative tolerance at the mean magnitude
-RTOL = 1e-1
-
-def compare(result, gold):
-    #numpy.allclose(result, gold, RTOL, ATOL)
-    # Note: We compare using an absolute tolerance equal to a fraction of the
-    #         mean magnitude. This ignores large relative errors on values with
-    #         magnitudes much smaller than the mean.
-    absmean = numpy.abs(gold).mean()
-    return numpy.allclose(result, gold, rtol=RTOL, atol=MTOL * absmean)
-
-
 class elwa_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
@@ -41,13 +29,14 @@ class elwa_tests(unittest.TestCase):
         # get_vla_ant_pos.py
         if not os.path.exists('../get_vla_ant_pos.py'):
             with open('../get_vla_ant_pos.py', 'w') as fh:
-                fh.write("""class database(object):
-    def __init__(self, *args, **kwds):\
+                fh.write("""import numpy
+class database(object):
+    def __init__(self, *args, **kwds):
         self._ready = True
     def get_pad(self,ant,date):
         return 'W40', None
     def get_xyz(self,ant,date):
-        return (-6777.0613, -360.7018, -3550.9465)
+        return numpy.array((-6777.0613, -360.7018, -3550.9465), dtype=numpy.float64)
     def close(self):
         return True""")
             
@@ -89,9 +78,8 @@ class elwa_tests(unittest.TestCase):
         
         cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
                '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
-        #with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
-        os.system('cat %s.config' % self._BASENAME)
-        status = subprocess.check_call(cmd)#, stdout=logfile)
+        with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
+            status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
     def test_2_build(self):
@@ -160,13 +148,11 @@ class elwa_tests(unittest.TestCase):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
-                        same_value = compare(row1[f], row2[f])
+                        same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
-                    #self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
-                    if not same_value:
-                        print("row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
-                        
+                    self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
+                    
         hdulist1.close()
         hdulist2.close()
 

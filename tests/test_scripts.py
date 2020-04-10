@@ -69,13 +69,14 @@ class scripts_tests(unittest.TestCase):
         # get_vla_ant_pos.py
         if not os.path.exists('../get_vla_ant_pos.py'):
             with open('../get_vla_ant_pos.py', 'w') as fh:
-                fh.write("""class database(object):
-    def __init__(self, *args, **kwds):\
+                fh.write("""import numpy
+class database(object):
+    def __init__(self, *args, **kwds):
         self._ready = True
     def get_pad(self,ant,date):
         return 'W40', None
     def get_xyz(self,ant,date):
-        return (-6777.0613, -360.7018, -3550.9465)
+        return numpy.array((-6777.0613, -360.7018, -3550.9465), dtype=numpy.float64)
     def close(self):
         return True""")
 

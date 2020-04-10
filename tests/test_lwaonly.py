@@ -31,13 +31,14 @@ class lwa_tests(unittest.TestCase):
         # get_vla_ant_pos.py
         if not os.path.exists('../get_vla_ant_pos.py'):
             with open('../get_vla_ant_pos.py', 'w') as fh:
-                fh.write("""class database(object):
-    def __init__(self, *args, **kwds):\
+                fh.write("""import numpy
+class database(object):
+    def __init__(self, *args, **kwds):
         self._ready = True
     def get_pad(self,ant,date):
         return 'W40', None
     def get_xyz(self,ant,date):
-        return (-6777.0613, -360.7018, -3550.9465)
+        return numpy.array((-6777.0613, -360.7018, -3550.9465), dtype=numpy.float64)
     def close(self):
         return True""")
             
@@ -153,7 +154,7 @@ class lwa_tests(unittest.TestCase):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=5e-7)
+                        same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
