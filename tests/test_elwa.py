@@ -156,13 +156,12 @@ class elwa_tests(unittest.TestCase):
             if hdu1.name == 'PRIMARY':
                 continue
                 
-            r = 0
-            for row1,row2 in zip(hdu1.data, hdu2.data):
+            for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
                         same_value = compare(row1[f], row2[f])
                     except TypeError:
-                        same_value = numpy.array_equal(row2[f], row1[f])
+                        same_value = numpy.array_equal(row1[f], row2[f])
                     #self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
                     if not same_value:
                         print("row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))

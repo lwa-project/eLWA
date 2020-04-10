@@ -150,8 +150,7 @@ class lwa_tests(unittest.TestCase):
             if hdu1.name == 'PRIMARY':
                 continue
                 
-            r = 0
-            for row1,row2 in zip(hdu1.data, hdu2.data):
+            for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
                         same_value = numpy.allclose(row1[f], row2[f], atol=5e-7)
