@@ -1,0 +1,42 @@
+sudo: required
+  
+language: python
+
+python:
+    - 2.7
+
+addons:
+    apt:
+        packages:
+            - build-essential
+            - curl
+            - git
+            - pkg-config
+            - software-properties-common
+            - python-dev
+            - python3-dev
+            - libfftw3-dev
+            - libgdbm-dev
+            - libhdf5-dev
+            - libatlas-base-dev
+
+install:
+    - pip install \
+        setuptools \
+        numpy==1.13.3 \
+        matplotlib==2.1.1 \
+        scipy==0.19.1 \
+        h5py \
+        jinja2
+    - pip install \ 
+        lsl==1.2.5
+    - pip install pylint
+    - curl https://fornax.phys.unm.edu/lwa/data/finals2000A.data -o $HOME/.lsl/geodesy_cache/finals2000A.data --create-dirs
+
+script:
+    - cd tests
+    - python -m unittest discover
+
+cache:
+    directories:
+      - $HOME/.lsl

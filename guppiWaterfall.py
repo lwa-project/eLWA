@@ -694,7 +694,7 @@ def main(args):
             sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
             sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
             obsDur   = obs.dur/1000.0
-            obsSR    = guppi.FILTER_CODES[obs.filter]
+            obsSR    = srate
             
             obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
             
@@ -719,7 +719,7 @@ def main(args):
         for i,obs in enumerate(sdf.sessions[0].observations):
             sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
             sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
-            obsChunks = int(numpy.ceil(obs.dur/1000.0 * guppi.FILTER_CODES[obs.filter] / (spcSetup[0]*spcSetup[1])))
+            obsChunks = int(numpy.ceil(obs.dur/1000.0 * srate / (spcSetup[0]*spcSetup[1])))
             
             obsList[i+1] = (sdfStart, sdfStop, obsChunks)
             

@@ -100,7 +100,7 @@ class EnhancedFixedBody(ephem.FixedBody):
     """
     
     def __init__(self, body=None):
-        super(self.__class__, self).__init__()
+        ephem.FixedBody.__init__(self)
         
         if type(body) is ephem.FixedBody:
             for attr in ('name', '_ra', '_dec', '_epoch', '_pa', '_pmra', '_pmdec'):
@@ -115,7 +115,7 @@ class EnhancedFixedBody(ephem.FixedBody):
                 raise ValueError("Must set _polycos with a PolyCos instance")
                 
         # Set the attribute if everything is ok
-        super(self.__class__, self).__setattr__(name, value)
+        ephem.FixedBody.__setattr__(self, name, value)
         
     def __getattr__(self, name):
         if name in ('phase', 'frequency', 'period'):
@@ -124,7 +124,7 @@ class EnhancedFixedBody(ephem.FixedBody):
                 raise ValueError("Pulsar parameters cannot be determined for a non-pulsar body")
                 
         # Get the attribute if every is ok
-        super(self.__class__, self).__getattr__(name)
+        ephem.FixedBody.__getattr__(self, name)
         
     def compute(self, when=None, epoch=ephem.J2000):
         # Basic validation
@@ -133,9 +133,9 @@ class EnhancedFixedBody(ephem.FixedBody):
             
         # Compute the basic source parameters via PyEphem
         if type(when) is ephem.Observer:
-            super(self.__class__, self).compute(when)
+            ephem.FixedBody.compute(self, when)
         else:
-            super(self.__class__, self).compute(when, epoch=epoch)
+            ephem.FixedBody.compute(self, when, epoch=epoch)
             
         # Compute the pulsar parameters - if applicable
         self.compute_pulsar(when)
@@ -173,7 +173,7 @@ class EnhancedSun(ephem.Sun):
             return 'moving'
             
         # Get the attribute if every is ok
-        super(self.__class__, self).__getattr__(name)
+        ephem.Sun.__getattr__(self, name)
         
     def __setattr__(self, name, value):
         # Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
@@ -182,7 +182,7 @@ class EnhancedSun(ephem.Sun):
             raise AttributeError("Cannot set '%s' on this object" % value)
             
         # Set the attribute if everything is ok
-        super(self.__class__, self).__setattr__(name, value)
+        ephem.Sun.__setattr__(self, name, value)
 
 
 class EnhancedJupiter(ephem.Jupiter):
@@ -198,7 +198,7 @@ class EnhancedJupiter(ephem.Jupiter):
             return 'moving'
             
         # Get the attribute if every is ok
-        super(self.__class__, self).__getattr__(name)
+        ephem.Jupiter.__getattr__(self, name)
         
     def __setattr__(self, name, value):
         # Catch the _ra, _dec, _epoch, etc. attributes since they don't exist
@@ -207,7 +207,7 @@ class EnhancedJupiter(ephem.Jupiter):
             raise AttributeError("Cannot set '%s' on this object" % value)
             
         # Set the attribute if everything is ok
-        super(self.__class__, self).__setattr__(name, value)
+        ephem.Jupiter.__setattr__(self, name, value)
 
 
 def multi_column_print(items, sep=';  ', width=86):

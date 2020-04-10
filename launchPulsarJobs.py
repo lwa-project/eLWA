@@ -420,9 +420,10 @@ def main(args):
     
     # Final exit code evaluation
     failed = 0
-    while True:
+    while not FAILED_QUEUE.empty():
         try:
             status = FAILED_QUEUE.get_nowait()
+            FAILED_QUEUE.task_done()
             if not status:
                 failed += 1
         except:

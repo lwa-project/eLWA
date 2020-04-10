@@ -146,8 +146,8 @@ def main(args):
         try:
             cFrame = guppi.read_frame(fh)
         except errors.SyncError:
-            print "Error @ %i, %i" % (i, j)
-            f.seek(guppi.FRAME_SIZE, 1)
+            print "Error @ %i" % i
+            fh.seek(guppi.FRAME_SIZE, 1)
             continue
         std,pol = cFrame.id
         sid = pol

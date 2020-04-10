@@ -150,6 +150,8 @@ def main(args):
             beam, pol = junkFrame.id
         elif readers[i] is drx:
             junkFrame = readers[i].read_frame(fh[i])
+            while junkFrame.header.decimation == 0:
+                junkFrame = readers[i].read_frame(fh[i])
             readers[i].DataLength = junkFrame.payload.data.size
             beam, tune, pol = junkFrame.id
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
