@@ -67,7 +67,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
                     
     # Define the cable/signal delay caches to help correlate along and compute 
     # the delays that we need to apply to align the signals
-    dlyRef = len(freq)/2
+    dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
         xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
@@ -136,7 +136,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
                     
     # Define the cable/signal delay caches to help correlate along and compute 
     # the delays that we need to apply to align the signals
-    dlyRef = len(freq)/2
+    dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
         xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
