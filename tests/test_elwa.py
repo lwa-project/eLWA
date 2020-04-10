@@ -75,7 +75,7 @@ class database(object):
         """Run the correlator on eLWA data."""
         
         cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
-               '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
+               '-g', self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)

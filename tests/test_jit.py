@@ -1,5 +1,6 @@
 """
-Unit tests for the a small LWA correlation job.
+Unit tests for the a small eLWA correlation job using the just-in-time
+correlator.
 """
 
 # Python3 compatibility
@@ -9,8 +10,6 @@ if sys.version_info > (3,):
     xrange = range
     
 import unittest
-unittest.TestLoader.sortTestMethodsUsing = None
-
 import os
 import re
 import glob
@@ -22,7 +21,7 @@ _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
-class lwa_tests(unittest.TestCase):
+class jit_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
         
@@ -58,8 +57,8 @@ class database(object):
             subprocess.check_call(['tar', '-C', 'ref', '-x', '-z', '-f', 'ref/%s' % _REF])
             
         # Other variables
-        self._FILES = ['0*', 'LT004_*.tgz']
-        self._BASENAME = 'lwaonly'
+        self._FILES = ['0*', '*.vdif', 'LT004_*.tgz']
+        self._BASENAME = 'jit'
         
     def test_0_create(self):
         """Build the correlator configuration file."""
@@ -76,21 +75,17 @@ class database(object):
     def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
-               '-j', '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
-        with open('%s-correlate-L.log' % self._BASENAME, 'w') as logfile:
+        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
+               '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
+        with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
-               '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
-        with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
         
     def test_2_build(self):
         """Build a FITS-IDI file for the eLWA data."""
         
-        files = glob.glob('%s[LH]-*.npz' % self._BASENAME)
-        cmd = ['python', '../buildMultiBandIDI.py', '-t', self._BASENAME]
+        files = glob.glob('%s-*.npz' % self._BASENAME)
+        cmd = ['python', '../buildIDI.py', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
@@ -140,7 +135,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
         
         # Loop through the HDUs
@@ -161,14 +156,15 @@ class database(object):
         hdulist2.close()
 
 
-class lwa_test_suite(unittest.TestSuite):
-    """A unittest.TestSuite class which contains all of the LWA correlation tests."""
+class jit_test_suite(unittest.TestSuite):
+    """A unittest.TestSuite class which contains all of the eLWA correlation tests
+    for the just-in-time version of the correlator."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)
         
         loader = unittest.TestLoader()
-        self.addTests(loader.loadTestsFromTestCase(lwa_tests)) 
+        self.addTests(loader.loadTestsFromTestCase(jit_tests)) 
 
 
 if __name__ == '__main__':
