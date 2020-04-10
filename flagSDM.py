@@ -80,7 +80,7 @@ def main(args):
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)

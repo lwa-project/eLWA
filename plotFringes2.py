@@ -104,8 +104,8 @@ def main(args):
         if nchan % args.decimate != 0:
             raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nchan /= args.decimate
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        nchan //= args.decimate
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
@@ -126,7 +126,7 @@ def main(args):
             cvis = dataDict['vis1%s' % args.polToPlot][cross,:]
             
         if args.decimate > 1:
-            cvis.shape = (cvis.shape[0], cvis.shape[1]/args.decimate, args.decimate)
+            cvis.shape = (cvis.shape[0], cvis.shape[1]//args.decimate, args.decimate)
             cvis = cvis.mean(axis=2)
             
         visToPlot[i,:,:] = cvis

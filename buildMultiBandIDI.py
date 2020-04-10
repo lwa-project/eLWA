@@ -232,10 +232,10 @@ def main(args):
         if to_drop != 0:
             print("Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3))
             
-        nchan /= args.decimate
+        nchan //= args.decimate
         if to_drop != 0:
             freq = freq[:to_trim]
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     # Figure out the visibility conjugation problem in LSL, pre-1.1.4
@@ -313,13 +313,13 @@ def main(args):
                 visYX = visYX[:,:to_trim]
                 visYY = visYY[:,:to_trim]
                 
-            visXX.shape = (visXX.shape[0], visXX.shape[1]/args.decimate, args.decimate)
+            visXX.shape = (visXX.shape[0], visXX.shape[1]//args.decimate, args.decimate)
             visXX = visXX.mean(axis=2)
-            visXY.shape = (visXY.shape[0], visXY.shape[1]/args.decimate, args.decimate)
+            visXY.shape = (visXY.shape[0], visXY.shape[1]//args.decimate, args.decimate)
             visXY = visXY.mean(axis=2)
-            visYX.shape = (visYX.shape[0], visYX.shape[1]/args.decimate, args.decimate)
+            visYX.shape = (visYX.shape[0], visYX.shape[1]//args.decimate, args.decimate)
             visYX = visYX.mean(axis=2)
-            visYY.shape = (visYY.shape[0], visYY.shape[1]/args.decimate, args.decimate)
+            visYY.shape = (visYY.shape[0], visYY.shape[1]//args.decimate, args.decimate)
             visYY = visYY.mean(axis=2)
             
         if conjugateVis:
@@ -351,9 +351,9 @@ def main(args):
             ## Create the FITS-IDI file as needed
             ### What to call it
             if args.tag is None:
-                outname = 'buildIDI.FITS_%i' % (i/args.split+1,)
+                outname = 'buildIDI.FITS_%i' % (i//args.split+1,)
             else:
-                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i/args.split+1,)
+                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i//args.split+1,)
                 
             ### Does it already exist or not
             if os.path.exists(outname):

@@ -81,7 +81,7 @@ def main(args):
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)
@@ -130,9 +130,9 @@ def main(args):
                 
                 nBL = len(bbls)
                 times = times[0::nBL]
-                crd.shape = (crd.shape[0]/nBL, nBL, 1, 3)
-                visXX.shape = (visXX.shape[0]/nBL, nBL, visXX.shape[1])
-                visYY.shape = (visYY.shape[0]/nBL, nBL, visYY.shape[1])
+                crd.shape = (crd.shape[0]//nBL, nBL, 1, 3)
+                visXX.shape = (visXX.shape[0]//nBL, nBL, visXX.shape[1])
+                visYY.shape = (visYY.shape[0]//nBL, nBL, visYY.shape[1])
                 print('      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape)
                 
                 if visXX.shape[0] < 5:

@@ -45,8 +45,8 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
     
     # Compute the smoothed bandpass model
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     try:
         scl = robust.mean(smth)
@@ -121,8 +121,8 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0):
     
     # Compute the smoothed drift model
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(drift[mn:mx])
     try:
         scl = robust.mean(smth)

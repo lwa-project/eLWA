@@ -82,7 +82,7 @@ def main(args):
     flux = uvdata.data['FLUX'].astype(numpy.float32)
     
     # Convert the visibilities to something that we can easily work with
-    nComp = flux.shape[1] / nBand / nFreq / nStk
+    nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
         flux = flux.view(numpy.complex64)
@@ -199,8 +199,8 @@ def main(args):
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth

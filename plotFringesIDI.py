@@ -85,7 +85,7 @@ def main(args):
     flux = uvdata.data['FLUX'].astype(numpy.float32)
     
     # Convert the visibilities to something that we can easily work with
-    nComp = flux.shape[1] / nBand / nFreq / nStk
+    nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
         flux = flux.view(numpy.complex64)
@@ -110,7 +110,7 @@ def main(args):
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
         mintimes = reltimes - inttimes / 2.0 / 86400.0
         
-        bls_ant1 = bls/256
+        bls_ant1 = bls//256
         bls_ant2 = bls%256
         
         for row in fgdata.data:
@@ -183,17 +183,17 @@ def main(args):
         if nFreq % args.decimate != 0:
             raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
 
-        nFreq /= args.decimate
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        nFreq //= args.decimate
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]/args.decimate, args.decimate, flux.shape[3])
+        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]//args.decimate, args.decimate, flux.shape[3])
         flux = flux.mean(axis=3)
         
-        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimate, args.decimate, mask.shape[3])
+        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
         mask = mask.mean(axis=3)
         
-    good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
+    good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
     
     # NOTE: Assumes that the Stokes parameters increment by -1
     namMapper = {}

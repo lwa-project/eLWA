@@ -90,7 +90,7 @@ def main(args):
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)
@@ -225,9 +225,9 @@ def main(args):
                     reas.append( row['REASON'] )
                     sevs.append( row['SEVERITY'] )
         ## New Flags
-        obsdates.shape = (obsdates.shape[0]/nBL, nBL)
-        obstimes.shape = (obstimes.shape[0]/nBL, nBL)
-        mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
+        obsdates.shape = (obsdates.shape[0]//nBL, nBL)
+        obstimes.shape = (obstimes.shape[0]//nBL, nBL)
+        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:

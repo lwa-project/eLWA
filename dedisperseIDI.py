@@ -110,7 +110,7 @@ def get_flags_as_mask(hdulist, selection=None, version=0):
             maxtimes = maxtimes[selection]
             mintimes = mintimes[selection]
             
-        bls_ant1 = bls/256
+        bls_ant1 = bls//256
         bls_ant2 = bls%256
         
         for row in fgdata.data:
@@ -187,7 +187,7 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
             flux = uvdata.data['FLUX'][match].astype(numpy.float32)
             
             # Convert the visibilities to something that we can easily work with
-            nComp = flux.shape[1] / nBand / nFreq / nStk
+            nComp = flux.shape[1] // nBand // nFreq // nStk
             if nComp == 2:
                 ## Case 1) - Just real and imaginary data
                 flux = flux.view(numpy.complex64)
@@ -260,7 +260,7 @@ def main(args):
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)
@@ -311,10 +311,10 @@ def main(args):
                     to_trim = ofm.shape[0]
                     vis = numpy.concatenate([vis, nextflux])
                     ofm = numpy.concatenate([ofm, nextmask])
-                    print('      Appended %i times from the next file in the sequence' % (nextflux.shape[0]/nBL))
+                    print('      Appended %i times from the next file in the sequence' % (nextflux.shape[0]//nBL))
                     
-            vis.shape = (vis.shape[0]/nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
-            ofm.shape = (ofm.shape[0]/nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
+            vis.shape = (vis.shape[0]//nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
+            ofm.shape = (ofm.shape[0]//nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
             print('      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape)
             
             if vis.shape[0] < 5:
@@ -326,8 +326,8 @@ def main(args):
                     for k in xrange(nStk):
                         vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
                         ofm[:,j,:,k] = incoherent(freq_comb, ofm[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=True)
-            vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]/len(fqoffsets), vis.shape[3])
-            ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]/len(fqoffsets), ofm.shape[3])
+            vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]//len(fqoffsets), vis.shape[3])
+            ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]//len(fqoffsets), ofm.shape[3])
             
             if to_trim != -1:
                 print('      Removing the appended times')

@@ -84,8 +84,8 @@ def main(args):
         if nchan % args.decimate != 0:
             raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nchan /= args.decimate
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        nchan //= args.decimate
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
@@ -106,13 +106,13 @@ def main(args):
         cvisYY = dataDict['vis1YY'][cross,:]
         
         if args.decimate > 1:
-            cvisXX.shape = (cvisXX.shape[0], cvisXX.shape[1]/args.decimate, args.decimate)
+            cvisXX.shape = (cvisXX.shape[0], cvisXX.shape[1]//args.decimate, args.decimate)
             cvisXX = cvisXX.mean(axis=2)
-            cvisXY.shape = (cvisXY.shape[0], cvisXY.shape[1]/args.decimate, args.decimate)
+            cvisXY.shape = (cvisXY.shape[0], cvisXY.shape[1]//args.decimate, args.decimate)
             cvisXY = cvisXY.mean(axis=2)
-            cvisYX.shape = (cvisYX.shape[0], cvisYX.shape[1]/args.decimate, args.decimate)
+            cvisYX.shape = (cvisYX.shape[0], cvisYX.shape[1]//args.decimate, args.decimate)
             cvisYX = cvisYX.mean(axis=2)
-            cvisYY.shape = (cvisYY.shape[0], cvisYY.shape[1]/args.decimate, args.decimate)
+            cvisYY.shape = (cvisYY.shape[0], cvisYY.shape[1]//args.decimate, args.decimate)
             cvisYY = cvisYY.mean(axis=2)
             
         visXX[i,:,:] = cvisXX
@@ -187,8 +187,8 @@ def main(args):
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth

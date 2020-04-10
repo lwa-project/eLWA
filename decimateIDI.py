@@ -72,7 +72,7 @@ def main(args):
         weight = uvdata.data['WEIGHT'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)
@@ -95,7 +95,7 @@ def main(args):
             maxtimes = reltimes + inttimes / 2.0 / 86400.0
             mintimes = reltimes - inttimes / 2.0 / 86400.0
             
-            bls_ant1 = bls/256
+            bls_ant1 = bls//256
             bls_ant2 = bls%256
             
             for row in fgdata.data:
@@ -137,13 +137,13 @@ def main(args):
             weight = weight[:,:,:to_trim,:]
             mask = mask[:,:,:to_trim,:]
         ## Go
-        freq.shape = (freq.shape[0]/args.decimation, args.decimation)
+        freq.shape = (freq.shape[0]//args.decimation, args.decimation)
         freq = freq.mean(axis=1)
-        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]/args.decimation, args.decimation, flux.shape[3])
+        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]//args.decimation, args.decimation, flux.shape[3])
         flux = flux.mean(axis=3)
-        weight.shape = (weight.shape[0], weight.shape[1], weight.shape[2]/args.decimation, args.decimation, weight.shape[3])
+        weight.shape = (weight.shape[0], weight.shape[1], weight.shape[2]//args.decimation, args.decimation, weight.shape[3])
         weight = weight.mean(axis=3)
-        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimation, args.decimation, mask.shape[3])
+        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimation, args.decimation, mask.shape[3])
         mask = mask.mean(axis=3).astype(numpy.bool)
         nFreq = freq.size
         print("  Decimated to %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3))
@@ -307,7 +307,7 @@ def main(args):
                     fmt = col.format
                     if col.name in ('BREAL_1', 'BIMAG_1', 'BREAL_2', 'BIMAG_2'):
                         temp = temp.reshape(temp.shape[0], -1)
-                        temp.shape = (temp.shape[0], nBand, temp.shape[1]/nBand)
+                        temp.shape = (temp.shape[0], nBand, temp.shape[1]//nBand)
                         temp = temp[:,:,:nFreq]
                         temp.shape = (temp.shape[0], temp.shape[1]*temp.shape[2])
                         temp = temp.astype(hdu.data[col.name].dtype)
