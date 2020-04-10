@@ -16,7 +16,6 @@ from astropy.constants import c as vLight
 vLight = vLight.to('m/s').value
 
 from lsl.common import dp as dp_common
-from lsl.common.constants import *
 from lsl.correlator import _core
 from lsl.correlator.fx import pol_to_pol, null_window
 

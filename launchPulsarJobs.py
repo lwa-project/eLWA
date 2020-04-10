@@ -19,7 +19,10 @@ import getopt
 import tempfile
 import threading
 import subprocess
-from Queue import Queue
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
 from getpass import getuser
 
 

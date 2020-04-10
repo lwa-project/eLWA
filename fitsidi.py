@@ -437,7 +437,8 @@ class Idi(WriterBase):
         # If the mapper has been enabled, tell the user about it
         if enableMapper and self.verbose:
             print("FITS IDI: stand ID mapping enabled")
-            for key, value in mapper.iteritems():
+            for key in mapper.keys():
+                value = mapper[key]
                 print("FITS IDI:  stand #%i -> mapped #%i" % (key, value))
                 
         self.nAnt = len(ants)

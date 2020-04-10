@@ -18,7 +18,7 @@ from lsl.reader.errors import SyncError, EOFError
 
 
 __version__ = '0.2'
-__all__ = ['FrameHeader', 'FrameData', 'Frame', 'read_guppi_header', 'read_frame', 
+__all__ = ['FrameHeader', 'FramePayload', 'Frame', 'read_guppi_header', 'read_frame', 
         'get_frame_size', 'get_thread_count', 'get_frames_per_second', 
         'get_sample_rate', 'get_central_freq']
 
@@ -180,7 +180,7 @@ def read_guppi_header(filehandle):
     return header
 
 
-def read_frame(filehandle, Verbose=False):
+def read_frame(filehandle, verbose=False):
     try:
         _param_cache[filehandle]
     except KeyError:
@@ -248,8 +248,8 @@ def read_frame(filehandle, Verbose=False):
             fhdr = FrameHeader(imjd=imjd, smjd=smjd, fmjd=fmjd, offset=offset, 
                         bits_per_sample=nbits, thread_id=j, station_id=ant, 
                         sample_rate=srate, central_freq=cfreq)
-            fdat = FrameData(data=fpkt)
-            frames.append( Frame(header=fhdr, data=fdat) )
+            fdat = FramePayload(data=fpkt)
+            frames.append( Frame(header=fhdr, payload=fdat) )
             
         if len(frames) == 1:
             frame = frames[0]

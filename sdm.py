@@ -11,6 +11,7 @@ if sys.version_info > (3,):
 import os
 import numpy
 import struct
+from functools import reduce
 from xml.etree import ElementTree
 
 from lsl.astro import utcjd_to_unix, MJD_OFFSET

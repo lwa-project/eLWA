@@ -10,6 +10,7 @@ from __future__ import print_function, division, absolute_import
 import sys
 if sys.version_info > (3,):
     xrange = range
+    raw_input = input
     
 import os
 import re
@@ -57,7 +58,7 @@ def cmpNPZ(x, y):
         yDD.close()
         yT = _CMP_CACHE[y]
         
-    return cmp(xT, yT)
+    return (xT > yT) - (xT < yT)
 
 
 _SIMBAD_CACHE = {}
@@ -372,7 +373,7 @@ def main(args):
             fits.set_frequency(freqL)
             fits.set_frequency(freqH)
             fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
-            fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
+            fits.add_history('Created with %s, revision $Rev$' % os.path.basename(__file__))
             print("Opening %s for writing" % outname)
             
         if i % 10 == 0:
@@ -381,7 +382,7 @@ def main(args):
         ## Save any delay step information
         for step,ant in zip(delayStepApplied, [ant for ant in antennas if ant.pol == 0]):
             if step:
-                fits.addHistory("Delay step at %i %f" % (ant.stand.id, tStart))
+                fits.add_history("Delay step at %i %f" % (ant.stand.id, tStart))
                 
         ## Update the observation
         observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')

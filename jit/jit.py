@@ -273,7 +273,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=noWindow):
+    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=null_window):
         """
         Generate an optimized version of the various time-domain functions 
         for the given parameters, update the cache, and return the module.
@@ -281,7 +281,7 @@ return 0;
         
         # Figure out if we are in window mode or not
         useWindow = False
-        if window is not noWindow:
+        if window is not null_window:
             useWindow = True
             
         # Sort out the data types we need

@@ -10,6 +10,7 @@ from __future__ import print_function, division, absolute_import
 import sys
 if sys.version_info > (3,):
     xrange = range
+    raw_input = input
     
 import os
 import sys
