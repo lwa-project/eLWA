@@ -369,7 +369,7 @@ def main(args):
     while drxLFFT != int(drxLFFT):
         vdifLFFT += 1
         drxLFFT = vdifLFFT * srate[-1] / srate[0]
-    vdifLFFT = vdifLFFT / (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
+    vdifLFFT = vdifLFFT // (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = int(drxLFFT)
     if nVDIFInputs:
         print("VDIF Transform Size: %i" % vdifLFFT)
