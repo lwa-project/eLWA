@@ -541,42 +541,7 @@ def get_better_time(frame):
       * fractional second
     """
     
-    if type(frame) == vdif.Frame:
-        epochDT = datetime(2000+frame.header.ref_epoch/2, (frame.header.ref_epoch % 2)*6+1, 1, 0, 0, 0, 0)
-        epochMJD, epochMPM = datetime_to_mjdmpm(epochDT)
-        sec = int(round(astro.utcjd_to_unix(epochMJD + astro.MJD_OFFSET)))
-        sec += frame.header.seconds_from_epoch
-
-        dataSize = frame.header.frame_length*8 - 32 + 16*frame.header.is_legacy
-        samplesPerWord = 32 / frame.header.bits_per_sample                                # dimensionless
-        nSamples = dataSize / 4 * samplesPerWord                                # bytes -> words -> samples
-        frameRate = frame.header.sample_rate / nSamples
-        frac = frame.header.frame_in_second/frameRate
-        
-    elif type(frame) == guppi.Frame:
-        mjd = frame.header.imjd + frame.header.smjd / 86400.0
-        sec = int(round(astro.utcjd_to_unix(mjd + astro.MJD_OFFSET)))
-        
-        offset = frame.header.offset
-        whol = offset / int(frame.sample_rate)
-        frac = (offset - whol*int(frame.sample_rate)) / float(frame.sample_rate)
-        
-        sec += whol
-        frac += frame.header.fmjd
-        if frac >= 1.0:
-            sec += 1
-            frac -= 1.0
-            
-    elif type(frame) == drx.Frame:
-        # HACK - What should T_NOM really be at LWA1???
-        tt = frame.data.timetag - (6660 if frame.header.time_offset else 0)
-        sec = tt/196000000
-        frac = (tt - sec*196000000)/196e6
-        
-    else:
-        raise TypeError("Unknown frame type: %s" % type(frame).__name__)
-        
-    return [sec, frac]
+    return frame.time
 
 
 def parse_lwa_metadata(filename):

@@ -18,7 +18,7 @@ vLight = vLight.to('m/s').value
 from lsl.common import dp as dp_common
 from lsl.common.constants import *
 from lsl.correlator import _core
-from lsl.correlator.fx import pol_to_pol, no_window
+from lsl.correlator.fx import pol_to_pol, null_window
 
 from jit import JustInTimeOptimizer
 
@@ -85,7 +85,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=no_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=null_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -166,7 +166,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=Fa
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=no_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def pfbengine(signals, antennas, LFFT=64, overlap=1, IncludeAuto=False, verbose=False, window=null_window, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
     """
     Multi-rate PFB-based F engine based on the lsl.correlator.fx.FXMaster() function.
     """

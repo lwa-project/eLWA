@@ -103,7 +103,7 @@ def main(args):
                     except Exception as e:
                         sdf = metabundleADP.get_sdf(filename)
                         
-                    comments = sdf.projectOffice.sessions[0]
+                    comments = sdf.project_office.sessions[0]
                     mtch = CORR_CHANNELS.search(comments)
                     if mtch is not None:
                         corr_channels = int(mtch.group('channels'), 10)
@@ -146,7 +146,7 @@ def main(args):
                         sources.append( {'name':name, 'intent':intent, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
                         
                         ### Alternate phase centers
-                        comments = sdf.projectOffice.observations[0][o]
+                        comments = sdf.project_office.observations[0][o]
                         
                         alts = {}
                         for mtch in ALT_TARGET.finditer(comments):
@@ -264,8 +264,8 @@ def main(args):
                         freq2 = frame.central_freq
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
-                tStart = datetime.utcfromtimestamp(sum(frames[0].get_time()))
-                tStartAlt = datetime.utcfromtimestamp(sum(frames[-1].get_time()) \
+                tStart = datetime.utcfromtimestamp(sum(frames[0].time))
+                tStartAlt = datetime.utcfromtimestamp(sum(frames[-1].time) \
                                                       - 1023/len(streams)*4096/frames[-1].sample_rate)
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
@@ -296,7 +296,7 @@ def main(args):
                             freq2 = frame.central_freq
                     except errors.SyncError:
                         continue
-                tStop = datetime.utcfromtimestamp(sum(frame.get_time()))
+                tStop = datetime.utcfromtimestamp(sum(frame.time))
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
@@ -319,7 +319,7 @@ def main(args):
                 vdif.FRAME_SIZE = vdif.get_frame_size(fh)
                 frame = vdif.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.get_time()))
+                tStart =  datetime.utcfromtimestamp(sum(frame.time))
                 nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -330,7 +330,7 @@ def main(args):
                 while True:
                     try:
                         frame = vdif.read_frame(fh)
-                        tStop = datetime.utcfromtimestamp(sum(frame.get_time()))
+                        tStop = datetime.utcfromtimestamp(sum(frame.time))
                     except Exception as e:
                         break
                         
@@ -378,7 +378,7 @@ def main(args):
                 guppi.FRAME_SIZE = guppi.get_frame_size(fh)
                 frame = guppi.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.get_time()))
+                tStart =  datetime.utcfromtimestamp(sum(frame.time))
                 nThread = guppi.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -387,7 +387,7 @@ def main(args):
                 fh.seek(nJump*guppi.FRAME_SIZE, 1)
                 mark = fh.tell()
                 frame = guppi.read_frame(fh)
-                tStop = datetime.utcfromtimestamp(sum(frame.get_time()))
+                tStop = datetime.utcfromtimestamp(sum(frame.time))
             
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)

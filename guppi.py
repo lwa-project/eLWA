@@ -83,7 +83,7 @@ class FramePayload(FramePayloadBase):
     """
     
     def __init__(self, data=None):
-        FramePayloadBase(self, data)
+        FramePayloadBase.__init__(self, data)
 
 
 class Frame(FrameBase):

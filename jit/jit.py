@@ -25,7 +25,7 @@ from distutils import ccompiler
 
 from jinja2 import Environment, FileSystemLoader, Template
 
-from lsl.correlator.fx import no_window
+from lsl.correlator.fx import null_window
 
 
 __version__ = '0.1'
@@ -386,7 +386,7 @@ return 0;
         try:
             window = kwds['window']
         except KeyError:
-            window = no_window
+            window = null_window
             
         # Get the optimized module
         mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
