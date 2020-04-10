@@ -149,8 +149,8 @@ def main(args):
     filenames.sort(cmp=cmpNPZ)
     if args.limit != -1:
         filenames = filenames[:args.limit]
-    lownames = filter(lambda x: x.find('L-vis2') != -1, filenames)
-    highnames = filter(lambda x: x.find('H-vis2') != -1, filenames)
+    lownames = list(filter(lambda x: x.find('L-vis2') != -1, filenames))
+    highnames = list(filter(lambda x: x.find('H-vis2') != -1, filenames))
     assert(len(lownames) == len(highnames))
     
     # Build up the station
