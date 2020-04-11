@@ -101,6 +101,11 @@ def getSourceName(src):
         ## Parse
         rank = 0
         for line in matches:
+            try:
+                line = line.decode(encoding='ascii', errors='ignore')
+            except AttributeError:
+                pass
+                
             ### Skip over blank lines, comments, and ASCII table headers
             if len(line) < 3:
                 continue

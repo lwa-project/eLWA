@@ -211,6 +211,10 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     p = subprocess.Popen(['grep', 'Polyco', configfile], stdout=subprocess.PIPE)
     polyfile, err = p.communicate()
     try:
+        try:
+            polyfile = polyfile.decode(encoding='ascii', errors='ignore')
+        except AttributeError:
+            pass
         polyfile = polyfile.split(None, 1)[1].strip().rstrip()
         polyfile = os.path.join(os.path.dirname(configfile), polyfile)
     except IndexError:

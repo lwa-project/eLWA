@@ -171,7 +171,7 @@ def main(args):
         skip = args.skip + foffset
         if skip != 0:
             print("Skipping forward %.3f s" % skip)
-            print("-> %.6f (%s)" % (sum(junkFrame.time), datetime.utcfromtimestamp(sum(junkFrame.time))))
+            print("-> %.6f (%s)" % (sum(junkFrame.time, 0.0), datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))))
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -181,9 +181,9 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print("-> %.6f (%s)" % (sum(junkFrame.time), datetime.utcfromtimestamp(sum(junkFrame.time))))
+            print("-> %.6f (%s)" % (sum(junkFrame.time, 0.0), datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))))
             
-        tStart.append( sum(junkFrame.time) + grossOffsets[i] )
+        tStart.append( sum(junkFrame.time, 0.0) + grossOffsets[i] )
         
         # Get the frequencies
         cFreq1 = 0.0
@@ -263,7 +263,7 @@ def main(args):
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
         j = 0
-        while sum(junkFrame.time) + grossOffsets[i] < max(tStart):
+        while sum(junkFrame.time, 0.0) + grossOffsets[i] < max(tStart):
             if readers[i] is vdif:
                 for k in xrange(beampols[i]):
                     try:
@@ -314,8 +314,8 @@ def main(args):
             junkFrame = readers[i].read_frame(fh[i])
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
-        beginMJDs.append( astro.unix_to_utcjd(sum(junkFrame.time)) - astro.MJD_OFFSET)
-        beginDates.append( datetime.utcfromtimestamp(sum(junkFrame.time)) )
+        beginMJDs.append( astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.MJD_OFFSET)
+        beginDates.append( datetime.utcfromtimestamp(sum(junkFrame.time, 0.0)) )
         
     # Set the output base filename
     if args.tag is None:
@@ -448,7 +448,7 @@ def main(args):
                         sid = 2*j + pol
                         
                         if k == 0:
-                            tStart.append( sum(cFrame.time) )
+                            tStart.append( sum(cFrame.time, 0.0) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
@@ -485,7 +485,7 @@ def main(args):
                         sid = 2*j + pol
                         
                         if k == 0:
-                            tStart.append( sum(cFrame.time) )
+                            tStart.append( sum(cFrame.time, 0.0) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]
@@ -524,7 +524,7 @@ def main(args):
                         bid = 2*(j-nVDIFInputs) + pol
                         
                         if k == 0:
-                            tStart.append( sum(cFrame.time) )
+                            tStart.append( sum(cFrame.time, 0.0) )
                             tStart[-1] += grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
                             tStartB[-1][0] += grossOffsets[j]

@@ -264,8 +264,8 @@ def main(args):
                         freq2 = frame.central_freq
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
-                tStart = datetime.utcfromtimestamp(sum(frames[0].time))
-                tStartAlt = datetime.utcfromtimestamp(sum(frames[-1].time) \
+                tStart = datetime.utcfromtimestamp(sum(frames[0].time, 0.0))
+                tStartAlt = datetime.utcfromtimestamp(sum(frames[-1].time, 0.0) \
                                                       - 1023/len(streams)*4096/frames[-1].sample_rate)
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
@@ -296,7 +296,7 @@ def main(args):
                             freq2 = frame.central_freq
                     except errors.SyncError:
                         continue
-                tStop = datetime.utcfromtimestamp(sum(frame.time))
+                tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
@@ -319,7 +319,7 @@ def main(args):
                 vdif.FRAME_SIZE = vdif.get_frame_size(fh)
                 frame = vdif.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.time))
+                tStart =  datetime.utcfromtimestamp(sum(frame.time, 0.0))
                 nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -330,7 +330,7 @@ def main(args):
                 while True:
                     try:
                         frame = vdif.read_frame(fh)
-                        tStop = datetime.utcfromtimestamp(sum(frame.time))
+                        tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
                     except Exception as e:
                         break
                         
@@ -378,7 +378,7 @@ def main(args):
                 guppi.FRAME_SIZE = guppi.get_frame_size(fh)
                 frame = guppi.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.time))
+                tStart =  datetime.utcfromtimestamp(sum(frame.time, 0.0))
                 nThread = guppi.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -387,7 +387,7 @@ def main(args):
                 fh.seek(nJump*guppi.FRAME_SIZE, 1)
                 mark = fh.tell()
                 frame = guppi.read_frame(fh)
-                tStop = datetime.utcfromtimestamp(sum(frame.time))
+                tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
             
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
@@ -485,7 +485,7 @@ def main(args):
     # Sort the inputs based on the antenna name - this puts LWA1 first, 
     # LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
     # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else x['antenna']))
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else int(x['antenna'][2:], 10)))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
