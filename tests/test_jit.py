@@ -69,7 +69,14 @@ class database(object):
             
         cmd = ['python', '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
-        status = subprocess.check_call(cmd)
+        with open('%s-create.log' % self._BASENAME, 'w') as logfile:
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-create.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_1_correlate(self):
@@ -78,7 +85,15 @@ class database(object):
         cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
                '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s.config' % self._BASENAME, 'r') as configfile:
+                print(configfile.read())
+            with open('%s-correlate.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_2_build(self):
@@ -88,7 +103,13 @@ class database(object):
         cmd = ['python', '../buildIDI.py', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-build.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_3_flag_steps(self):
@@ -96,7 +117,13 @@ class database(object):
         
         cmd = ['python', '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag-0.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-flag-0.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_4_flag_rfi(self):
@@ -104,7 +131,13 @@ class database(object):
         
         cmd = ['python', '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
         with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-flag-1.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_5_validate_headers(self):
@@ -158,7 +191,7 @@ class database(object):
 
 class jit_test_suite(unittest.TestSuite):
     """A unittest.TestSuite class which contains all of the eLWA correlation tests
-    for the just-in-time version of the correlator ."""
+    for the just-in-time version of the correlator."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)

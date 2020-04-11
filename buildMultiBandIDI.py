@@ -11,6 +11,7 @@ import sys
 if sys.version_info > (3,):
     xrange = range
     raw_input = input
+    from functools import cmp_to_key
     
 import os
 import re
@@ -146,7 +147,10 @@ def main(args):
     # first input filename as the file regex
     if len(filenames) == 1 and filenames[0].find('*') != -1:
         filenames = glob.glob(filenames[0])
-    filenames.sort(cmp=cmpNPZ)
+    try:
+        filenames.sort(cmp=cmpNPZ)
+    except TypeError:
+        filenames.sort(key=cmp_to_key(cmpNPZ))
     if args.limit != -1:
         filenames = filenames[:args.limit]
     lownames = list(filter(lambda x: x.find('L-vis2') != -1, filenames))
