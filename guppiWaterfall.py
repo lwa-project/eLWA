@@ -185,14 +185,14 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     # Find the start of the observation
     junkFrame = guppi.read_frame(fh)
     srate = junkFrame.sample_rate
-    t0 = junkFrame.get_time()
+    t0 = sum(junkFrame.time, 0.0)
     fh.seek(-guppi.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = guppi.read_frame(fh)
         srate = junkFrame.sample_rate
-        t0 = junkFrame.get_time()
+        t0 = sum(junkFrame.time, 0.0)
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -229,7 +229,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):
@@ -291,7 +291,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.get_time()
+                cTime = sum(cFrame.time, 0.0)
                 
             try:
                 data[aStand, count[aStand]*guppi.DATA_LENGTH:(count[aStand]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
@@ -353,14 +353,14 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     # Find the start of the observation
     junkFrame = guppi.read_frame(fh)
     srate = junkFrame.sample_rate
-    t0 = junkFrame.get_time()
+    t0 = sum(junkFrame.time, 0.0)
     fh.seek(-guppi.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = guppi.read_frame(fh)
         srate = junkFrame.sample_rate
-        t0 = junkFrame.get_time()
+        t0 = sum(junkFrame.time, 0.0)
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -398,7 +398,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):
@@ -460,7 +460,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.get_time()
+                cTime = sum(cFrame.time, 0.0)
                 
             try:
                 data[aStand, count[aStand]*guppi.DATA_LENGTH:(count[aStand]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
@@ -527,7 +527,7 @@ def main(args):
             junkFrame = guppi.read_frame(fh)
             try:
                 srate = junkFrame.sample_rate
-                t0 = junkFrame.get_time()
+                t0 = sum(junkFrame.time, 0.0)
                 guppi.DATA_LENGTH = junkFrame.payload.data.size
                 break
             except ZeroDivisionError:
@@ -556,7 +556,7 @@ def main(args):
         ## rate is
         junkFrame = guppi.read_frame(fh)
         srate = junkFrame.sample_rate
-        t1 = junkFrame.get_time()
+        t1 = sum(junkFrame.time, 0.0)
         tunepols = (guppi.get_thread_count(fh),)
         tunepol = tunepols[0]
         beampols = 1#tunepol
@@ -609,8 +609,8 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = junkFrame.get_time()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    t1  = sum(junkFrame.time, 0.0)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):

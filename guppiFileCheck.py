@@ -104,7 +104,7 @@ def main(args):
     # Date
     junkFrame = guppi.read_frame(fh)
     fh.seek(-guppi.FRAME_SIZE, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
+    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
         
     # Report
     print("Filename: %s" % os.path.basename(filename))

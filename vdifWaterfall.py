@@ -185,14 +185,14 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     # Find the start of the observation
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     srate = junkFrame.sample_rate
-    t0 = junkFrame.get_time()
+    t0 = sum(junkFrame.time, 0.0)
     fh.seek(-vdif.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
-        t0 = junkFrame.get_time()
+        t0 = sum(junkFrame.time, 0.0)
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -247,7 +247,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             fh.seek(vdif.FRAME_SIZE, 1)
             
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):
@@ -310,7 +310,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.get_time()
+                cTime = sum(cFrame.time, 0.0)
                 
             try:
                 data[aStand, count[aStand]*vdif.DATA_LENGTH:(count[aStand]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
@@ -372,14 +372,14 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     # Find the start of the observation
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     srate = junkFrame.sample_rate
-    t0 = junkFrame.get_time()
+    t0 = sum(junkFrame.time, 0.0)
     fh.seek(-vdif.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
     while datetime.utcfromtimestamp(t0) < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
-        t0 = junkFrame.get_time()
+        t0 = sum(junkFrame.time, 0.0)
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
     tDiff = datetime.utcfromtimestamp(t0) - tStart
     try:
@@ -434,7 +434,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             fh.seek(vdif.FRAME_SIZE, 1)
             
     # Date & Central Frequency
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):
@@ -497,7 +497,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             beam,pol = cFrame.id
             aStand = pol
             if j is 0:
-                cTime = cFrame.get_time()
+                cTime = sum(cFrame.time, 0.0)
                 
             try:
                 data[aStand, count[aStand]*vdif.DATA_LENGTH:(count[aStand]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
@@ -564,7 +564,7 @@ def main(args):
             junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             try:
                 srate = junkFrame.sample_rate
-                t0 = junkFrame.get_time()
+                t0 = sum(junkFrame.time, 0.0)
                 vdif.DATA_LENGTH = junkFrame.payload.data.size
                 break
             except ZeroDivisionError:
@@ -593,7 +593,7 @@ def main(args):
         ## rate is
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
-        t1 = junkFrame.get_time()
+        t1 = sum(junkFrame.time, 0.0)
         tunepols = (vdif.get_thread_count(fh),)
         tunepol = tunepols[0]
         beampols = tunepol
@@ -646,8 +646,8 @@ def main(args):
     nFrames = nFramesAvg*nChunks
     
     # Date & Central Frequency
-    t1  = junkFrame.get_time()
-    beginDate = ephem.Date(unix_to_utcjd(junkFrame.get_time()) - DJD_OFFSET)
+    t1  = sum(junkFrame.time, 0.0)
+    beginDate = ephem.Date(unix_to_utcjd(sum(junkFrame.time, 0.0)) - DJD_OFFSET)
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in xrange(4):

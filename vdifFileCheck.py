@@ -103,7 +103,7 @@ def main(args):
     # Date
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     fh.seek(-vdif.FRAME_SIZE, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
+    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
         
     # Report
     print("Filename: %s" % os.path.basename(filename))

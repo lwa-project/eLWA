@@ -99,15 +99,15 @@ def main(args):
     
     if config['skip'] != 0:
         print("Skipping forward %.3f s" % config['skip'])
-        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
+        print("-> %.6f (%s)" % (sum(junkFrame.time, 0.0), datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))))
         
         offset = int(config['skip']*srate / vdif.DATA_LENGTH)
         fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         fh.seek(-vdif.FRAME_SIZE, 1)
         
-        print("-> %.6f (%s)" % (junkFrame.get_time(), datetime.utcfromtimestamp(junkFrame.get_time())))
-        tStart = junkFrame.get_time()
+        print("-> %.6f (%s)" % (sum(junkFrame.time, 0.0), datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))))
+        tStart = sum(junkFrame.time, 0.0)
         
     # Get the frequencies
     cFreq = 0.0
@@ -130,7 +130,7 @@ def main(args):
     # Date
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     fh.seek(-vdif.FRAME_SIZE, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.get_time())
+    beginDate = datetime.utcfromtimestamp(sum(junkFrame.time, 0.0))
         
     # Report
     print("Filename: %s" % os.path.basename(filename))
