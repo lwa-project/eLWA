@@ -49,7 +49,7 @@ def main(args):
     
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
+    prevDate = junkFrame.time.datetime
     prevTime = junkFrame.header.offset / int(sample_rate)
     prevFrame = junkFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH
 
@@ -77,7 +77,7 @@ def main(args):
         currFrame = guppi.read_frame(fh)
         
         station, thread = currFrame.id		
-        prevDate[thread] = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        prevDate[thread] = currFrame.time.datetime
         prevTime[thread] = currFrame.header.offset / int(sample_rate)
         prevFrame[thread] = currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH
         
@@ -99,7 +99,7 @@ def main(args):
         
             
         station, thread = currFrame.id
-        currDate = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        currDate = currFrame.time.datetime
         print("->", thread, get_better_time(currFrame), currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH)
         currTime = currFrame.header.offset / int(sample_rate)
         currFrame = currFrame.header.offset % int(sample_rate) / guppi.DATA_LENGTH

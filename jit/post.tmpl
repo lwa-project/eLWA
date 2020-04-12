@@ -267,13 +267,27 @@ PyDoc_STRVAR(cDoc, \
   Module Setup - Initialization
 */
 
-PyMODINIT_FUNC init{{module}}(void) {
+MOD_INIT({{module}}) {
     char filename[256];
-    PyObject *m, *pModule, *pDataPath;
+    PyObject *m, *all, *pModule, *pDataPath;
 
     // Module definitions and functions
-    m = Py_InitModule3("{{module}}", cMethods, cDoc);
+    MOD_DEF(m, "{{module}}", cMethods, cDoc);
+    if( m == NULL ) {
+        return MOD_ERROR_VAL;
+    }
     import_array();
+    
+    // Function listings
+	all = PyList_New(0);
+	PyList_Append(all, PyString_FromString("specS"));
+	PyList_Append(all, PyString_FromString("specF"));
+	PyList_Append(all, PyString_FromString("specL"));
+	PyList_Append(all, PyString_FromString("FEngine"));
+	PyList_Append(all, PyString_FromString("PFBEngine"));
+	PyList_Append(all, PyString_FromString("XEngine2"));
+	PyList_Append(all, PyString_FromString("XEngine3"));
+    PyModule_AddObject(m, "__all__", all);
     
     // LSL FFTW Wisdom
     pModule = PyImport_ImportModule("lsl.common.paths");
@@ -284,4 +298,6 @@ PyMODINIT_FUNC init{{module}}(void) {
     } else {
         PyErr_Warn(PyExc_RuntimeWarning, "Cannot load the LSL FFTWF wisdom");
     }
+    
+    return MOD_SUCCESS_VAL(m);
 }

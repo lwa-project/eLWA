@@ -264,9 +264,8 @@ def main(args):
                         freq2 = frame.central_freq
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
-                tStart = datetime.utcfromtimestamp(sum(frames[0].time, 0.0))
-                tStartAlt = datetime.utcfromtimestamp(sum(frames[-1].time, 0.0) \
-                                                      - 1023/len(streams)*4096/frames[-1].sample_rate)
+                tStart = frames[0].time.datetime
+                tStartAlt = (frames[-1].time - 1023/len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
                     sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))
@@ -296,7 +295,7 @@ def main(args):
                             freq2 = frame.central_freq
                     except errors.SyncError:
                         continue
-                tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
+                tStop = frame.time.datetime
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
@@ -319,7 +318,7 @@ def main(args):
                 vdif.FRAME_SIZE = vdif.get_frame_size(fh)
                 frame = vdif.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.time, 0.0))
+                tStart =  frame.time.datetime
                 nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -330,7 +329,7 @@ def main(args):
                 while True:
                     try:
                         frame = vdif.read_frame(fh)
-                        tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
+                        tStop = frame.time.datetime
                     except Exception as e:
                         break
                         
@@ -378,7 +377,7 @@ def main(args):
                 guppi.FRAME_SIZE = guppi.get_frame_size(fh)
                 frame = guppi.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  datetime.utcfromtimestamp(sum(frame.time, 0.0))
+                tStart =  frame.time.datetime
                 nThread = guppi.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -387,7 +386,7 @@ def main(args):
                 fh.seek(nJump*guppi.FRAME_SIZE, 1)
                 mark = fh.tell()
                 frame = guppi.read_frame(fh)
-                tStop = datetime.utcfromtimestamp(sum(frame.time, 0.0))
+                tStop = frame.time.datetime
             
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)

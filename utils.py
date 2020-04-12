@@ -532,6 +532,7 @@ def read_correlator_configuration(filename_or_npz):
     # Done
     return full_config
 
+
 def get_better_time(frame):
     """
     Given a lsl.reader.vdif.Frame, guppi.Frame, or lsl.reader.drx.Frame 

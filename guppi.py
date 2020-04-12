@@ -50,7 +50,8 @@ class FrameHeader(FrameHeaderBase):
     @property
     def time(self):
         """
-        Function to convert the time tag to seconds since the UNIX epoch.
+        Function to convert the time tag to seconds since the UNIX epoch as a 
+        `lsl.reader.base.FrameTime` instance.
         """
         
         mjd = self.imjd + (self.smjd + self.fmjd) / 86400.0
@@ -59,7 +60,7 @@ class FrameHeader(FrameHeaderBase):
         seconds_i = int(seconds)
         seconds_f = seconds - seconds_i     # Could be more accurate
         
-        return (seconds_i, seconds_f)
+        return FrameTime(seconds_i, seconds_f)
         
     @property
     def id(self):

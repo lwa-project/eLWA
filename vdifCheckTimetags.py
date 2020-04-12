@@ -173,7 +173,7 @@ def main(args):
     
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevDate = ephem.Date(astro.unix_to_utcjd(sum(junkFrame.time, 0.0)) - astro.DJD_OFFSET)
+    prevDate = junkFrame.time.datetime
     prevTime = junkFrame.header.seconds_from_epoch
     prevFrame = junkFrame.header.frame_in_second
 
@@ -201,7 +201,7 @@ def main(args):
         currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         
         station, thread = currFrame.id		
-        prevDate[thread] = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        prevDate[thread] = currFrame.time.datetime
         prevTime[thread] = currFrame.header.seconds_from_epoch
         prevFrame[thread] = currFrame.header.frame_in_second
         
@@ -223,7 +223,7 @@ def main(args):
         
             
         station, thread = currFrame.id
-        currDate = ephem.Date(astro.unix_to_utcjd(sum(currFrame.time, 0.0)) - astro.DJD_OFFSET)
+        currDate = currFrame.time.datetime
         currTime = currFrame.header.seconds_from_epoch
         currFrame = currFrame.header.frame_in_second
         
