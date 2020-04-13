@@ -299,6 +299,7 @@ return 0;
         soname = os.path.join(self.cacheDir, '%s.so' % module)
         
         # Is it cached?
+        loadedModule = None
         try:
             exec("loadedModule = self._cache['%s']" % module)
             ## Yes!
