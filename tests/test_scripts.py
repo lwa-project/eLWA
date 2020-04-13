@@ -88,7 +88,7 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E" % script, return_std=True)
+        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy" % script, return_std=True)
         out_lines = out.read().split('\n')
         err_lines = err.read().split('\n')
         out.close()
