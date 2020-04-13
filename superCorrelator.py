@@ -646,7 +646,7 @@ def main(args):
                     continue
                     
                 ## Find the next step
-                nextStep = numpy.where( (tStart[0] - delaySteps[k][0]) >= 0.0 )[0][0]
+                nextStep = numpy.where( (float(tStart[0]) - delaySteps[k][0]) >= 0.0 )[0][0]
                 step = delaySteps[k][1][nextStep]
                 if step != 0.0:
                     ## Report on the delay step
@@ -866,10 +866,10 @@ def main(args):
                 outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
                 numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
                             vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
-                            tStart=numpy.mean(subIntTimes), tInt=tDump,
+                            tStart=numpy.mean(numpy.array(subIntTimes, dtype=numpy.float64)), tInt=tDump,
                             delayStepApplied=delayStepApplied)
                 delayStepApplied = [False for step in delaySteps]
-                print("CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(subIntTimes)))
+                print("CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(numpy.array(subIntTimes, dtype=numpy.float64))))
                 if fileCount == 1:
                     print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
                 if (fileCount-1) % 25 == 0:

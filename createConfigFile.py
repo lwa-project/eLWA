@@ -265,7 +265,7 @@ def main(args):
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
                 tStart = frames[0].time.datetime
-                tStartAlt = (frames[-1].time - 1023/len(streams)*4096/frames[-1].sample_rate).datetime
+                tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
                     sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))

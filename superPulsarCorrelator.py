@@ -691,7 +691,7 @@ def main(args):
                     continue
                     
                 ## Find the next step
-                nextStep = numpy.where( (tStart[0] - delaySteps[k][0]) >= 0.0 )[0][0]
+                nextStep = numpy.where( (float(tStart[0]) - delaySteps[k][0]) >= 0.0 )[0][0]
                 step = delaySteps[k][1][nextStep]
                 if step != 0.0:
                     ## Report on the delay step
@@ -886,8 +886,8 @@ def main(args):
             svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
             
             # Get a most precise representation of the current time
-            mjdi = tSubIntB[0] / 86400 + 40587		
-            mjdf = (tSubIntB[0] % 86400 + tSubIntB[1]) / 86400.0
+            mjdi, mjdf, mjdsf = tSubIntB[0].pulsar_mjd
+            mjdf += mjdsf/86400.0
             
             # Determine the pulsar phase as a function of frequency
             refSrc.compute_pulsar(mjdi, mjdf)
@@ -936,7 +936,7 @@ def main(args):
                     visYX[bestBin] = svisYX*0.0
                     visYY[bestBin] = svisYY*0.0
                     
-                subIntTimes[bestBin].append( tSubInt )
+                subIntTimes[bestBin].append( float(tSubInt) )
                 visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
                 visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
                 visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
@@ -970,10 +970,10 @@ def main(args):
                                 srate=srate[0]/2.0, freq1=freqXX, 
                                 vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
                                 vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
-                                tStart=numpy.mean(subIntTimes[bestBin]), tInt=tDumpAct, 
+                                tStart=numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64)), tInt=tDumpAct,
                                 delayStepApplied=delayStepApplied)
                     anyFilesSaved = True
-                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(subIntTimes[bestBin])))
+                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64))))
                     if bestBin == 0:
                         if fileCount[0] == 1:
                             print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
