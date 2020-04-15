@@ -270,7 +270,7 @@ def main(args):
                         junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                     except errors.SyncError:
                         print("Error - VDIF @ %i" % (i,))
-                        fh[i].seek(vdif.FRAME_SIZE, 1)
+                        fh[i].seek(readers[i].FRAME_SIZE, 1)
                         continue
             else:
                 for k in xrange(beampols[i]):
@@ -433,7 +433,7 @@ def main(args):
                         buffers[j].append( cFrame )
                     except errors.SyncError:
                         print("Error - VDIF @ %i, %i" % (i, j))
-                        f.seek(vdif.FRAME_SIZE, 1)
+                        f.seek(readers[j].FRAME_SIZE, 1)
                         continue
                     except errors.EOFError:
                         done = True

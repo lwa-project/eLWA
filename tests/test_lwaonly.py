@@ -155,7 +155,7 @@ class database(object):
                         same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
-                    self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
+                    self.assertTrue(same_value, "row %i, field %i (%s) does not match - %s != %s" % (r, f, hdu1.data.columns[f], row1[f], row2[f]))
                     
         hdulist1.close()
         hdulist2.close()

@@ -147,7 +147,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
         
         # Loop through the HDUs
@@ -183,7 +183,7 @@ class database(object):
                         same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
-                    self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
+                    self.assertTrue(same_value, "row %i, field %i (%s) does not match - %s != %s" % (r, f, hdu1.data.columns[f], row1[f], row2[f]))
                     
         hdulist1.close()
         hdulist2.close()
