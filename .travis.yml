@@ -9,6 +9,10 @@ python:
     #- pypy2.7-6.0
     #- pypy3
 
+jobs:
+  allow_failures:
+    - python: 2.7
+
 addons:
     apt:
         packages:
