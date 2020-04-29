@@ -132,11 +132,10 @@ def getSourceName(src):
 def main(args):
     # Parse the command line
     filenames = args.filename
-    # Special catch for when the command line is too short to list all of 
-    # the files to combine.  This works by running glob.glob() using the
-    # first input filename as the file regex
-    if len(filenames) == 1 and filenames[0].find('*') != -1:
-        filenames = glob.glob(filenames[0])
+    if args.regex:
+        filenames = []
+        for regex in args.filename:
+            filenames.extend(glob.glob(regex))
     filenames.sort(cmp=cmpNPZ)
     if args.limit != -1:
         filenames = filenames[:args.limit]
@@ -366,6 +365,8 @@ if __name__ == "__main__":
     )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
+    parser.add_argument('-r', '--regex', action='store_true',
+                        help='filename is actually a regular expression')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--linear', action='store_true', default=True, 
                         help='write linear polarization data')
