@@ -1,3 +1,9 @@
+# Data
 *.npz
 *.FITS_*
 get_vla_ant_pos.py
+
+# Python stuff
+*.pyc
+*.c
+*.so

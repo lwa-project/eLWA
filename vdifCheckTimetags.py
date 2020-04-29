@@ -84,7 +84,7 @@ def getFramesPerSecond(filehandle):
         except errors.syncError:
             filehandle.seek(vdif.FrameSize, 1)
             continue
-        except eofError:
+        except errors.eofError:
             continue
             
         cID = cFrame.header.threadID
@@ -102,7 +102,7 @@ def getFramesPerSecond(filehandle):
         except errors.syncError:
             filehandle.seek(vdif.FrameSize, 1)
             continue
-        except eofError:
+        except errors.eofError:
             break
             
         ## Pull out the relevant metadata
