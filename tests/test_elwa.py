@@ -175,7 +175,8 @@ class database(object):
             ## Skip over the PRIMARY header
             if hdu1.name == 'PRIMARY':
                 continue
-            if hdu1.name == 'FLAG'
+            if hdu1.name == 'FLAG':
+                continue
                 
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
