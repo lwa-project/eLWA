@@ -621,7 +621,7 @@ class PolyCos(object):
     def __init__(self, filename, psrname=None):
         if psrname is None:
             psrname = os.path.basename(filename)
-            psrname = os.path.split('_', 1)[0]
+            psrname = psrname.split('_', 1)[0]
             
         from polycos import polycos
         
