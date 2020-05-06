@@ -493,9 +493,9 @@ def main(args):
                         
                         if k == 0:
                             tStart.append( cFrame.time )
-                            tStart[-1] += grossOffsets[j]
+                            tStart[-1] = tStart[-1] + grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] += grossOffsets[j]
+                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                             
                             for p in (0,1):
                                 psid = 2*j + p
@@ -530,9 +530,9 @@ def main(args):
                         
                         if k == 0:
                             tStart.append( cFrame.time )
-                            tStart[-1] += grossOffsets[j]
+                            tStart[-1] = tStart[-1] + grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] += grossOffsets[j]
+                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                             
                             for p in (0,1):
                                 psid = 2*j + p
@@ -569,9 +569,9 @@ def main(args):
                         
                         if k == 0:
                             tStart.append( cFrame.time )
-                            tStart[-1] += grossOffsets[j]
+                            tStart[-1] = tStart[-1] + grossOffsets[j]
                             tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] += grossOffsets[j]
+                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                             
                             for p in (0,1):
                                 pbid = 2*(j-nVDIFInputs) + p

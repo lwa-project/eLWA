@@ -22,7 +22,7 @@ from datetime import datetime
 
 from lsl import astro
 from lsl.common import stations
-from lsl.reader import drx, vdif
+from lsl.reader import base, drx, vdif
 from lsl.common.dp import fS
 from lsl.common.mcs import datetime_to_mjdmpm, delay_to_mcsd, mcsd_to_delay
 from lsl.common.metabundle import get_command_script
@@ -542,7 +542,13 @@ def get_better_time(frame):
       * fractional second
     """
     
-    return list(frame.time)
+    if isinstance(frame, drx.Frame):
+        # HACK - What should T_NOM really be at LWA1???
+        tt = frame.payload.timetag
+        to = 6660 if frame.header.time_offset else 0
+        return list(base.FrameTimestamp.from_dp_timetag(tt, to))
+    else:
+        return list(frame.time)
 
 
 def parse_lwa_metadata(filename):
