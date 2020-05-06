@@ -66,7 +66,7 @@ class database(object):
         for regex in self._FILES:
             files.extend(glob.glob(regex))
             
-        cmd = ['python', '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
+        cmd = [sys.executable, '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
         with open('%s-create.log' % self._BASENAME, 'w') as logfile:
             try:
@@ -81,7 +81,7 @@ class database(object):
     def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', 
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', 
                '-g', self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
             try:
@@ -99,7 +99,7 @@ class database(object):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s-*.npz' % self._BASENAME)
-        cmd = ['python', '../buildIDI.py', '-t', self._BASENAME]
+        cmd = [sys.executable, '../buildIDI.py', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
             try:
@@ -114,7 +114,7 @@ class database(object):
     def test_3_flag_steps(self):
         """Flag LWA delay steps in the FITS-IDI file."""
         
-        cmd = ['python', '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag-0.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
@@ -128,7 +128,7 @@ class database(object):
     def test_4_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = ['python', '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
         with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
