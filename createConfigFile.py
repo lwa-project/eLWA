@@ -199,7 +199,7 @@ def main(args):
                         elif c['subsystemID'] == 'ADP':
                             site = 'LWA-SV'
                             break
-                except ValueError:
+                except (RuntimeError, ValueError):
                     site = 'LWA-SV'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site

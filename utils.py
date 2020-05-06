@@ -564,7 +564,7 @@ def parse_lwa_metadata(filename):
     # Load in the command script and walk through the commands
     try:
         cs = get_command_script(filename)
-    except ValueError:
+    except (RuntimeError, ValueError):
         cs = get_command_scriptADP(filename)
     for c in cs:
         ## Jump over any command that is not a BAM
