@@ -152,13 +152,17 @@ class database(object):
         
         # Loop through the HDUs
         for hdu1,hdu2 in zip(hdulist1, hdulist2):
+            ## Skip over the FLAG header
+            if hdu1.name in ('FLAG',):
+                continue
+                
             ## Check the header values, modulo the old $Rev$ tag
             for key in hdu1.header:
-                if key in ('DATE-MAP',):
+                if key in ('DATE-MAP', 'UT1UTC', 'POLARX', 'POLARY'):
                     continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
-                self.assertEqual(h1, h2, "Mis-match on %s: '%s' != '%s'" % (key, h1, h2))
+                self.assertEqual(h1, h2, "Mis-match on %s - %s: '%s' != '%s'" % (hdu1.name, key, h1, h2))
                 
         hdulist1.close()
         hdulist2.close()
@@ -173,8 +177,8 @@ class database(object):
         
         # Loop through the HDUs
         for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the PRIMARY header
-            if hdu1.name == 'PRIMARY':
+            ## Skip over the PRIMARY and FLAG headers
+            if hdu1.name in ('PRIMARY', 'FLAG'):
                 continue
                 
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):

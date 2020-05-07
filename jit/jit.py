@@ -2,17 +2,18 @@
 Module for creating optimized data processing code when it is needed.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
 import sys
-if sys.version_info > (3,):
-    xrange = range
+if sys.version_info < (3,):
+    range = xrange
     
 import os
 import sys
 import glob
 import time
 import numpy
+import importlib
 try:
     from StringIO import StringIO
 except ImportError:
@@ -120,8 +121,8 @@ class JustInTimeOptimizer(object):
                 ## This file is OK, load it and cache it
                 if verbose:
                     print(" -> Loaded %s" % module)
-                exec("import %s as loadedModule" % module)
-                exec("self._cache['%s'] = loadedModule" % module)
+                loadedModule = importlib.import_module(module)
+                self._cache[module] = loadedModule
                 
     def get_compiler(self):
         """
@@ -145,12 +146,12 @@ class JustInTimeOptimizer(object):
         cflags, ldflags = [], []
         
         # Python
-        cflags.extend( subprocess.check_output(['python-config', '--cflags']).split() )
-        ldflags.extend( subprocess.check_output(['python-config', '--ldflags']).split() )
+        cflags.extend( subprocess.check_output([sys.executable+'-config', '--cflags']).split() )
+        ldflags.extend( subprocess.check_output([sys.executable+'-config', '--ldflags']).split() )
         
         # Native architecture
-        cflags.append( '-march=native' )
-        ldflags.append( '-march=native' )
+        #cflags.append( '-march=native' )
+        #ldflags.append( '-march=native' )
         
         # fPIC since it seems to be needed
         cflags.append( '-fPIC' )
@@ -301,16 +302,16 @@ return 0;
         # Is it cached?
         loadedModule = None
         try:
-            exec("loadedModule = self._cache['%s']" % module)
+            loadedModule = self._cache[module]
             ## Yes!
         except KeyError:
             ## No, additional work is needed
             ### Get the number of FFT windows and the number of baselines
             if funcTemplate == 'real':
-                nFFT = nSamps / (2*nChan/nOverlap) - 2*nChan/(2*nChan/nOverlap) + 1
+                nFFT = nSamps // (2*nChan//nOverlap) - 2*nChan//(2*nChan//nOverlap) + 1
             else:
-                nFFT = nSamps / (nChan/nOverlap) - nChan/(nChan/nOverlap) + 1
-            nBL = nStand*(nStand+1)/2
+                nFFT = nSamps // (nChan//nOverlap) - nChan//(nChan//nOverlap) + 1
+            nBL = nStand*(nStand+1)//2
             
             ### Generate the code
             config = {'module':module, 'dtype':dtype, 'dtypeN':dtypeN, 'dtypeC':dtypeC, 
@@ -331,8 +332,8 @@ return 0;
                 pass
                 
             ## Load and cache
-            exec("import %s as loadedModule" % module)
-            exec("self._cache['%s'] = loadedModule" % module)
+            loadedModule = importlib.import_module(module)
+            self._cache[module] = loadedModule
             
         # Done
         return loadedModule
@@ -401,17 +402,17 @@ return 0;
             ## Yes
             if ftype == 'spec':
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specS')(*args)
                 tS = time.time()-t0
                 
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specF')(*args)
                 tF = time.time()-t0
                 
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specL')(*args)
                 tL = time.time()-t0
                 

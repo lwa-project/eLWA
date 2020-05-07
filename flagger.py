@@ -2,11 +2,11 @@
 RFI flagging module for use with eLWA data.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
 import sys
-if sys.version_info > (3,):
-    xrange = range
+if sys.version_info < (3,):
+    range = xrange
     
 import sys
 import time
@@ -44,7 +44,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
     winSize += ((winSize+1)%2)
     
     # Compute the smoothed bandpass model
-    for i in xrange(smth.size):
+    for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
@@ -120,7 +120,7 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0):
     winSize += ((winSize+1)%2)
     
     # Compute the smoothed drift model
-    for i in xrange(smth.size):
+    for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(drift[mn:mx])
@@ -205,7 +205,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         ##
         ## Part 2 - Flatten the data with we we just found
         ##
-        for j in xrange(subpower.shape[0]):
+        for j in range(subpower.shape[0]):
             subpower.data[j,:] /= bp
             subpower.data[j,:] /= drift[j]
             
@@ -340,17 +340,17 @@ def cleanup_mask(mask, max_frac=0.75):
     
     nt, nb, nc = mask.shape
     # Time
-    for i in xrange(nt):
+    for i in range(nt):
         frac = 1.0*mask[i,:,:].sum() / nb / nc
         if frac > max_frac:
             mask[i,:,:] = True
     # Baseline
-    for i in xrange(nb):
+    for i in range(nb):
         frac = 1.0*mask[:,i,:].sum() / nt / nc
         if frac > max_frac:
             mask[:,i,:] = True
     # Frequency
-    for i in xrange(nc):
+    for i in range(nc):
         frac = 1.0*mask[:,:,i].sum() / nt / nb
         if frac > max_frac:
             mask[:,:,i] = True
@@ -422,7 +422,7 @@ def create_flag_groups(times, freq, mask):
     """
     
     # Pass 0 - Check to see if the mask is full
-    full = mask.sum() / mask.size
+    full = mask.sum() // mask.size
     if full:
         flagsD = [(0, mask.shape[0]-1, 0, mask.shape[1]-1),]
         flagsP = [(times.min(), times.max(), freq.min(), freq.max()),]
@@ -432,7 +432,7 @@ def create_flag_groups(times, freq, mask):
     flagsP = []
     claimed = numpy.zeros(mask.shape, dtype=numpy.bool)
     group = numpy.where( mask )
-    for l in xrange(len(group[0])):
+    for l in range(len(group[0])):
         i, j = group[0][l], group[1][l]
         if claimed[i,j]:
             continue

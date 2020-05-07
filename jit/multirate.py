@@ -3,11 +3,8 @@ Module that provide the multi-rate F-engine needed to correlate data at
 different sample rates.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
     
 import ephem
 import numpy
@@ -19,7 +16,7 @@ from lsl.common import dp as dp_common
 from lsl.correlator import _core
 from lsl.correlator.fx import pol_to_pols, null_window
 
-from jit import JustInTimeOptimizer
+from .jit import JustInTimeOptimizer
 
 __version__ = '0.2'
 __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xengine3']
@@ -152,9 +149,9 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
+        FEngine = JIT_OPT.get_function('FEngine', signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
     else:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
+        FEngine = JIT_OPT.get_function('FEngine', signals, freq, delays1, LFFT=LFFT, overlap=overlap, sample_rate=sample_rate, clip_level=clip_level)
     
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
