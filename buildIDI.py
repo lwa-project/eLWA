@@ -32,7 +32,7 @@ from lsl.common import stations, metabundle
 from lsl.statistics import robust
 from lsl.correlator import uvutil
 from lsl.correlator import fx as fxc
-from lsl.writer import fitsidi
+#from lsl.writer import fitsidi
 from lsl.correlator.uvutil import compute_uvw
 from lsl.common.mcs import datetime_to_mjdmpm
 
