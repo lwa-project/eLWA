@@ -71,29 +71,24 @@ class JustInTimeOptimizer(object):
             self._tag = self._tag+sys.abiflags.replace('.', '')
         except AttributeError:
             pass
-        print('TAG', self._tag)
-        
+            
         # Setup the module cache and fill it
         if cache_dir is None:
             cache_dir = os.path.dirname(__file__)
         self.cache_dir = os.path.abspath(cache_dir)
         self._cache = {}
         self._load_cache_dir(verbose=verbose)
-        print('LOAD', self._cache.keys())
         
         # Setup the compiler
         cc = self.get_compiler()
-        print('COMPILER', cc)
         cflags, ldflags = self.get_flags()
         self.cc = cc
         self.cflags = cflags
         self.ldflags = ldflags
-        print('FLAGS', self.cflags, self.ldflags)
         
         # Setup the template cache and fill it
         self._templates = {}
         self._load_templates()
-        print('TEMPLATES', self._templates.keys())
         
     def _load_cache_dir(self, verbose=False):
         """
@@ -163,7 +158,6 @@ class JustInTimeOptimizer(object):
             pyconfig = 'python-config'
         cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
         ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
-        print('PYCONFIG')
         
         # Native architecture
         #cflags.append( '-march=native' )
@@ -172,38 +166,11 @@ class JustInTimeOptimizer(object):
         # fPIC since it seems to be needed
         cflags.append( '-fPIC' )
         ldflags.extend( ['-shared', '-fPIC'] )
-        print('SHARED')
         
         # NumPy
         cflags.append( '-I%s' % numpy.get_include() )
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
         ldflags.append( '-lm' )
-        print('NUMPY')
-        
-        # ATLAS
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-        from numpy.distutils.system_info import get_info
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=DeprecationWarning)
-            atlas_info = get_info('atlas_blas', notfound_action=2)
-        atlas_version = ([v[3:-3] for k,v in atlas_info.get('define_macros',[])
-                        if k == 'ATLAS_INFO']+[None])[0]
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        try:
-            cflags.extend( ['-I%s' % idir for idir in atlas_info['include_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-L%s' % ldir for ldir in atlas_info['library_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
-        except KeyError:
-            pass
-        print('ATLAS')
         
         # FFTW3
         try:
@@ -213,8 +180,7 @@ class JustInTimeOptimizer(object):
         except subprocess.CalledProcessError:
             cflags.extend( [] )
             ldflags.extend( ['-lfftw3f', '-lm'] )
-        print('FFTW3')
-        
+            
         # OpenMP
         with open('openmp_test.c', 'w') as fh:
             fh.write(r"""#include <omp.h>
@@ -237,8 +203,7 @@ return 0;
             pass
         finally:
             os.unlink('openmp_test.c')
-        print('OPENMP')
-        
+            
         # Remove duplicates
         cflags = list(set(cflags))
         ldflags = list(set(ldflags))
@@ -258,7 +223,7 @@ return 0;
             base = os.path.splitext(os.path.basename(tmplFile))[0]
             self._templates[base] = env.get_template(os.path.basename(tmplFile))
             
-    def _compile(self, srcName, objName, verbose=True):
+    def _compile(self, srcName, objName, verbose=False):
         """
         Simple compile function.
         """
@@ -272,7 +237,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def _link(self, objName, modName, verbose=True):
+    def _link(self, objName, modName, verbose=False):
         """
         Simple linker function.
         """
