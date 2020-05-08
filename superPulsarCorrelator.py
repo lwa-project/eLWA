@@ -149,7 +149,7 @@ def main(args):
             header = vdif.read_guppi_header(fh[i])
             readers[i].FRAME_SIZE = readers[i].get_frame_size(fh[i])
             
-        nFramesFile.append( os.path.getsize(filename) / readers[i].FRAME_SIZE )
+        nFramesFile.append( os.path.getsize(filename) // readers[i].FRAME_SIZE )
         if readers[i] is vdif:
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             readers[i].DATA_LENGTH = junkFrame.payload.data.size
@@ -981,7 +981,7 @@ def main(args):
                         if (fileCount[0]-1) % 25 == 0:
                             print("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),))
                             etc = (nInt - max(fileCount)) * (time.time() - wallStart)/max(fileCount)
-                            eth = int(etc/60.0) / 60
+                            eth = int(etc/60.0) // 60
                             etm = int(etc/60.0) % 60
                             ets = etc % 60
                             print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
@@ -990,7 +990,7 @@ def main(args):
                 
     # Cleanup
     etc = time.time() - wallStart
-    eth = int(etc/60.0) / 60
+    eth = int(etc/60.0) // 60
     etm = int(etc/60.0) % 60
     ets = etc % 60
     print("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))

@@ -157,7 +157,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
 
 def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
-    Multi-rate PFB engine based on the lsl.correlator.fx.FXMaster() function.
+    Multi-rate PFB F-engine based on the lsl.correlator.fx.FXMaster() function.
     """
     
     # Decode the polarization product into something that we can use to figure 

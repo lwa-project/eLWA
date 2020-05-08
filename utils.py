@@ -3,11 +3,11 @@ Utility module for the various scripts needed to correlate LWA and VLA data.
 
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
 import sys
-if sys.version_info > (3,):
-    xrange = range
+if sys.version_info < (3,):
+    range = xrange
     
 import os
 import re
@@ -226,16 +226,16 @@ def multi_column_print(items, sep=';  ', width=86):
     # Find out how many columns to make using the width the print over, the 
     # maximum item size, and the size of the separator.  When doing this also
     # make sure that we have at least one column
-    nCol = width / (maxLen+len(sep))
+    nCol = width // (maxLen+len(sep))
     if nCol < 1:
         nCol = 1
         
     # Figure out how many rows to use.  This needs to take into acount partial
     # rows with len(items) % nCol != 0.
-    nRow = len(items) / nCol + (0 if (len(items) % nCol) == 0 else 1)
+    nRow = len(items) // nCol + (0 if (len(items) % nCol) == 0 else 1)
     
     # Print
-    for r in xrange(nRow):
+    for r in range(nRow):
         ## Build up the line
         out = sep.join([formatter % str(i) for i in items[r*nCol:(r+1)*nCol]])
         ## Add the separator at the end if this isn't the last line
@@ -377,7 +377,7 @@ def _read_correlator_configuration(filename):
             srcs.append( EnhancedFixedBody(ephem.readdb(line)) )
             
         refSource = None
-        for i in xrange(len(srcs)):
+        for i in range(len(srcs)):
             if srcs[i].name == sources[0]['name']:
                 refSource = srcs[i]
                 break
@@ -429,7 +429,7 @@ def _read_correlator_configuration(filename):
         elif name.lower() in ('lwasv', 'lwa-sv'):
             aid = 52
         else:
-            for j in xrange(len(name)):
+            for j in range(len(name)):
                 try:
                     aid = int(name[j:], 10)
                     if name[:j].lower() == 'lwa':
