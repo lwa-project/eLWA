@@ -71,13 +71,15 @@ class JustInTimeOptimizer(object):
             self._tag = self._tag+sys.abiflags.replace('.', '')
         except AttributeError:
             pass
-            
+        print('TAG', self._tag)
+        
         # Setup the module cache and fill it
         if cache_dir is None:
             cache_dir = os.path.dirname(__file__)
         self.cache_dir = os.path.abspath(cache_dir)
         self._cache = {}
         self._load_cache_dir(verbose=verbose)
+        print('LOAD', self._cache.keys())
         
         # Setup the compiler
         cc = self.get_compiler()
@@ -85,10 +87,12 @@ class JustInTimeOptimizer(object):
         self.cc = cc
         self.cflags = cflags
         self.ldflags = ldflags
+        print('FLAGS', self.cflags, self.ldflags)
         
         # Setup the template cache and fill it
         self._templates = {}
         self._load_templates()
+        print('TEMPLATES', self._templates.keys())
         
     def _load_cache_dir(self, verbose=False):
         """
