@@ -163,6 +163,7 @@ class JustInTimeOptimizer(object):
             pyconfig = 'python-config'
         cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
         ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
+        print('PYCONFIG')
         
         # Native architecture
         #cflags.append( '-march=native' )
@@ -171,11 +172,13 @@ class JustInTimeOptimizer(object):
         # fPIC since it seems to be needed
         cflags.append( '-fPIC' )
         ldflags.extend( ['-shared', '-fPIC'] )
+        print('SHARED')
         
         # NumPy
         cflags.append( '-I%s' % numpy.get_include() )
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
         ldflags.append( '-lm' )
+        print('NUMPY')
         
         # ATLAS
         sys.stdout = StringIO()
@@ -200,7 +203,8 @@ class JustInTimeOptimizer(object):
             ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
         except KeyError:
             pass
-            
+        print('ATLAS')
+        
         # FFTW3
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
@@ -209,7 +213,8 @@ class JustInTimeOptimizer(object):
         except subprocess.CalledProcessError:
             cflags.extend( [] )
             ldflags.extend( ['-lfftw3f', '-lm'] )
-               
+        print('FFTW3')
+        
         # OpenMP
         with open('openmp_test.c', 'w') as fh:
             fh.write(r"""#include <omp.h>
@@ -232,7 +237,8 @@ return 0;
             pass
         finally:
             os.unlink('openmp_test.c')
-            
+        print('OPENMP')
+        
         # Remove duplicates
         cflags = list(set(cflags))
         ldflags = list(set(ldflags))
