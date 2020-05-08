@@ -83,6 +83,7 @@ class JustInTimeOptimizer(object):
         
         # Setup the compiler
         cc = self.get_compiler()
+        print('COMPILER', cc)
         cflags, ldflags = self.get_flags()
         self.cc = cc
         self.cflags = cflags
