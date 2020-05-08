@@ -147,7 +147,7 @@ class JustInTimeOptimizer(object):
             pyconfig = subprocess.check_output(['which', sys.executable+'-config']).rstrip()
         except subprocess.CalledProcessError:
             pyconfig = 'python-config'
-        cflags.extend( subprocess.check_output([pyconfig '--cflags']).split() )
+        cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
         ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
         
         # Native architecture
