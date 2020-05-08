@@ -558,7 +558,7 @@ def main(args):
         ## Preamble
         fh.write("# Created\n")
         fh.write("#  on %s\n" % datetime.now())
-        fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
+        fh.write("#  using %s" % os.path.basename(__file__))
         fh.write("\n")
         ## Configuration, if present
         if corrConfig['setup'] is not None:

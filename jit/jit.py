@@ -143,8 +143,12 @@ class JustInTimeOptimizer(object):
         cflags, ldflags = [], []
         
         # Python
-        cflags.extend( subprocess.check_output([sys.executable+'-config', '--cflags']).split() )
-        ldflags.extend( subprocess.check_output([sys.executable+'-config', '--ldflags']).split() )
+        try:
+            pyconfig = subprocess.check_output(['which', sys.executable+'-config']).rstrip()
+        except subprocess.CalledProcessError:
+            pyconfig = 'python-config'
+        cflags.extend( subprocess.check_output([pyconfig '--cflags']).split() )
+        ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
         
         # Native architecture
         #cflags.append( '-march=native' )

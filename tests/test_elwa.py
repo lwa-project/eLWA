@@ -183,7 +183,7 @@ class database(object):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f])
+                        same_value = numpy.allclose(row1[f], row2[f], atol=1e-4)
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))

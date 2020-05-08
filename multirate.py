@@ -20,7 +20,6 @@ from lsl.correlator import _core
 from lsl.correlator.fx import pol_to_pols, null_window
 
 __version__ = '0.2'
-__revision__ = '$Rev$'
 __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine']
 
 
