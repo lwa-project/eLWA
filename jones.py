@@ -2,12 +2,9 @@
 Module for working with polarization to get LWA and VLA into the same frame.
 """
 
-# Python3 compatibility
+# Python2 compatibility
 from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import time
@@ -144,7 +141,7 @@ def apply_matrix(data, matrix):
     nStand, nSamps = data.shape
     
     # Apply
-    for i in xrange(nStand//2):
+    for i in range(nStand//2):
         s0 = 2*i + 0
         s1 = 2*i + 2
         data[s0:s1,:] = numpy.dot(matrix, data[s0:s1,:])
