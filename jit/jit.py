@@ -64,11 +64,18 @@ class JustInTimeOptimizer(object):
                       'complex64': 'float complex', 
                       'complex128': 'double complex'}
                      
-    def __init__(self, cacheDir=None, verbose=True):
+    def __init__(self, cache_dir=None, verbose=True):
+        # Setup the Python version tag
+        self._tag = "py%i%i" % (sys.version_info.major, sys.version_info.minor)
+        try:
+            self._tag = self._tag+sys.abiflags.replace('.', '')
+        except AttributeError:
+            pass
+            
         # Setup the module cache and fill it
-        if cacheDir is None:
-            cacheDir = os.path.dirname(__file__)
-        self.cacheDir = os.path.abspath(cacheDir)
+        if cache_dir is None:
+            cache_dir = os.path.dirname(__file__)
+        self.cache_dir = os.path.abspath(cache_dir)
         self._cache = {}
         self._load_cache_dir(verbose=verbose)
         
@@ -89,11 +96,11 @@ class JustInTimeOptimizer(object):
         """
         
         if verbose:
-            print("JIT cache directory: %s" % self.cacheDir)
+            print("JIT cache directory: %s" % self.cache_dir)
             
         # Make sure the cache directory is in the path as well
-        if self.cacheDir not in sys.path:
-            sys.path.append(self.cacheDir)
+        if self.cache_dir not in sys.path:
+            sys.path.append(self.cache_dir)
             
         # Come up with a 'reference time' that we can use to see what may be outdated
         refFiles = glob.glob(os.path.join(os.path.dirname(__file__), '*.tmpl'))
@@ -101,16 +108,18 @@ class JustInTimeOptimizer(object):
         refTime = max([os.stat(refFile)[8] for refFile in refFiles])
         
         # Find the modules and load the valid ones
-        for soFile in glob.glob(os.path.join(self.cacheDir, '*.so')):
+        for soFile in glob.glob(os.path.join(self.cache_dir, '*.so')):
             soTime = os.stat(soFile)[8]
             module = os.path.splitext(os.path.basename(soFile))[0]
+            if module.find(self._tag) == -1:
+                continue
             if soTime < refTime:
                 ## This file is too old, clean it out
                 if verbose:
                     print(" -> Purged %s as outdated" % module)
                 for ext in ('.c', '.o', '.so'):
                     try:
-                        os.unlink(os.path.join(self.cacheDir, '%s%s' % (module, ext)))
+                        os.unlink(os.path.join(self.cache_dir, '%s%s' % (module, ext)))
                     except OSError:
                         pass
                         
@@ -193,24 +202,19 @@ class JustInTimeOptimizer(object):
             cflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--cflags']).split() )
             ldflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--libs']).split() )
         except subprocess.CalledProcessError:
-            if platform.system() != 'FreeBSD':
-                cflags.extend( [] )
-                ldflags.extend( ['-lfftw3f', '-lm'] )
-            else:
-                cflags.extend( ['-I/usr/local/include',] )
-                ldflags.extend( ['-L/usr/local/lib', '-lfftw3f', '-lm'] )
-                
+            cflags.extend( [] )
+            ldflags.extend( ['-lfftw3f', '-lm'] )
+               
         # OpenMP
-        fh = open('openmp_test.c', 'w')
-        fh.write(r"""#include <omp.h>
+        with open('openmp_test.c', 'w') as fh:
+            fh.write(r"""#include <omp.h>
 #include <stdio.h>
 int main(void) {
 #pragma omp parallel
 printf("Hello from thread %d, nthreads %d\n", omp_get_thread_num(), omp_get_num_threads());
 return 0;
 }
-        """)
-        fh.close()
+            """)
         try:
             call = [cc,]
             call.extend(cflags)
@@ -243,7 +247,7 @@ return 0;
             base = os.path.splitext(os.path.basename(tmplFile))[0]
             self._templates[base] = env.get_template(os.path.basename(tmplFile))
             
-    def _compile(self, srcName, objName, verbose=False):
+    def _compile(self, srcName, objName, verbose=True):
         """
         Simple compile function.
         """
@@ -257,7 +261,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def _link(self, objName, modName, verbose=False):
+    def _link(self, objName, modName, verbose=True):
         """
         Simple linker function.
         """
@@ -295,10 +299,10 @@ return 0;
             raise RuntimeError("Unknown data type: %s" % dtype)
             
         # Build up the file names we need
-        module = '%s_%i_%i_%i_%i_%i' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel)
-        srcname = os.path.join(self.cacheDir, '%s.c' % module)
-        objname = os.path.join(self.cacheDir, '%s.o' % module)
-        soname = os.path.join(self.cacheDir, '%s.so' % module)
+        module = '%s_%i_%i_%i_%i_%i_%s' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, self._tag)
+        srcname = os.path.join(self.cache_dir, '%s.c' % module)
+        objname = os.path.join(self.cache_dir, '%s.o' % module)
+        soname = os.path.join(self.cache_dir, '%s.so' % module)
         
         # Is it cached?
         loadedModule = None
@@ -318,12 +322,11 @@ return 0;
             config = {'module':module, 'dtype':dtype, 'dtypeN':dtypeN, 'dtypeC':dtypeC, 
                       'nStand':'%iL'%nStand, 'nSamps':'%iL'%nSamps, 'nChan':'%iL'%nChan, 'nOverlap':'%iL'%nOverlap, 
                       'nFFT':'%iL'%nFFT, 'nBL':'%iL'%nBL, 'ClipLevel':ClipLevel, 'useWindow':useWindow}
-            fh = open(os.path.join(self.cacheDir, srcname), 'w')
-            fh.write( self._templates['head'].render(**config) )
-            fh.write( self._templates[funcTemplate].render(**config) )
-            fh.write( self._templates['post'].render(**config) )
-            fh.close()
-            
+            with open(os.path.join(self.cache_dir, srcname), 'w') as fh:
+                fh.write( self._templates['head'].render(**config) )
+                fh.write( self._templates[funcTemplate].render(**config) )
+                fh.write( self._templates['post'].render(**config) )
+                
             ### Compile, link, and cleanup
             self._compile(srcname, objname)
             self._link(objname, soname)
