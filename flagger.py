@@ -65,7 +65,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
     bad = numpy.where( ((numpy.abs(bp-dm) > clip*ds) | (smth < 0.1)) \
-                           & ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
+                           | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
     
     # Make sure we have flagged appropriately and revert the flags as needed.  We
     # specifically need this when we have flagged everything because the bandpass 
@@ -74,7 +74,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
         bad = numpy.where( ((numpy.abs(bp-dm) > clip*ds) | (smth < 0.1)) \
-                           & ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
+                           | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
         
     if grow:
         try:
@@ -147,7 +147,7 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0, time_range=None):
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
     bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) \
-                       & (times >= time_range[0]) & (times <= time_range[1])) )[0]
+                       | ((times >= time_range[0]) & (times <= time_range[1])) )[0]
     
     # Done
     return drift, bad
