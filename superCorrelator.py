@@ -543,9 +543,7 @@ def main(args):
                         except ValueError:
                             k = beampols[j]*nFramesD
                             break
-        if done:
-            break
-            
+                            
         print 'RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead)
         
         # Figure out which DRX tuning corresponds to the VDIF data
@@ -876,7 +874,10 @@ def main(args):
                     etm = int(etc/60.0) % 60
                     ets = etc % 60
                     print "CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets)
-                        
+                    
+        if done:
+            break
+            
     # Cleanup
     etc = time.time() - wallStart
     eth = int(etc/60.0) / 60
