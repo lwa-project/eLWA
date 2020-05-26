@@ -16,7 +16,7 @@ from lsl.statistics import robust
 from lsl.correlator import uvUtils
 
 
-def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
+def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=None):
     """
     Given an array of frequencies and a 2-D (time by frequency) data set, 
     flag channels that appear to deviate from the median bandpass.  Returns
@@ -25,6 +25,10 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
     mask by one channel on either side to mask edge effects.
     """
     
+    # Ready the frequency range flagger
+    if freq_range is None:
+        freq_range = [numpy.inf, -numpy.inf]
+        
     # Create the median bandpass and setup the median smoothed bandpass model
     if data.dtype.kind == 'c':
         spec = numpy.abs(data)
@@ -58,7 +62,8 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
     except ValueError:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )[0]
+    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) \
+                       | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
     
     # Make sure we have flagged appropriately and revert the flags as needed.  We
     # specifically need this when we have flagged everything because the bandpass 
@@ -66,7 +71,8 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True):
     if len(bad) == bp.size and ds < 1e-6 and spec.mean() > 1e-6:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-        bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )[0]
+        bad = numpy.where( ((numpy.abs(bp-dm) > clip*ds) | (smth < 0.1)) \
+                           | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
         
     if grow:
         try:
@@ -140,7 +146,7 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0):
     return drift, bad
 
 
-def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3, clip=3.0, grow=True, verbose=False):
+def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3, clip=3.0, grow=True, freq_range=None, verbose=False):
     """
     Given a list of antennas, an array of times, and array of frequencies, 
     and a 3-D (time by baseline by frequency) data set, flag RFI and return 
@@ -185,7 +191,8 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         ##
         ## Part 1 - Initial flagging with flag_bandpass_freq() and flag_bandpass_time()
         ##
-        bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow)
+        bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow, 
+                                        freq_range=freq_range)
         drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip)
         
         ## Build up a numpy.ma version of the data using the flags we just found
