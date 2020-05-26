@@ -148,8 +148,8 @@ def main(args):
                         antennas.append(ant2)
                         
                 print('      Flagging baselines')
-                maskXX = mask_bandpass(antennas, times, freq+offset, visXX)
-                maskYY = mask_bandpass(antennas, times, freq+offset, visYY)
+                maskXX = mask_bandpass(antennas, times, freq+offset, visXX, freq_range=args.freq_range)
+                maskYY = mask_bandpass(antennas, times, freq+offset, visYY, freq_range=args.freq_range)
                 
                 visXX = numpy.ma.array(visXX, mask=maskXX)
                 visYY = numpy.ma.array(visYY, mask=maskYY)
@@ -328,6 +328,8 @@ if __name__ == "__main__":
     )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
+    parser.add_argument('-r', '--freq-range', type=str, 
+                        help='range of frequencies in MHz to flag')
     parser.add_argument('-s', '--sdm', type=str, 
                         help='read in the provided VLA SDM for additional flags')
     parser.add_argument('-p', '--scf-passes', type=int, default=0, 
@@ -337,5 +339,7 @@ if __name__ == "__main__":
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
+    if args.freq_range is not None:
+        args.freq_range = [float(v)*1e6 for v in args.freq_range.split('-')]
     main(args)
     
