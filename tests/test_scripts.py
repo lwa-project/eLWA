@@ -47,7 +47,7 @@ _SAFE_TO_IGNORE = ["Possible",
 
 
 def _get_context(filename, line, before=0, after=0):
-    to_save = range(line-before, line+after+1)
+    to_save = range(line-1-before, line-1+after+1)
     context = []
     with open(filename, 'r') as fh:
         i = 0
