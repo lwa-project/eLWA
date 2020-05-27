@@ -129,7 +129,8 @@ def main(args):
                 visYY = flux[match,b,:,1]
                 
                 nBL = len(bbls)
-                times = times[0::nBL]
+                if b == 0:
+                    times = times[0::nBL]
                 crd.shape = (crd.shape[0]//nBL, nBL, 1, 3)
                 visXX.shape = (visXX.shape[0]//nBL, nBL, visXX.shape[1])
                 visYY.shape = (visYY.shape[0]//nBL, nBL, visYY.shape[1])
