@@ -274,7 +274,7 @@ def main(args):
                         junkFrame = readers[i].readFrame(fh[i], centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
                     except errors.syncError:
                         print "Error - VDIF @ %i" % (i,)
-                        fh[i].seek(vdif.FrameSize, 1)
+                        fh[i].seek(readers[i].FrameSize, 1)
                         continue
             else:
                 for k in xrange(beampols[i]):
