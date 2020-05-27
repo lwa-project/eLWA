@@ -73,7 +73,7 @@ static PyObject *XEngine2(PyObject *self, PyObject *args) {
             }
             
             for(c=0; c<{{nChan}}; c++) {
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + {{nChan}}*bl + c) = tempVis / nActVis;
             }
         }
@@ -184,20 +184,20 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
             
             for(c=0; c<{{nChan}}; c++) {
                 // XX
-                cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 0*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureX;
                 
                 // XY
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
                 
                 // YX
-                //cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                //blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 //*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
                 *(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
                 
                 // YY
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 3*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureY;
             }
         }

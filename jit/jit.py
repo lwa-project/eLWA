@@ -172,30 +172,6 @@ class JustInTimeOptimizer(object):
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
         ldflags.append( '-lm' )
         
-        # ATLAS
-        sys.stdout = StringIO()
-        sys.stderr = StringIO()
-        from numpy.distutils.system_info import get_info
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=DeprecationWarning)
-            atlas_info = get_info('atlas_blas', notfound_action=2)
-        atlas_version = ([v[3:-3] for k,v in atlas_info.get('define_macros',[])
-                        if k == 'ATLAS_INFO']+[None])[0]
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        try:
-            cflags.extend( ['-I%s' % idir for idir in atlas_info['include_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-L%s' % ldir for ldir in atlas_info['library_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
-        except KeyError:
-            pass
-            
         # FFTW3
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
@@ -204,7 +180,7 @@ class JustInTimeOptimizer(object):
         except subprocess.CalledProcessError:
             cflags.extend( [] )
             ldflags.extend( ['-lfftw3f', '-lm'] )
-               
+            
         # OpenMP
         with open('openmp_test.c', 'w') as fh:
             fh.write(r"""#include <omp.h>
@@ -247,7 +223,7 @@ return 0;
             base = os.path.splitext(os.path.basename(tmplFile))[0]
             self._templates[base] = env.get_template(os.path.basename(tmplFile))
             
-    def _compile(self, srcName, objName, verbose=True):
+    def _compile(self, srcName, objName, verbose=False):
         """
         Simple compile function.
         """
@@ -261,7 +237,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def _link(self, objName, modName, verbose=True):
+    def _link(self, objName, modName, verbose=False):
         """
         Simple linker function.
         """

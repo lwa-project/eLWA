@@ -444,7 +444,7 @@ def _read_correlator_configuration(filename):
         stand = stations.Stand(aid, *location)
         for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
-            cable.set_clock_offset(offset)
+            cable.clock_offset = offset
             
             if pol.lower() == 'x':
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=0)
