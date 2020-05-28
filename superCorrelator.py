@@ -136,7 +136,10 @@ def main(args):
             print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clockOffset*1e6, antennas[2*i+1].cable.clockOffset*1e6)
         
         if readers[i] in (vdif, guppi):
-            header = vdif.readGUPPIHeader(fh[i])
+            #header = vdif.readGUPPIHeader(fh[i])
+            ## TODO:  Clean this up
+            header = {'OBSFREQ': 352e6,
+                      'OBSBW':   64e6}
             readers[i].FrameSize = readers[i].getFrameSize(fh[i])
             
         nFramesFile.append( os.path.getsize(filename) / readers[i].FrameSize )

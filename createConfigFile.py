@@ -20,7 +20,7 @@ from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
-from lsl.common.mcs import mjdmpm2datetime
+from lsl.common.mcs import mjdmpm2datetime, datetime2mjdmpm
 
 import guppi
 from utils import *
@@ -83,6 +83,27 @@ def main(args):
         sys.stderr.write("WARNING: %s" % str(e))
         sys.stderr.flush()
         db = None
+        
+    # Load the base VLITE correlator delays
+    corr_delays = {}
+    with open('META_1585944318', 'r') as fh:
+        for line in fh:
+            if len(line) < 3:
+                continue
+            elif line[0] == '#':
+                continue
+            fields = line.split()
+            vid, aid = int(fields[0]), int(fields[1])
+            aid = 'EA%02i' % aid
+            vid = 'V%02i' % (vid+1)
+            valid = int(fields[-1])
+            corr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
+            
+    # Load in the array of VLITE pipeline delays
+    pipe_delays = {}
+    with open('vlite_delays.repickle', 'rb') as fh:
+        import pickle
+        pipe_delays = pickle.load(fh)
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     setup = None
@@ -312,12 +333,17 @@ def main(args):
             ## VDIF
             try:
                 ## Read in the GUPPI header
-                header = vdif.readGUPPIHeader(fh)
+                #header = vdif.readGUPPIHeader(fh)
+                ## TODO:  Need a better way to get this in here
+                header = {'SRC_NAME': 'B0329+54',
+                          'RA_STR':   '03:29:11.02',
+                          'DEC_STR':  '+54:24:36.93',
+                          'OBSFREQ':  352e6}
                 
                 ## Read in the first frame
                 vdif.FrameSize = vdif.getFrameSize(fh)
                 frame = vdif.readFrame(fh)
-                antID = frame.parseID()[0] - 12300
+                antID = frame.parseID()[0]
                 tStart =  datetime.utcfromtimestamp(frame.getTime())
                 nThread = vdif.getThreadCount(fh)
                 
@@ -351,7 +377,28 @@ def main(args):
                 
                 ## VLA time offset
                 off = args.vla_offset
-                                
+                
+                ## VLITE delays
+                aid = 'EA%02i' % antID
+                vid = corr_delays[aid]['vlite']
+                dX = corr_delays[aid]['delayX']
+                dY = corr_delays[aid]['delayY']
+                if not corr_delays[aid]['valid']:
+                    continue
+                try:
+
+                    pds = pipe_delays[corr_delays[aid]['vlite']]
+                    idx = numpy.where(pds['edges_mjd'] >= datetime2mjdmpm(tStart)[0])[0][0]
+                    if idx == pds['polx_delays'].size:
+                        idx = -1
+                    dX += pds['polx_delays'][idx]
+                    dY += pds['poly_delays'][idx]
+                except KeyError as e:
+                    sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
+                    pass
+                dX = '%.1fns' % (-dX)
+                dY = '%.1fns' % (-dY)
+                    
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
@@ -360,8 +407,8 @@ def main(args):
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
                                               'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
                                               'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (off, off), 'fileoffset': 0, 
-                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+                                              'clockoffset': (dY, dX), 'fileoffset': 0, 
+                                              'pad': '%s (VLITE antenna %s)' % (pad, vid), 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
                 sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
