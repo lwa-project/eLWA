@@ -86,24 +86,30 @@ def main(args):
         
     # Load the base VLITE correlator delays
     corr_delays = {}
-    with open('META_1585944318', 'r') as fh:
-        for line in fh:
-            if len(line) < 3:
-                continue
-            elif line[0] == '#':
-                continue
-            fields = line.split()
-            vid, aid = int(fields[0]), int(fields[1])
-            aid = 'EA%02i' % aid
-            vid = 'V%02i' % (vid+1)
-            valid = int(fields[-1])
-            corr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
-            
+    try:
+        with open('META_1585944318', 'r') as fh:
+            for line in fh:
+                if len(line) < 3:
+                    continue
+                elif line[0] == '#':
+                    continue
+                fields = line.split()
+                vid, aid = int(fields[0]), int(fields[1])
+                aid = 'EA%02i' % aid
+                vid = 'V%02i' % (vid+1)
+                valid = int(fields[-1])
+                corr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
+    except IOError:
+        pass
+        
     # Load in the array of VLITE pipeline delays
     pipe_delays = {}
-    with open('vlite_delays.repickle', 'rb') as fh:
-        import pickle
-        pipe_delays = pickle.load(fh)
+    try:
+        with open('vlite_delays.repickle', 'rb') as fh:
+            import pickle
+            pipe_delays = pickle.load(fh)
+    except IOError:
+        pass
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     setup = None
