@@ -99,8 +99,9 @@ def main(args):
                 vid = 'V%02i' % (vid+1)
                 valid = int(fields[-1])
                 corr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
-    except IOError:
-        pass
+    except IOError as e:
+        sys.stderr.write("WARNING: could not load VLITE correlator delays: %s\n" % str(e))
+        sys.stderr.flush()
         
     # Load in the array of VLITE pipeline delays
     pipe_delays = {}
@@ -108,8 +109,9 @@ def main(args):
         with open('vlite_delays.repickle', 'rb') as fh:
             import pickle
             pipe_delays = pickle.load(fh)
-    except IOError:
-        pass
+    except IOError as e:
+        sys.stderr.write("WARNING: could not load VLITE pipeline delays: %s\n" % str(e))
+        sys.stderr.flush()
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     setup = None
