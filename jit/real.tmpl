@@ -527,7 +527,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             fftwf_execute_dft_r2c(p, in, out);
             
             for(k=0; k<{{nChan}}; k++) {
-                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}out[k];
+                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
                 *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
             }
             
@@ -764,7 +764,7 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             }
             
             for(k=0; k<{{nChan}}; k++) {
-                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}out[k];
+                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
                 *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
             }
             
