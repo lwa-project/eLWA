@@ -332,7 +332,7 @@ def main(args):
         elif ext == '.vdif':
             ## VDIF
             try:
-                is_vlite = is_vlite_vdif(fh):
+                is_vlite = is_vlite_vdif(fh)
                 if is_vlite:
                     ## TODO:  Need a better way to get this in here
                     header = {'SRC_NAME': 'B0329+54',
