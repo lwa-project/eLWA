@@ -81,7 +81,12 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
                 fftwf_execute_dft_r2c(p, in, out);
                 
                 for(k=0; k<{{nChan}}; k++) {
-                    *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                    {% if LSB != 0 %}
+                        // The conj() doesn't matter here
+                        *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[{{nChan}}-1-k]);
+                    {% else %}
+                        *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                    {% endif %}
                 }
                 
                 nActFFT += (long) cleanFactor;
@@ -191,7 +196,12 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
                 fftwf_execute_dft_r2c(p, in, out);
                 
                 for(k=0; k<{{nChan}}; k++) {
-                    value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                    {% if LSB != 0 %}
+                        // The conj() doesn't matter here
+                        value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[{{nChan}}-1-k]);
+                    {% else %}
+                        value = {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                    {% endif %}
                     #ifdef _OPENMP
                     #pragma omp atomic
                     #endif
@@ -323,7 +333,12 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
             #endif
             
             for(k=0; k<{{nChan}}; k++) {
-                *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                {% if LSB != 0 %}
+                    // The conj() doesn't matter here
+                    *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[{{nChan}}-1-k]);
+                {% else %}
+                    *(b + {{nChan}}*i + k) += {% if ClipLevel != 0 %} cleanFactor* {% endif %}cabs2f(in[k]);
+                {% endif %}
             }
             
             *(nActFFT + i) += (long) cleanFactor;
@@ -527,7 +542,11 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             fftwf_execute_dft_r2c(p, in, out);
             
             for(k=0; k<{{nChan}}; k++) {
-                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
+                {% if LSB != 0 %}
+                    *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
+                {% else %}
+                    *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}out[k];
+                {% endif %}
                 *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
             }
             
@@ -764,7 +783,11 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             }
             
             for(k=0; k<{{nChan}}; k++) {
-                *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
+                {% if LSB != 0 %}
+                    *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}conj(out[{{nChan}}-1-k]);
+                {% else %}
+                    *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j)  = {% if ClipLevel != 0 %} cleanFactor* {% endif %}out[k];
+                {% endif %}
                 *(b + {{nChan}}*{{nFFT}}*i + {{nFFT}}*k + j) *= *(rot + {{nChan}}*i + k);
             }
             

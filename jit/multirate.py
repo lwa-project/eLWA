@@ -84,7 +84,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, SampleRate=None
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6, LSB=False):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -152,9 +152,9 @@ def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=Fa
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, LSB=LSB)
     else:
-        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function(_core.FEngineC2, signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, LSB=LSB)
     
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
@@ -165,7 +165,7 @@ def fengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=Fa
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6):
+def pfbengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=False, window=noWindow, SampleRate=None, CentralFreq=0.0, Pol='XX', GainCorrect=False, ReturnBaselines=False, ClipLevel=0, phaseCenter='z', delayPadding=40e-6, LSB=False):
     """
     Multi-rate PFB-based F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -233,9 +233,9 @@ def pfbengine(signals, antennas, LFFT=64, Overlap=1, IncludeAuto=False, verbose=
         
     # Optimize
     if len(signalsIndex1) != signals.shape[0]:
-        FEngine = JIT_OPT.get_function('PFBEngine', signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function('PFBEngine', signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, LSB=LSB)
     else:
-        FEngine = JIT_OPT.get_function('PFBEngine', signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel)
+        FEngine = JIT_OPT.get_function('PFBEngine', signals, freq, delays1, LFFT=LFFT, Overlap=Overlap, SampleRate=SampleRate, ClipLevel=ClipLevel, LSB=LSB)
         
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:

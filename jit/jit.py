@@ -271,7 +271,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=noWindow):
+    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, window=noWindow):
         """
         Generate an optimized version of the various time-domain functions 
         for the given parameters, update the cache, and return the module.
@@ -291,7 +291,7 @@ return 0;
             raise RuntimeError("Unknown data type: %s" % dtype)
             
         # Build up the file names we need
-        module = '%s_%i_%i_%i_%i_%i' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel)
+        module = '%s_%i_%i_%i_%i_%i_%i' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB)
         srcname = os.path.join(self.cacheDir, '%s.c' % module)
         objname = os.path.join(self.cacheDir, '%s.o' % module)
         soname = os.path.join(self.cacheDir, '%s.so' % module)
@@ -312,7 +312,7 @@ return 0;
             ### Generate the code
             config = {'module':module, 'dtype':dtype, 'dtypeN':dtypeN, 'dtypeC':dtypeC, 
                       'nStand':'%iL'%nStand, 'nSamps':'%iL'%nSamps, 'nChan':'%iL'%nChan, 'nOverlap':'%iL'%nOverlap, 
-                      'nFFT':'%iL'%nFFT, 'nBL':'%iL'%nBL, 'ClipLevel':ClipLevel, 'useWindow':useWindow}
+                      'nFFT':'%iL'%nFFT, 'nBL':'%iL'%nBL, 'ClipLevel':ClipLevel, 'LSB':LSB, 'useWindow':useWindow}
             fh = open(os.path.join(self.cacheDir, srcname), 'w')
             fh.write( self._templates['head'].render(**config) )
             fh.write( self._templates[funcTemplate].render(**config) )
@@ -382,12 +382,16 @@ return 0;
         except KeyError:
             ClipLevel = 0
         try:
+            LSB = kwds['LSB']
+        except KeyError:
+            LSB = False
+        try:
             window = kwds['window']
         except KeyError:
             window = noWindow
             
         # Get the optimized module
-        mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window)
+        mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, window)
         
         # Do we need to measure it?
         try:
