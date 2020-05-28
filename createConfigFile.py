@@ -332,18 +332,21 @@ def main(args):
         elif ext == '.vdif':
             ## VDIF
             try:
-                ## Read in the GUPPI header
-                #header = vdif.readGUPPIHeader(fh)
-                ## TODO:  Need a better way to get this in here
-                header = {'SRC_NAME': 'B0329+54',
-                          'RA_STR':   '03:29:11.02',
-                          'DEC_STR':  '+54:24:36.93',
-                          'OBSFREQ':  352e6}
-                
+                is_vlite = is_vlite_vdif(fh):
+                if is_vlite:
+                    ## TODO:  Need a better way to get this in here
+                    header = {'SRC_NAME': 'B0329+54',
+                              'RA_STR':   '03:29:11.02',
+                              'DEC_STR':  '+54:24:36.93',
+                              'OBSFREQ':  352e6}
+                else:
+                    ## Read in the GUPPI header
+                    header = vdif.readGUPPIHeader(fh)
+                    
                 ## Read in the first frame
                 vdif.FrameSize = vdif.getFrameSize(fh)
                 frame = vdif.readFrame(fh)
-                antID = frame.parseID()[0]
+                antID = frame.parseID()[0] - (0 if is_vlite else 12300)
                 tStart =  datetime.utcfromtimestamp(frame.getTime())
                 nThread = vdif.getThreadCount(fh)
                 
@@ -375,29 +378,36 @@ def main(args):
                 enz = sez[[1,0,2]]
                 enz[1] *= -1
                 
-                ## VLA time offset
-                off = args.vla_offset
-                
-                ## VLITE delays
-                aid = 'EA%02i' % antID
-                vid = corr_delays[aid]['vlite']
-                dX = corr_delays[aid]['delayX']
-                dY = corr_delays[aid]['delayY']
-                if not corr_delays[aid]['valid']:
-                    continue
-                try:
+                if is_vlite:
+                    ## VLITE delays
+                    aid = 'EA%02i' % antID
+                    vid = corr_delays[aid]['vlite']
+                    dX = corr_delays[aid]['delayX']
+                    dY = corr_delays[aid]['delayY']
+                    if not corr_delays[aid]['valid']:
+                        continue
+                        
+                    try:
 
-                    pds = pipe_delays[corr_delays[aid]['vlite']]
-                    idx = numpy.where(pds['edges_mjd'] >= datetime2mjdmpm(tStart)[0])[0][0]
-                    if idx == pds['polx_delays'].size:
-                        idx = -1
-                    dX += pds['polx_delays'][idx]
-                    dY += pds['poly_delays'][idx]
-                except KeyError as e:
-                    sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
-                    pass
-                dX = '%.1fns' % (-dX)
-                dY = '%.1fns' % (-dY)
+                        pds = pipe_delays[corr_delays[aid]['vlite']]
+                        idx = numpy.where(pds['edges_mjd'] >= datetime2mjdmpm(tStart)[0])[0][0]
+                        if idx == pds['polx_delays'].size:
+                            idx = -1
+                        dX += pds['polx_delays'][idx]
+                        dY += pds['poly_delays'][idx]
+                    except KeyError as e:
+                        sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
+                        pass
+                        
+                    dX = '%.1fns' % (-dX)
+                    dY = '%.1fns' % (-dY)                   
+                    off = (dX, dY)
+                    
+                    ## Update the pad name with the VLITE antenna ID
+                    pad = '%s (VLITE antenna %s)' % (pad, vid)
+                else:
+                    ## VLA time offset
+                    off = (args.vla_offset, args.vla_offset)
                     
                 ## Save
                 corrConfig['source']['name'] = header['SRC_NAME']
@@ -407,9 +417,9 @@ def main(args):
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
                                               'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
                                               'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (dY, dX), 'fileoffset': 0, 
-                                              'pad': '%s (VLITE antenna %s)' % (pad, vid), 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
-                                        
+                                              'clockoffset': (off[1], off[1]), 'fileoffset': 0, 
+                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
+                
             except Exception as e:
                 sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
                 sys.stderr.flush()

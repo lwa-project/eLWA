@@ -124,6 +124,7 @@ def main(args):
     delaySteps = []
     buffers = []
     grossOffsets = []
+    is_vlite = False
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
@@ -136,10 +137,13 @@ def main(args):
             print "  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clockOffset*1e6, antennas[2*i+1].cable.clockOffset*1e6)
         
         if readers[i] in (vdif, guppi):
-            #header = vdif.readGUPPIHeader(fh[i])
-            ## TODO:  Clean this up
-            header = {'OBSFREQ': 352e6,
-                      'OBSBW':   64e6}
+            is_vlite = is_vlite_vdif(fh[i])
+            if is_vlite:
+                ## TODO:  Clean this up
+                header = {'OBSFREQ': 352e6,
+                          'OBSBW':   64e6}
+            else:
+                header = vdif.readGUPPIHeader(fh[i])
             readers[i].FrameSize = readers[i].getFrameSize(fh[i])
             
         nFramesFile.append( os.path.getsize(filename) / readers[i].FrameSize )
@@ -689,7 +693,7 @@ def main(args):
                 freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
                                                             SampleRate=srate[0], CentralFreq=cFreqs[0][0]-srate[0]/4,
                                                             Pol='*', phaseCenter=refSrc, 
-                                                            delayPadding=delayPadding, LSB=True)
+                                                            delayPadding=delayPadding, LSB=is_vlite)
                 
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,

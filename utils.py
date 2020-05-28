@@ -36,7 +36,7 @@ __revision__ = '$Rev$'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
            'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
            'nsround', 'read_correlator_configuration', 'get_better_time', 
-           'parse_lwa_metadata', 'PolyCos']
+           'parse_lwa_metadata', 'is_vlite_vdif', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -645,6 +645,21 @@ def parse_lwa_metadata(filename):
         
     # done
     return t, d
+
+
+def is_vlite_vdif(filehandle):
+    """
+    Given an open filehandle to a VDIF file, determine if it is likely from 
+    VLITE-fast or not.
+    """
+    
+    vlite = True
+    mark = filehandle.tell()
+    data = filehandle.read(16384)
+    if data.find('END') != -1 or data.find('CONTINUE') != -1:
+        vlite = False
+    filehandle.seek(mark)
+    return vlite
 
 
 class PolyCos(object):
