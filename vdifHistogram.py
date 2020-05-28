@@ -74,7 +74,7 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    s_vlite = is_vlite_vdif(fh)
+    is_vlite = is_vlite_vdif(fh)
     if is_vlite:
         ## TODO:  Clean this up
         header = {'OBSFREQ': 352e6,

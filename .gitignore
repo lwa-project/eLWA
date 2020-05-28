@@ -9,3 +9,8 @@ META_*
 *.pyc
 *.c
 *.so
+
+# Pulsar stuff
+*.h
+*.o
+Makefile
