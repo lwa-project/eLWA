@@ -81,7 +81,13 @@ def main(args):
     LFFT = config['LFFT']
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
+    is_vlite = is_vlite_vdif(fh)
+    if is_vlite:
+        ## TODO:  Clean this up
+        header = {'OBSFREQ': 352e6,
+                  'OBSBW':   64e6}
+    else:
+        header = vdif.readGUPPIHeader(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
     nFramesFile = os.path.getsize(filename) / vdif.FrameSize
     
@@ -157,7 +163,9 @@ def main(args):
     # Transform and trim off the negative frequencies
     freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, SampleRate=srate, CentralFreq=header['OBSFREQ']-srate/4)
     freq, psd = freq[LFFT:], psd[:,LFFT:]
-    
+    if is_vlite:
+        psd = psd[:,::-1]
+        
     # Plot
     fig = plt.figure()
     ax = fig.gca()

@@ -80,7 +80,13 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
+    is_vlite = is_vlite_vdif(fh)
+    if is_vlite:
+        ## TODO:  Clean this up
+        header = {'OBSFREQ': 352e6,
+                  'OBSBW':   64e6}
+    else:
+        header = vdif.readGUPPIHeader(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
     nFramesFile = os.path.getsize(filename) / vdif.FrameSize
     

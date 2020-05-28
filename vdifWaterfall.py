@@ -171,7 +171,7 @@ def bestFreqUnits(freq):
     return (newFreq, units)
 
 
-def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0, lsb=False):
     """
     Process a chunk of data in a raw vdif file into linear polarization 
     products and add the contents to an HDF5 file.
@@ -332,7 +332,9 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
         if clip1 == clip2:
             freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
-            
+            if lsb:
+                tempSpec1 = tempSpec1[:,::-1]
+                
             l = 0
             for t in (1,2):
                 for p in dataProducts:
@@ -343,7 +345,9 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
             freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
             freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
-            
+            if lsb:
+                tempSpec1, tempSpec2 = tempSpec1[:,::-1], tempSpec2[:,::-1]
+                
             for l,p in enumerate(dataProducts):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,:]
@@ -358,7 +362,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sampleRate, c
     return True
 
 
-def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, config, dataSets, obsID=1, clip1=0, clip2=0, lsb=False):
     """
     Process a chunk of data in a raw vdif file into Stokes parameters and 
     add the contents to an HDF5 file.
@@ -519,7 +523,10 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
         if clip1 == clip2:
             freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
-            
+            if lsb:
+                ## TODO:  It may not be this simple
+                tempSpec1 = tempSpec1[:,::-1]
+                
             for t in (1,2):
                 for l,p in enumerate(dataProducts):
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
@@ -528,7 +535,10 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sampleRate, c
             freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip1)
             freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], SampleRate=srate, ClipLevel=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
-            
+            if lsb:
+                ## TODO:  It may not be this simple
+                tempSpec1, tempSpec2 = tempSpec1[:,::-1], tempSpec2[:,::-1]
+                
             for l,p in enumerate(dataProducts):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
@@ -553,7 +563,13 @@ def main(args):
     # Open the file and find good data (not spectrometer data)
     filename = config['args'][0]
     fh = open(filename, "rb")
-    header = vdif.readGUPPIHeader(fh)
+    is_vlite = is_vlite_vdif(fh)
+    if is_vlite:
+        ## TODO:  Clean this up
+        header = {'OBSFREQ': 352e6,
+                  'OBSBW':   64e6}
+    else:
+        header = vdif.readGUPPIHeader(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
     nFramesFile = os.path.getsize(filename) / vdif.FrameSize
     
@@ -802,7 +818,7 @@ def main(args):
     # Go!
     for o in sorted(obsList.keys()):
         try:
-            processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
+            processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2, lsb=is_vlite)
         except RuntimeError, e:
             print "Observation #%i: %s, abandoning this observation" % (o, str(e))
 
