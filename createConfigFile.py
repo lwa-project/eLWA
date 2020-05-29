@@ -342,11 +342,12 @@ def main(args):
             try:
                 is_vlite = is_vlite_vdif(fh)
                 if is_vlite:
-                    ## TODO:  Need a better way to get this in here
-                    header = {'SRC_NAME': 'B0329+54',
-                              'RA_STR':   '03:29:11.02',
-                              'DEC_STR':  '+54:24:36.93',
-                              'OBSFREQ':  352e6}
+                    ## TODO:  Clean this up
+                    header = {'SRC_NAME': args.vlite_target,
+                              'RA_STR':   args.vlite_ra,
+                              'DEC_STR':  args.vlite_dec,
+                              'OBSFREQ':  352e6,
+                              'OBSBW':    64e6}
                 else:
                     ## Read in the GUPPI header
                     header = vdif.readGUPPIHeader(fh)
@@ -724,6 +725,20 @@ if __name__ == "__main__":
                         help='VLA clock offset')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
+    parser.add_argument('-t', '--vlite-target', type=str, default='Unknown',
+                        help='VLITE target name')
+    parser.add_argument('-r', '--vlite-ra', type=str, default='00:00:00.00',
+                        help='VLITE target RA (rad or HH:MM:SS.SS, J2000)')
+    parser.add_argument('-d', '--vlite-dec', type=str, default='+90:00:00.00',
+                        help='VLITE target dec. (rad or sDD:MM:SS.S, J2000)')
     args = parser.parse_args()
+    try:
+        args.vlite_ra = str(ephem.hours(float(args.vlite_ra)))
+    except ValueError:
+        pass
+    try:
+        args.vlite_dec = str(ephem.degrees(float(args.vlite_dec)))
+    except ValueError:
+        pass
     main(args)
     
