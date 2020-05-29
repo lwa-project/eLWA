@@ -481,7 +481,7 @@ def main(args):
                         buffers[j].append( cFrame )
                     except errors.syncError:
                         print "Error - VDIF @ %i, %i" % (i, j)
-                        f.seek(vdif.FrameSize, 1)
+                        f.seek(readers[j].FrameSize, 1)
                         continue
                     except errors.eofError:
                         done = True

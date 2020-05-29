@@ -44,7 +44,8 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Module 'ephem",
                    "Instance of 'HDUList'",
                    "Unable to import 'polycos",
-                   "No name 'ccompiler"]
+                   "No name 'ccompiler",
+                   "psrfits_utils"]
 
 
 def _get_context(filename, line, before=0, after=0):
