@@ -387,7 +387,7 @@ def main(args):
                    and max([ma.stand.id for ma in master_antennas]) > 50:
                    mode == 'ELWA'
                 elif min([ma.stand.id for ma in master_antennas]) < 50:
-                    mode = 'VLA
+                    mode = 'VLA'
                     
                 fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
                 if config['context']['ebid'] is not None:
