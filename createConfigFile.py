@@ -85,6 +85,7 @@ def main(args):
         db = None
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
+    context = {'observer':'Unknown', 'project':'Unknown', 'sbid':None}
     setup = None
     sources = []
     metadata = {}
@@ -102,6 +103,10 @@ def main(args):
                     except Exception as e:
                         sdf = metabundleADP.getSessionDefinition(filename)
                         
+                    context['observer'] = sdf.observer.name
+                    context['project'] = sdf.id
+                    context['sbid'] = sdf.sessions[0].id
+                    
                     comments = sdf.projectOffice.sessions[0]
                     mtch = CORR_CHANNELS.search(comments)
                     if mtch is not None:
@@ -208,7 +213,7 @@ def main(args):
                 sys.stderr.flush()
                 
     # Setup what we need to write out a configuration file
-    corrConfig = {'setup': setup, 
+    corrConfig = {'context': context, 'setup': setup, 
                   'source': {'name':'', 'ra2000':'', 'dec2000':''}, 
                   'inputs': []}
     
@@ -353,6 +358,9 @@ def main(args):
                 off = args.vla_offset
                                 
                 ## Save
+                corrConfig['context']['observer'] = header['OBSERVER']
+                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
+                corrConfig['context']['sbid'] = header['BASENAME'].split('_')[1].replace('sb', '')
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -560,6 +568,13 @@ def main(args):
         fh.write("#  on %s\n" % datetime.now())
         fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
         fh.write("\n")
+        ## Observation context
+        fh.write("Context\n")
+        fh.write(" Observer  %s\n" % corrConfig['context']['observer'])
+        fh.write(" Project   %s\n" % corrConfig['context']['project'])
+        if corrConfig['context']['sbid'] is not None:
+            fh.write(" SBID      %s\n" % corrConfig['context']['sbid'])
+        fh.write('EndContext')
         ## Configuration, if present
         if corrConfig['setup'] is not None:
             fh.write("Configuration\n")

@@ -368,6 +368,19 @@ def main(args):
             fits.setFrequency(freqL)
             fits.setFrequency(freqH)
             fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
+            mode = 'LSBI'
+                if min([ma.stand.id for ma in master_antennas]) < 50 \
+                   and max(ma.stand.id for ma in master_antennas]) > 50:
+                   mode == 'ELWA'
+                elif min([ma.stand.id for ma in master_antennas]) < 50:
+                    mode = 'VLA
+                    
+                fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
+                if config['context']['ebid'] is not None:
+                    fits.addHeaderKeyword('ebid', config['context']['ebid'])
+                if config['context']['sbid'] is not None:
+                    fits.addHeaderKeyword('sbid', config['context']['sbid'])
+                fit.addHeaderKeyword('instrume', mode)
             fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
             print "Opening %s for writing" % outname
             
