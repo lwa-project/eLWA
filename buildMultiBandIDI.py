@@ -392,7 +392,7 @@ def main(args):
                 mode = 'LSBI'
                 if min([ma.stand.id for ma in master_antennas]) < 50 \
                    and max([ma.stand.id for ma in master_antennas]) > 50:
-                   mode == 'ELWA'
+                   mode = 'ELWA'
                 elif min([ma.stand.id for ma in master_antennas]) < 50:
                     mode = 'VLA'
                     
