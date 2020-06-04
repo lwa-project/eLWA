@@ -245,6 +245,9 @@ class IDI(object):
         self.siteName = 'Unknown'
         
         # Observation-specific information
+        self.observer = 'UNKNOWN'
+        self.project = 'UNKNOWN'
+        self.mode = 'ZA'
         self.refTime = self.parseRefTime(refTime)
         self.nAnt = 0
         self.nChan = 0
@@ -258,6 +261,7 @@ class IDI(object):
         self.freq = []
         self.stokes = []
         self.data = []
+        self.extra_keywords = []
         
         # Open the file and get going
         if os.path.exists(filename):
@@ -365,6 +369,32 @@ class IDI(object):
                 
         self.nAnt = len(ants)
         self.array.append( {'center': [arrayX, arrayY, arrayZ], 'ants': ants, 'mapper': mapper, 'enableMapper': enableMapper, 'inputAnts': antennas} )
+        
+    def setObserver(self, observer, project='UNKNOWN', mode='ZA'):
+        """
+        Set the observer name, project, and observation mode (if given) to the 
+        self.observer, self.project, and self.mode attributes, respectively.
+        """
+        
+        self.observer = observer
+        self.project = project
+        self.mode = mode
+        
+    def addHeaderKeyword(self, name, value, comment=None):
+        """
+        Add an additional entry to the header of the primary HDU.
+        """
+        
+        name = name.upper()
+        if name in ('NAXIS', 'EXTEND', 'GROUPS', 'GCOUNT', 'PCOUNT', 'OBJECT', 
+                    'TELESCOP', 'OBSERVER', 'PROJECT', 'ORIGIN', 'CORRELAT', 'FXCORVER', 
+                    'LWATYPE', 'LWAMAJV', 'LWAMINV', 'DATE-OBS', 'DATE-MAP', 
+                    'COMMENT', 'HISTORY'):
+            raise ValueError("Cannot set a value for '%s'" % name)
+        if len(name) > 8:
+            raise ValueError("Keyword name cannot be more than eight characters long")
+            
+        self.extra_keywords[name] = value if comment is None else (value, comment)
         
     def addComment(self, comment):
         """
@@ -485,17 +515,22 @@ class IDI(object):
         primary.header['OBJECT'] = 'BINARYTB'
         primary.header['TELESCOP'] = self.siteName
         primary.header['INSTRUME'] = self.siteName
-        primary.header['OBSERVER'] = ('ZASKY', 'zenith all-sky image')
+        primary.header['OBSERVER'] = (self.observer, 'Observer name(s)')
+        primary.header['PROJECT'] = (self.project, 'Project name')
         primary.header['ORIGIN'] = 'LSL'
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
-        primary.header['LWATYPE'] = ('IDI-ZA', 'LWA FITS file type')
+        primary.header['LWATYPE'] = (self.mode, 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
+        # Write extra header values
+        for name in self.extra_keywords:
+            primary.header[name] = self.extra_keywords[name]
+            
         # Write the comments and history
         try:
             for comment in self._comments:
@@ -1281,17 +1316,22 @@ class AIPS(IDI):
         primary.header['OBJECT'] = 'BINARYTB'
         primary.header['TELESCOP'] = self.siteName
         primary.header['INSTRUME'] = self.siteName
-        primary.header['OBSERVER'] = ('ZASKY', 'zenith all-sky image')
+        primary.header['OBSERVER'] = (self.observer, 'Observer name(s)')
+        primary.header['PROJECT'] = (self.project, 'Project name')
         primary.header['ORIGIN'] = 'LSL'
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
-        primary.header['LWATYPE'] = ('IDI-AIPS-ZA', 'LWA FITS file type')
+        primary.header['LWATYPE'] = ('AIPS-%s' % self.mode, 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
+        # Write extra header values
+        for name in self.extra_keywords:
+            primary.header[name] = self.extra_keywords[name]
+            
         # Write the comments and history
         try:
             for comment in self._comments:
@@ -1357,17 +1397,22 @@ class ExtendedIDI(IDI):
         primary.header['OBJECT'] = 'BINARYTB'
         primary.header['TELESCOP'] = self.siteName
         primary.header['INSTRUME'] = self.siteName
-        primary.header['OBSERVER'] = ('ZASKY', 'zenith all-sky image')
+        primary.header['OBSERVER'] = (self.observer, 'Observer name(s)')
+        primary.header['PROJECT'] = (self.project, 'Project name')
         primary.header['ORIGIN'] = 'LSL'
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
-        primary.header['LWATYPE'] = ('IDI-EXTENDED-ZA', 'LWA FITS file type')
+        primary.header['LWATYPE'] = ('EXTENDED-%s' % self.mode, 'LWA FITS file type')
         primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
         primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.refTime, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
         
+        # Write extra header values
+        for name in self.extra_keywords:
+            primary.header[name] = self.extra_keywords[name]
+            
         # Write the comments and history
         try:
             for comment in self._comments:
