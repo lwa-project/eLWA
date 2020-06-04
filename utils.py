@@ -300,7 +300,7 @@ def _read_correlator_configuration(filename):
     """
     
     context = None
-    config = None
+    config = {}
     sources = []
     blocks = []
     

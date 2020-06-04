@@ -153,7 +153,7 @@ def main(args):
     freq = dataDict['freq1']
     
     config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
-    if config is not None:
+    try:
         if config['basis'] == 'linear':
             args.linear = True
             args.circular = False
@@ -167,6 +167,8 @@ def main(args):
             args.circular = False
             args.stokes = True
         print "NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis']
+    except (TypeError, KeyError):
+        pass
         
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
     visXY = dataDict['vis1XY'].astype(numpy.complex64)
