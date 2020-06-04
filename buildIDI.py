@@ -221,8 +221,12 @@ def main(args):
     # Figure out our revision
     try:
         repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
-        branch = repo.active_branch.name
-        hexsha = repo.active_branch.commit.hexsha
+        try:
+            branch = repo.active_branch.name
+            hexsha = repo.active_branch.commit.hexsha
+        except TypeError:
+            branch = '<detached>'
+            hexsha = repo.head.commit.hexsha
         shortsha = hexsha[-7:]
         dirty = ' (dirty)' if repo.is_dirty() else ''
     except git.exc.GitError:
