@@ -386,7 +386,8 @@ def main(args):
             fits.setFrequency(freqL)
             fits.setFrequency(freqH)
             fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
-            mode = 'LSBI'
+            if config['context'] is not None:
+                mode = 'LSBI'
                 if min([ma.stand.id for ma in master_antennas]) < 50 \
                    and max([ma.stand.id for ma in master_antennas]) > 50:
                    mode == 'ELWA'

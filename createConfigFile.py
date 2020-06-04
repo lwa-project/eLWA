@@ -587,11 +587,12 @@ def main(args):
         fh.write("\n")
         ## Observation context
         fh.write("Context\n")
-        fh.write(" Observer  %s\n" % corrConfig['context']['observer'])
-        fh.write(" Project   %s\n" % corrConfig['context']['project'])
+        fh.write("  Observer  %s\n" % corrConfig['context']['observer'])
+        fh.write("  Project   %s\n" % corrConfig['context']['project'])
         if corrConfig['context']['sbid'] is not None:
-            fh.write(" SBID      %s\n" % corrConfig['context']['sbid'])
-        fh.write('EndContext')
+            fh.write("  SBID      %s\n" % corrConfig['context']['sbid'])
+        fh.write("EndContext\n")
+        fh.write("\n")
         ## Configuration, if present
         if corrConfig['setup'] is not None:
             fh.write("Configuration\n")
