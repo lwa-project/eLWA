@@ -299,7 +299,8 @@ def _read_correlator_configuration(filename):
     Backend function for read_correlator_configuration.
     """
     
-    config = None
+    context = None
+    config = {}
     sources = []
     blocks = []
     
@@ -312,7 +313,18 @@ def _read_correlator_configuration(filename):
             
         line = line.strip().rstrip()
         
-        if line == 'Configuration':
+        if line == 'Context':
+            temp_context = {'observer':'Unknown', 'project':'Unknown', 'sbid':None}
+        elif line[:8] == 'Observer':
+            temp_context['observer'] = line.split(None, 1)[1]
+        elif line[:7] == 'Project':
+            temp_context['project'] = line.split(None, 1)[1]
+        elif line[:4] == 'SBID':
+            temp_context['sbid'] = line.split(None, 1)[1]
+        elif line == 'EndContext':
+            context = temp_context
+            
+        elif line == 'Configuration':
             temp_config = {'inttime':None, 'channels':None, 'basis':None}
         elif line[:8] == 'Channels':
             temp_config['channels'] = int(line.split(None, 1)[1], 10)
@@ -322,6 +334,7 @@ def _read_correlator_configuration(filename):
             temp_config['basis'] = line.split(None, 1)[1]
         elif line == 'EndConfiguration':
             config = temp_config
+            
         elif line == 'Source':
             source = {'intent':'target', 'duration':0.0}
         elif line[:4] == 'Name':
@@ -338,6 +351,7 @@ def _read_correlator_configuration(filename):
             source['duration'] = float(line.split(None, 1)[1])
         elif line == 'SourceDone':
             sources.append( source )
+            
         elif line == 'Input':
             block = {'fileOffset':0.0}
         elif line[:4] == 'File' and line[4] != 'O':
@@ -363,6 +377,9 @@ def _read_correlator_configuration(filename):
                 block['metadata'] = None
             blocks.append( block )
     fh.close()
+    
+    # Set the context
+    config['context'] = context
     
     # Find the reference source
     if 'ra' in sources[0].keys() and 'dec' in sources[0].keys():

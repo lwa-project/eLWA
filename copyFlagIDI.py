@@ -9,6 +9,7 @@ $LastChangedDate$
 """
 
 import os
+import git
 import sys
 import time
 import numpy
@@ -37,10 +38,27 @@ def main(args):
     if len(toCopy) == 0:
         raise RuntimeError("No FLAG tables found in '%s'" % os.path.basename(srcname))
         
+    # Figure out our revision
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            branch = repo.active_branch.name
+            hexsha = repo.active_branch.commit.hexsha
+        except TypeError:
+            branch = '<detached>'
+            hexsha = repo.head.commit.hexsha
+        shortsha = hexsha[-7:]
+        dirty = ' (dirty)' if repo.is_dirty() else ''
+    except git.exc.GitError:
+        branch = 'unknown'
+        hexsha = 'unknown'
+        shortsha = 'unknown'
+        dirty = ''
+        
     # Insert the new tables right before UV_DATA
     for hdu in toCopy:
         dstlist.insert(-1, hdu)
-        dstlist[-2].header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
+        dstlist[-2].header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         dstlist[-2].header['HISTORY'] = 'Copied from \'%s\'' % os.path.basename(srcname)
         ## Check to see if we need to scale the channel masks
         if dstlist[1].header['NO_CHAN'] != dstlist[-2].header['NO_CHAN']:

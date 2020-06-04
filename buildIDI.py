@@ -12,6 +12,7 @@ $LastChangedDate$
 
 import os
 import re
+import git
 import sys
 import glob
 import time
@@ -152,7 +153,7 @@ def main(args):
     freq = dataDict['freq1']
     
     config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
-    if config is not None:
+    try:
         if config['basis'] == 'linear':
             args.linear = True
             args.circular = False
@@ -166,6 +167,8 @@ def main(args):
             args.circular = False
             args.stokes = True
         print "NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis']
+    except (TypeError, KeyError):
+        pass
         
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
     visXY = dataDict['vis1XY'].astype(numpy.complex64)
@@ -216,6 +219,23 @@ def main(args):
     if float(fitsidi.__version__) < 0.9:
         print "Warning: Applying conjugate to visibility data"
         conjugateVis = True
+        
+    # Figure out our revision
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            branch = repo.active_branch.name
+            hexsha = repo.active_branch.commit.hexsha
+        except TypeError:
+            branch = '<detached>'
+            hexsha = repo.head.commit.hexsha
+        shortsha = hexsha[-7:]
+        dirty = ' (dirty)' if repo.is_dirty() else ''
+    except git.exc.GitError:
+        branch = 'unknown'
+        hexsha = 'unknown'
+        shortsha = 'unknown'
+        dirty = ''
         
     # Fill in the data
     for i,filename in enumerate(filenames):
@@ -320,7 +340,19 @@ def main(args):
                 fits.setStokes(['XX', 'XY', 'YX', 'YY'])
             fits.setFrequency(freq)
             fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
-            fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
+            if config['context'] is not None:
+                mode = 'LSBI'
+                if min([ma.stand.id for ma in master_antennas]) < 50 \
+                   and max([ma.stand.id for ma in master_antennas]) > 50:
+                   mode == 'ELWA'
+                elif min([ma.stand.id for ma in master_antennas]) < 50:
+                    mode = 'VLA'
+                    
+                fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
+                if config['context']['sbid'] is not None:
+                    fits.addHeaderKeyword('sbid', config['context']['sbid'])
+                fits.addHeaderKeyword('instrume', mode)
+            fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print "Opening %s for writing" % outname
             
         if i % 10 == 0:
