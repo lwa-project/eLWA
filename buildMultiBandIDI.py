@@ -397,8 +397,6 @@ def main(args):
                     mode = 'VLA'
                     
                 fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
-                if config['context']['ebid'] is not None:
-                    fits.addHeaderKeyword('ebid', config['context']['ebid'])
                 if config['context']['sbid'] is not None:
                     fits.addHeaderKeyword('sbid', config['context']['sbid'])
                 fits.addHeaderKeyword('instrume', mode)

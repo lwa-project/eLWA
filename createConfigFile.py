@@ -419,6 +419,9 @@ def main(args):
                 off = args.vla_offset
                 
                 ## Save
+                corrConfig['context']['observer'] = header['OBSERVER']
+                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
+                corrConfig['context']['sbid'] = header['BASENAME'].split('_')[1].replace('sb', '')
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
