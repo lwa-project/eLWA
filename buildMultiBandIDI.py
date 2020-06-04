@@ -12,6 +12,7 @@ $LastChangedDate$
 
 import os
 import re
+import git
 import sys
 import glob
 import time
@@ -234,6 +235,19 @@ def main(args):
         print "Warning: Applying conjugate to visibility data"
         conjugateVis = True
         
+    # Figure out our revision
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+        branch = repo.active_branch.name
+        hexsha = repo.active_branch.commit.hexsha
+        shortsha = hexsha[-7:]
+        dirty = ' (dirty)' if repo.is_dirty() else ''
+    except git.exc.GitError:
+        branch = 'unknown'
+        hexsha = 'unknown'
+        shortsha = 'unknown'
+        dirty = ''
+        
     # Fill in the data
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
@@ -370,7 +384,7 @@ def main(args):
             fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             mode = 'LSBI'
                 if min([ma.stand.id for ma in master_antennas]) < 50 \
-                   and max(ma.stand.id for ma in master_antennas]) > 50:
+                   and max([ma.stand.id for ma in master_antennas]) > 50:
                    mode == 'ELWA'
                 elif min([ma.stand.id for ma in master_antennas]) < 50:
                     mode = 'VLA
@@ -381,7 +395,7 @@ def main(args):
                 if config['context']['sbid'] is not None:
                     fits.addHeaderKeyword('sbid', config['context']['sbid'])
                 fit.addHeaderKeyword('instrume', mode)
-            fits.addHistory('Created with %s, revision $Rev$' % os.path.basename(__file__))
+            fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print "Opening %s for writing" % outname
             
         if i % 10 == 0:

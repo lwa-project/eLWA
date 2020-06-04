@@ -12,6 +12,7 @@ $LastChangedDate$
 
 import os
 import re
+import git
 import sys
 import ephem
 import numpy
@@ -563,10 +564,22 @@ def main(args):
                 outname += str(s+1)
             fh = open(outname, 'w')
             
+        try:
+            repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+            branch = repo.active_branch.name
+            hexsha = repo.active_branch.commit.hexsha
+            shortsha = hexsha[-7:]
+            dirty = ' (dirty)' if repo.is_dirty() else ''
+        except git.exc.GitError:
+            branch = 'unknown'
+            hexsha = 'unknown'
+            shortsha = 'unknown'
+            dirty = ''
+            
         ## Preamble
         fh.write("# Created\n")
         fh.write("#  on %s\n" % datetime.now())
-        fh.write("#  using %s, revision $Rev$\n" % os.path.basename(__file__))
+        fh.write("#  using %s, revision %s.%s%s\n" % (os.path.basename(__file__), branch, shortsha, dirty))
         fh.write("\n")
         ## Observation context
         fh.write("Context\n")
