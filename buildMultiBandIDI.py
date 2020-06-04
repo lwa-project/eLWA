@@ -401,7 +401,7 @@ def main(args):
                     fits.addHeaderKeyword('ebid', config['context']['ebid'])
                 if config['context']['sbid'] is not None:
                     fits.addHeaderKeyword('sbid', config['context']['sbid'])
-                fit.addHeaderKeyword('instrume', mode)
+                fits.addHeaderKeyword('instrume', mode)
             fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print "Opening %s for writing" % outname
             
