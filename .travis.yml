@@ -27,7 +27,8 @@ install:
         matplotlib==2.1.1 \
         scipy==0.19.1 \
         h5py \
-        jinja2
+        jinja2 \
+        git
     - pip install \ 
         lsl==1.2.5
     - pip install pylint
