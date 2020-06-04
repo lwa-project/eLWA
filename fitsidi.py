@@ -261,7 +261,7 @@ class IDI(object):
         self.freq = []
         self.stokes = []
         self.data = []
-        self.extra_keywords = []
+        self.extra_keywords = {}
         
         # Open the file and get going
         if os.path.exists(filename):
