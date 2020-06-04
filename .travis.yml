@@ -28,7 +28,7 @@ install:
         scipy==0.19.1 \
         h5py \
         jinja2 \
-        git
+        GitPython
     - pip install \ 
         lsl==1.2.5
     - pip install pylint
