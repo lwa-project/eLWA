@@ -349,7 +349,9 @@ def main(args):
                 is_vlite = is_vlite_vdif(fh)
                 if is_vlite:
                     ## TODO:  Clean this up
-                    header = {'SRC_NAME': args.vlite_target,
+                    header = {'OBSERVER': 'Heimdall',
+                              'BASENAME': 'VLITE-FAST_-1',
+                              'SRC_NAME': args.vlite_target,
                               'RA_STR':   args.vlite_ra,
                               'DEC_STR':  args.vlite_dec,
                               'OBSFREQ':  352e6,
