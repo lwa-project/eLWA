@@ -445,6 +445,8 @@ def main(args):
                         try:
                             ## VLITE files are limited to 1 s so there may be multiple files
                             ## to read in.  Try to find the next one.
+                            if not is_vlite:
+                                assert(False)
                             oldname = f.name
                             nextname, ext = os.path.splitext(oldname)
                             base, vfts = nextname.rsplit('_', 1)
