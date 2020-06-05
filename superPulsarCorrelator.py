@@ -401,7 +401,7 @@ def main(args):
         print "Correlating DRX tuning #%i" % vdifPivot
     print " "
     
-    nChunks = int(tFile/tRead)
+    nChunks = int(tFile/tRead)*(11 if is_vlite else 1)      # There can be up to x10 more data from VLITE
     tSub = args.subint_time
     tSub = tRead / int(round(tRead/tSub))
     tDump = args.dump_time
@@ -486,9 +486,23 @@ def main(args):
                         f.seek(readers[j].FrameSize, 1)
                         continue
                     except errors.eofError:
-                        done = True
-                        break
-                        
+                        try:
+                            ## VLITE files are limited to 1 s so there may be multiple files
+                            ## to read in.  Try to find the next one.
+                            oldname = f.name
+                            nextname, ext = os.path.splitext(oldname)
+                            base, vfts = nextname.rsplit('_', 1)
+                            vfts = int(vfts, 10) + 1
+                            nextname = "%s_%s%s" % (base, vfts, ext)
+                            assert(os.path.exists(nextname))
+                            f.close()
+                            f = open(nextname, 'rb')
+                            fh[j] = f
+                            print "NF - switched from %s to %s" % (os.path.basename(oldname), vfts)
+                        except (ValueError, AssertionError) as e:
+                            done = True
+                            break
+                            
                     frames = buffers[j].get()
                     if frames is None:
                         continue
