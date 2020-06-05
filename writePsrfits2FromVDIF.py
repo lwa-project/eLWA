@@ -52,11 +52,13 @@ def main(args):
     is_vlite = is_vlite_vdif(fh)
     if is_vlite:
         ## TODO:  Clean this up
-        header = {'OBSFREQ':  352e6,
-                  'OBSBW':    64e6,
-                  'SRC_NAME': 'UNKNOWN',
-                  'RA_STR':   '00:00:00.00',
-                  'DEC_STR':  '+90:00:00.0'}
+        header = {'OBSERVER': 'Heimdall',
+                  'BASENAME': 'VLITE-FAST_-1',
+                  'SRC_NAME': args.vlite_target,
+                  'RA_STR':   args.vlite_ra,
+                  'DEC_STR':  args.vlite_dec,
+                  'OBSFREQ':  352e6,
+                  'OBSBW':    64e6}
     else:
         header = vdif.readGUPPIHeader(fh)
     vdif.FrameSize = vdif.getFrameSize(fh)
@@ -121,10 +123,10 @@ def main(args):
         polNames = 'IQUV'
         nPols = 4
         reduceEngine = CombineToStokes
-    elif args.circular:
-        polNames = 'LLRR'
-        nPols = 2
-        reduceEngine = CombineToCircular
+    #elif args.circular:
+    #    polNames = 'LLRR'
+    #    nPols = 2
+    #    reduceEngine = CombineToCircular
     else:
         polNames = 'XXYY'
         nPols = 2
@@ -166,7 +168,7 @@ def main(args):
     pfo.hdr.project_id = "Pulsar"
     pfo.hdr.ra_str = ra
     pfo.hdr.dec_str = dec
-    pfo.hdr.poln_type = "LIN" if not args.circular else "CIRC"
+    pfo.hdr.poln_type = "LIN" #if not args.circular else "CIRC"
     pfo.hdr.poln_order = polNames
     pfo.hdr.date_obs = str(beginTime.strftime("%Y-%m-%dT%H:%M:%S"))     
     pfo.hdr.MJD_epoch = pfu.get_ld(mjd)
@@ -241,8 +243,23 @@ def main(args):
                 frame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
                 vdifBuffer.append(frame)
             except errors.eofError:
-                done = True
-                break
+                try:
+                    ## VLITE files are limited to 1 s so there may be multiple files
+                    ## to read in.  Try to find the next one.
+                    if not is_vlite:
+                        assert(False)
+                    oldname = fh.name
+                    nextname, ext = os.path.splitext(oldname)
+                    base, vfts = nextname.rsplit('_', 1)
+                    vfts = int(vfts, 10) + 1
+                    nextname = "%s_%s%s" % (base, vfts, ext)
+                    assert(os.path.exists(nextname))
+                    fh.close()
+                    fh = open(nextname, 'rb')
+                    print "Switched from %s to %s" % (os.path.basename(oldname), vfts)
+                except (ValueError, AssertionError) as e:
+                    done = True
+                    break
             except errors.syncError:
                 fh.seek(vdif.FrameSize, 1)
                 continue
@@ -353,6 +370,12 @@ if __name__ == "__main__":
                         help='do not sum linear polarizations')
     parser.add_argument('-4', '--four-bit-data', action='store_true', 
                         help='save the spectra in 4-bit mode instead of 8-bit mode')
+    parser.add_argument('-t', '--vlite-target', type=str, default='Unknown',
+                        help='VLITE target name')
+    parser.add_argument('-r', '--vlite-ra', type=str, default='00:00:00.00',
+                        help='VLITE target RA (rad or HH:MM:SS.SS, J2000)')
+    parser.add_argument('-d', '--vlite-dec', type=str, default='+90:00:00.00',
+                        help='VLITE target dec. (rad or sDD:MM:SS.S, J2000)')
     args = parser.parse_args()
     main(args)
     
