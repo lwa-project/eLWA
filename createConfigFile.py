@@ -14,9 +14,11 @@ import os
 import re
 import git
 import sys
+import glob
 import ephem
 import numpy
 import argparse
+from collections import OrderedDict
 from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
@@ -86,24 +88,30 @@ def main(args):
         db = None
         
     # Load the base VLITE correlator delays
-    corr_delays = {}
-    try:
-        with open('META_1585944318', 'r') as fh:
-            for line in fh:
-                if len(line) < 3:
-                    continue
-                elif line[0] == '#':
-                    continue
-                fields = line.split()
-                vid, aid = int(fields[0]), int(fields[1])
-                aid = 'EA%02i' % aid
-                vid = 'V%02i' % (vid+1)
-                valid = int(fields[-1])
-                corr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
-    except IOError as e:
-        sys.stderr.write("WARNING: could not load VLITE correlator delays: %s\n" % str(e))
-        sys.stderr.flush()
+    corr_delays = OrderedDict()
+    for filename in sorted(glob.glob('META_*[0-9]')):
+        filedate = filename.rsplit('_', 1)[1]
+        filedate = int(filedate, 10)
         
+        try:
+            curr_delays = {}
+            with open(filename, 'r') as fh:
+                for line in fh:
+                    if len(line) < 3:
+                        continue
+                    elif line[0] == '#':
+                        continue
+                    fields = line.split()
+                    vid, aid = int(fields[0]), int(fields[1])
+                    aid = 'EA%02i' % aid
+                    vid = 'V%02i' % (vid+1)
+                    valid = int(fields[-1])
+                    curr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
+            corr_delays[filedate] = curr_delays
+        except IOError as e:
+            sys.stderr.write("WARNING: could not load VLITE correlator delays: %s\n" % str(e))
+            sys.stderr.flush()
+            
     # Load in the array of VLITE pipeline delays
     pipe_delays = {}
     try:
@@ -398,15 +406,17 @@ def main(args):
                 if is_vlite:
                     ## VLITE delays
                     aid = 'EA%02i' % antID
-                    vid = corr_delays[aid]['vlite']
-                    dX = corr_delays[aid]['delayX']
-                    dY = corr_delays[aid]['delayY']
-                    if not corr_delays[aid]['valid']:
+                    idx = numpy.where(numpy.array(list(corr_delays.keys())) <= int(tStart.strftime("%s"), 10))[0][-1]
+                    curr_delays = corr_delays[list(corr_delays.keys())[idx]]
+                    vid = curr_delays[aid]['vlite']
+                    dX = curr_delays[aid]['delayX']
+                    dY = curr_delays[aid]['delayY']
+                    if not curr_delays[aid]['valid']:
                         continue
                         
                     try:
 
-                        pds = pipe_delays[corr_delays[aid]['vlite']]
+                        pds = pipe_delays[curr_delays[aid]['vlite']]
                         idx = numpy.where(pds['edges_mjd'] >= datetime2mjdmpm(tStart)[0])[0][0]
                         if idx == pds['polx_delays'].size:
                             idx = -1
