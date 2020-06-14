@@ -22,7 +22,7 @@ from datetime import datetime
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.misc import parser as aph
 
 from utils import read_correlator_configuration

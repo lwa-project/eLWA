@@ -23,7 +23,7 @@ from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
