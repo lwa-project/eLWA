@@ -30,10 +30,10 @@ vLight = vLight.to('m/s').value
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 from lsl.correlator import fx as fxc
 #from lsl.writer import fitsidi
-from lsl.correlator.uvutil import compute_uvw
+from lsl.correlator.uvutils import compute_uvw
 from lsl.common.mcs import datetime_to_mjdmpm
 
 from utils import read_correlator_configuration
@@ -233,7 +233,7 @@ def main(args):
         print("  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol))
         
     nchan = visXX.shape[1]
-    master_blList = uvutil.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
+    master_blList = uvutils.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
     
     if args.decimate > 1:
         to_trim = (freq.size/args.decimate)*args.decimate
@@ -266,7 +266,7 @@ def main(args):
         except AttributeError:
             ## Moving sources cannot have their names changed
             pass
-        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
         
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()

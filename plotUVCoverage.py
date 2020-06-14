@@ -14,7 +14,7 @@ import tempfile
 from datetime import datetime
 
 from lsl.common import stations
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 from lsl.reader import drx, vdif
 
 from utils import *
@@ -39,7 +39,7 @@ def main(args):
     antennas = [ant for ant in antennas if ant.pol == 0]
     
     # Build up the list of baselines
-    blList = uvutil.get_baselines(antennas)
+    blList = uvutils.get_baselines(antennas)
     
     # Loop through the files and do what we need to do
     t = []
@@ -61,7 +61,7 @@ def main(args):
         
         ## Compute u, v, and w
         t.append( datetime.utcfromtimestamp(tStart) )
-        uvw.append( uvutil.compute_uvw(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
+        uvw.append( uvutils.compute_uvw(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
     uvw = numpy.array(uvw) / 1e3
     
     # Compute the baseline lengths

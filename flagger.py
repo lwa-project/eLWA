@@ -15,7 +15,7 @@ except ImportError:
     
 from lsl.common.stations import lwa1
 from lsl.statistics import robust
-from lsl.correlator import uvutil
+from lsl.correlator import uvutils
 
 
 def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=None):
@@ -167,9 +167,9 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
     
     # Load up the lists of baselines
     try:
-        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvutil.get_baselines(antennas, include_auto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -256,9 +256,9 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         
     # Load up the lists of baselines
     try:
-        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvutil.get_baselines(antennas, include_auto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -376,9 +376,9 @@ def summarize_mask(antennas, times, freq, mask):
     
     # Load up the lists of baselines
     try:
-        blList = uvutil.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvutil.get_baselines(antennas, include_auto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Build an antennas list to keep track of flagging
     antennaFracs = {}
