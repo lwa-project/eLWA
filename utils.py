@@ -314,13 +314,15 @@ def _read_correlator_configuration(filename):
         line = line.strip().rstrip()
         
         if line == 'Context':
-            temp_context = {'observer':'Unknown', 'project':'Unknown', 'sbid':None}
+            temp_context = {'observer':'Unknown', 'project':'Unknown', 'session':None, 'vlaref':None}
         elif line[:8] == 'Observer':
             temp_context['observer'] = line.split(None, 1)[1]
         elif line[:7] == 'Project':
             temp_context['project'] = line.split(None, 1)[1]
-        elif line[:4] == 'SBID':
-            temp_context['sbid'] = line.split(None, 1)[1]
+        elif line[:7] == 'Session':
+            temp_context['session'] = line.split(None, 1)[1]
+        elif line[:6] == 'VLARef':
+            temp_context['vlaref'] = line.split(None, 1)[1]
         elif line == 'EndContext':
             context = temp_context
             

@@ -86,7 +86,7 @@ def main(args):
         db = None
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
-    context = {'observer':'Unknown', 'project':'Unknown', 'sbid':None}
+    context = {'observer':'Unknown', 'project':'Unknown', 'session':None, 'vlaref':None}
     setup = None
     sources = []
     metadata = {}
@@ -106,7 +106,7 @@ def main(args):
                         
                     context['observer'] = sdf.observer.name
                     context['project'] = sdf.id
-                    context['sbid'] = sdf.sessions[0].id
+                    context['session'] = sdf.sessions[0].id
                     
                     comments = sdf.projectOffice.sessions[0]
                     mtch = CORR_CHANNELS.search(comments)
@@ -361,7 +361,8 @@ def main(args):
                 ## Save
                 corrConfig['context']['observer'] = header['OBSERVER']
                 corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['sbid'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+		corrConfig['context']['vlaref'] = header['BASENAME']
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -421,7 +422,8 @@ def main(args):
                 ## Save
                 corrConfig['context']['observer'] = header['OBSERVER']
                 corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['sbid'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                corrConfig['context']['valref'] = header['BASENAME']
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -592,8 +594,10 @@ def main(args):
         fh.write("Context\n")
         fh.write("  Observer  %s\n" % corrConfig['context']['observer'])
         fh.write("  Project   %s\n" % corrConfig['context']['project'])
-        if corrConfig['context']['sbid'] is not None:
-            fh.write("  SBID      %s\n" % corrConfig['context']['sbid'])
+        if corrConfig['context']['session'] is not None:
+            fh.write("  Session  %s\n" % corrConfig['context']['session'])
+        if corrConfig['context']['vlaref'] is not None:
+            fh.write("  VLARef   %s\n" % corrConfig['context']['vlaref']
         fh.write("EndContext\n")
         fh.write("\n")
         ## Configuration, if present

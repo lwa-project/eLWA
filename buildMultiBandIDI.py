@@ -397,8 +397,10 @@ def main(args):
                     mode = 'VLA'
                     
                 fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
-                if config['context']['sbid'] is not None:
-                    fits.addHeaderKeyword('sbid', config['context']['sbid'])
+                if config['context']['session'] is not None:
+                    fits.addHeaderKeyword('session', config['context']['session'])
+                if config['context']['valref'] is not None:
+                    fits.addHeaderKeyword('vlaref', config['context']['vlaref'])
                 fits.addHeaderKeyword('instrume', mode)
             fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print "Opening %s for writing" % outname
