@@ -1,12 +1,3 @@
-/*
- * Version Control Information - real.tmpl
- * 
- * $Rev$
- * $LastChangedBy$
- * $LastChangedDate$
- * 
- */
-
 static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
     PyObject *signals, *signalsF;
     PyArrayObject *data, *dataF;
@@ -88,7 +79,7 @@ static PyObject *cSpecS(PyObject *self, PyObject *args, PyObject *kwds) {
             }
             
             // Scale FFTs
-            cblas_dscal({{nChan}}, 1.0/(2*{{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
+            blas_dscal({{nChan}}, 1.0/(2*{{nChan}}*nActFFT), (b + i*{{nChan}}), 1);
         }
         
         fftwf_free(in);
@@ -221,7 +212,7 @@ static PyObject *cSpecF(PyObject *self, PyObject *args, PyObject *kwds) {
         #endif
         for(i=0; i<{{nStand}}; i++) {
             // Scale FFTs
-            cblas_dscal({{nChan}}, 1.0/(2*{{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
+            blas_dscal({{nChan}}, 1.0/(2*{{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
         }
     }
     free(nActFFT);
@@ -349,7 +340,7 @@ static PyObject *cSpecL(PyObject *self, PyObject *args, PyObject *kwds) {
         #endif
         for(i=0; i<{{nStand}}; i++) {
             // Scale FFTs
-            cblas_dscal({{nChan}}, 1.0/(2*{{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
+            blas_dscal({{nChan}}, 1.0/(2*{{nChan}}**(nActFFT + i)), (b + i*{{nChan}}), 1);
         }
     }
     free(nActFFT);
@@ -370,7 +361,7 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
 
     long ij, i, j, k, nFFT;
     
-    static char *kwlist[] = {"signals", "freqs", "delays", "SampleRate", NULL};
+    static char *kwlist[] = {"signals", "freqs", "delays", "sample_rate", NULL};
     if(!PyArg_ParseTupleAndKeywords(args, kwds, "OOO|d", kwlist, &signals, &freqs, &delays, &SampleRate)) {
         PyErr_Format(PyExc_RuntimeError, "Invalid parameters");
         return NULL;

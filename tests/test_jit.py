@@ -1,5 +1,6 @@
 """
-Unit tests for the a small eLWA correlation job.
+Unit tests for the a small eLWA correlation job using the just-in-time
+correlator.
 """
 
 # Python3 compatibility
@@ -20,7 +21,7 @@ _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
-class elwa_tests(unittest.TestCase):
+class jit_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
         
@@ -57,7 +58,7 @@ class database(object):
             
         # Other variables
         self._FILES = ['0*', '*.vdif', 'LT004_*.tgz']
-        self._BASENAME = 'elwa'
+        self._BASENAME = 'jit'
         
     def test_0_create(self):
         """Build the correlator configuration file."""
@@ -82,7 +83,7 @@ class database(object):
         """Run the correlator on eLWA data."""
         
         cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', 
-               '-g', self._BASENAME, '%s.config' % self._BASENAME]
+               '-j', '-g', self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
@@ -146,7 +147,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
         
         # Loop through the HDUs
@@ -161,7 +162,7 @@ class database(object):
                     continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
-                self.assertEqual(h1, h2, "Mis-match on %s: '%s' != '%s'" % (key, h1, h2))
+                self.assertEqual(h1, h2, "Mis-match on %s - %s: '%s' != '%s'" % (hdu1.name, key, h1, h2))
                 
         hdulist1.close()
         hdulist2.close()
@@ -171,7 +172,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
         
         # Loop through the HDUs
@@ -182,11 +183,8 @@ class database(object):
                 
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
-                    atol = 1e-8
-                    if hdu1.data.columns[f].name == 'FLUX' and r//6 in (2, 5, 7, 10, 12):
-                        atol = 1e-4
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=atol)
+                        same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))
@@ -195,14 +193,15 @@ class database(object):
         hdulist2.close()
 
 
-class elwa_test_suite(unittest.TestSuite):
-    """A unittest.TestSuite class which contains all of the eLWA correlation tests."""
+class jit_test_suite(unittest.TestSuite):
+    """A unittest.TestSuite class which contains all of the eLWA correlation tests
+    for the just-in-time version of the correlator."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)
         
         loader = unittest.TestLoader()
-        self.addTests(loader.loadTestsFromTestCase(elwa_tests)) 
+        self.addTests(loader.loadTestsFromTestCase(jit_tests)) 
 
 
 if __name__ == '__main__':

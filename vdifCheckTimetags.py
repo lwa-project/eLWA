@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Check the time times in a VDIF file for flow.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Check the time in a VDIF file for flow.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -22,7 +23,7 @@ from lsl.common.dp import fS
 from utils import *
 
 
-def getThreadCount(filehandle):
+def get_thread_count(filehandle):
     """
     Find out how many thrads are present by examining the first 1024
     records.  Return the number of threads found.
@@ -33,9 +34,9 @@ def getThreadCount(filehandle):
     
     # Make sure we have a frame size to work with
     try:
-        vdif.FrameSize
+        vdif.FRAME_SIZE
     except AttributeError:
-        vdif.FrameSize = vdif.getFrameSize(filehandle)
+        vdif.FRAME_SIZE = vdif.get_frame_size(filehandle)
         
     # Build up the list-of-lists that store ID codes and loop through 1024
     # frames.  In each case, parse pull the thread ID and append the thread 
@@ -44,14 +45,14 @@ def getThreadCount(filehandle):
     i = 0
     while i < 1024:
         try:
-            cFrame = vdif.readFrame(filehandle)
-        except errors.syncError:
-            filehandle.seek(vdif.FrameSize, 1)
+            cFrame = vdif.read_frame(filehandle)
+        except errors.SyncError:
+            filehandle.seek(vdif.FRAME_SIZE, 1)
             continue
-        except errors.eofError:
+        except errors.EOFError:
             continue
             
-        cID = cFrame.header.threadID
+        cID = cFrame.header.thread_id
         if cID not in threads:
             threads.append(cID)
         i += 1
@@ -63,7 +64,7 @@ def getThreadCount(filehandle):
     return len(threads)
 
 
-def getFramesPerSecond(filehandle):
+def get_frames_per_second(filehandle):
     """
     Find out the number of frames per second in a file by watching how the 
     headers change.  Returns the number of frames in a second.
@@ -73,22 +74,22 @@ def getFramesPerSecond(filehandle):
     fhStart = filehandle.tell()
     
     # Get the number of threads
-    nThreads = getThreadCount(filehandle)
+    nThreads = get_thread_count(filehandle)
     
     # Get the current second counts for all threads
     ref = {}
     i = 0
     while i < nThreads:
         try:
-            cFrame = vdif.readFrame(filehandle)
-        except errors.syncError:
-            filehandle.seek(vdif.FrameSize, 1)
+            cFrame = vdif.read_frame(filehandle)
+        except errors.SyncError:
+            filehandle.seek(vdif.FRAME_SIZE, 1)
             continue
-        except errors.eofError:
+        except errors.EOFError:
             continue
             
-        cID = cFrame.header.threadID
-        cSC = cFrame.header.secondsFromEpoch
+        cID = cFrame.header.thread_id
+        cSC = cFrame.header.seconds_from_epoch
         ref[cID] = cSC
         i += 1
         
@@ -98,17 +99,17 @@ def getFramesPerSecond(filehandle):
     while True:
         ## Get a frame
         try:
-            cFrame = vdif.readFrame(filehandle)
-        except errors.syncError:
-            filehandle.seek(vdif.FrameSize, 1)
+            cFrame = vdif.read_frame(filehandle)
+        except errors.SyncError:
+            filehandle.seek(vdif.FRAME_SIZE, 1)
             continue
-        except errors.eofError:
+        except errors.EOFError:
             break
             
         ## Pull out the relevant metadata
-        cID = cFrame.header.threadID
-        cSC = cFrame.header.secondsFromEpoch
-        cFC = cFrame.header.frameInSecond
+        cID = cFrame.header.thread_id
+        cSC = cFrame.header.seconds_from_epoch
+        cFC = cFrame.header.frame_in_second
         
         ## Figure out what to do with it
         if cSC == ref[cID]:
@@ -128,13 +129,15 @@ def getFramesPerSecond(filehandle):
     
     # Pull out the mode
     mode = {}
-    for key,value in cur.iteritems():
+    for key in cur.keys():
+        value = cur[key]
         try:
             mode[value] += 1
         except KeyError:
             mode[value] = 1
     best, bestValue = 0, 0
-    for key,value in mode.iteritems():
+    for key in mode.keys():
+        value = mode[key]
         if value > bestValue:
             best = key
             bestValue = value
@@ -153,91 +156,91 @@ def main(args):
         filename = args[0]
         
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nThreads = getThreadCount(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FrameSize
-    nFramesSecond = getFramesPerSecond(fh)
+    header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nThreads = get_thread_count(fh)
+    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
+    nFramesSecond = get_frames_per_second(fh)
     
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    sampleRate = junkFrame.getSampleRate()
-    vdif.DataLength = junkFrame.data.data.size
-    nSampsFrame = vdif.DataLength
-    station, thread = junkFrame.parseID()
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    sample_rate = junkFrame.sample_rate
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
+    nSampsFrame = vdif.DATA_LENGTH
+    station, thread = junkFrame.id
     tunepols = nThreads
     beampols = tunepols
-    fh.seek(-vdif.FrameSize, 1)
+    fh.seek(-vdif.FRAME_SIZE, 1)
     
     # Store the information about the first frame and convert the timetag to 
     # an ephem.Date object.
-    prevDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
-    prevTime = junkFrame.header.secondsFromEpoch
-    prevFrame = junkFrame.header.frameInSecond
+    prevDate = junkFrame.time.datetime
+    prevTime = junkFrame.header.seconds_from_epoch
+    prevFrame = junkFrame.header.frame_in_second
 
     # Skip ahead
-    fh.seek(int(skip*sampleRate/vdif.DataLength)*vdif.FrameSize, 1)
+    fh.seek(int(skip*sample_rate/vdif.DATA_LENGTH)*vdif.FRAME_SIZE, 1)
     
     # Report on the file
-    print "Filename: %s" % os.path.basename(args[0])
-    print "  Station: %i" % station
-    print "  Thread count: %i" % nThreads
-    print "  Date of first frame: %i -> %s" % (prevTime, str(prevDate))
-    print "  Samples per frame: %i" % vdif.DataLength
-    print "  Frames per second: %i" % nFramesSecond
-    print "  Sample rate: %i Hz" % sampleRate
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
-    print " "
+    print("Filename: %s" % os.path.basename(args[0]))
+    print("  Station: %i" % station)
+    print("  Thread count: %i" % nThreads)
+    print("  Date of first frame: %i -> %s" % (prevTime, str(prevDate)))
+    print("  Samples per frame: %i" % vdif.DATA_LENGTH)
+    print("  Frames per second: %i" % nFramesSecond)
+    print("  Sample rate: %i Hz" % sample_rate)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print(" ")
     if skip != 0:
-        print "Skipping ahead %i frames (%.6f seconds)" % (int(skip*sampleRate/vdif.DataLength)*4, int(skip*sampleRate/vdif.DataLength)*vdif.DataLength/sampleRate)
-        print " "
+        print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DATA_LENGTH)*4, int(skip*sample_rate/vdif.DATA_LENGTH)*vdif.DATA_LENGTH/sample_rate))
+        print(" ")
         
     prevDate = ['' for i in xrange(nThreads)]
     prevTime = [0 for i in xrange(nThreads)]
     prevFrame = [0 for i in xrange(nThreads)]
     for i in xrange(nThreads):
-        currFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+        currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         
-        station, thread = currFrame.parseID()		
-        prevDate[thread] = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
-        prevTime[thread] = currFrame.header.secondsFromEpoch
-        prevFrame[thread] = currFrame.header.frameInSecond
+        station, thread = currFrame.id		
+        prevDate[thread] = currFrame.time.datetime
+        prevTime[thread] = currFrame.header.seconds_from_epoch
+        prevFrame[thread] = currFrame.header.frame_in_second
         
     inError = False
     while True:
         try:
-            currFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+            currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             if inError:
-                print "ERROR: sync. error cleared @ byte %i" % (fh.tell() - vdif.FrameSize,)
+                print("ERROR: sync. error cleared @ byte %i" % (fh.tell() - vdif.FRAME_SIZE,))
             inError = False
-        except errors.syncError:
+        except errors.SyncError:
             if not inError:
-                print "ERROR: invalid frame (sync. word error) @ byte %i" % fh.tell()
+                print("ERROR: invalid frame (sync. word error) @ byte %i" % fh.tell())
                 inError = True
-            fh.seek(vdif.FrameSize, 1)
+            fh.seek(vdif.FRAME_SIZE, 1)
             continue
-        except errors.eofError:
+        except errors.EOFError:
             break
         
             
-        station, thread = currFrame.parseID()
-        currDate = ephem.Date(astro.unix_to_utcjd(currFrame.getTime()) - astro.DJD_OFFSET)
-        currTime = currFrame.header.secondsFromEpoch
-        currFrame = currFrame.header.frameInSecond
+        station, thread = currFrame.id
+        currDate = currFrame.time.datetime
+        currTime = currFrame.header.seconds_from_epoch
+        currFrame = currFrame.header.frame_in_second
         
         if thread == 0 and currTime % 10 == 0 and currFrame == 0:
-            print "station %i, thread %i: t.t. %i @ frame %i -> %s" % (station, thread, currTime, currFrame, currDate)
+            print("station %i, thread %i: t.t. %i @ frame %i -> %s" % (station, thread, currTime, currFrame, currDate))
             
         deltaT = (currTime - prevTime[thread])*nFramesSecond + (currFrame - prevFrame[thread])
-        #print station, thread, deltaT, fh.tell()
+        #print(station, thread, deltaT, fh.tell())
 
         if deltaT < 1:
-            print "ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread])
-            print "       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sampleRate, str(currDate))
-            print "       -> station %i, thread %i" % (station, thread)
+            print("ERROR: t.t. %i @ frame %i < t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread]))
+            print("       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate)))
+            print("       -> station %i, thread %i" % (station, thread))
         elif deltaT > 1:
-            print "ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread])
-            print "       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sampleRate, str(currDate))
-            print "       -> station %i, thread %i" % (station, thread)
+            print("ERROR: t.t. %i @ frame %i > t.t. %i @ frame %i + 1" % (currTime, currFrame, prevTime[thread], prevFrame[thread]))
+            print("       -> difference: %i (%.5f seconds); %s" % (deltaT, deltaT*nSampsFrame/sample_rate, str(currDate)))
+            print("       -> station %i, thread %i" % (station, thread))
         else:
             pass
         

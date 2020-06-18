@@ -1,12 +1,10 @@
-# -*- coding: utf-8 -*-
-
 """
 Utility module for the various scripts needed to correlate LWA and VLA data.
 
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python2 compatibility
+from __future__ import print_function, division, absolute_import
 
 import os
 import re
@@ -21,18 +19,17 @@ from datetime import datetime
 
 from lsl import astro
 from lsl.common import stations
-from lsl.reader import drx, vdif
+from lsl.reader import base, drx, vdif
 from lsl.common.dp import fS
-from lsl.common.mcs import datetime2mjdmpm, delaytoMCSD, MCSDtodelay
-from lsl.common.metabundle import getCommandScript
-from lsl.common.metabundleADP import getCommandScript as getCommandScriptADP
-from lsl.misc.beamformer import calcDelay
+from lsl.common.mcs import datetime_to_mjdmpm, delay_to_mcsd, mcsd_to_delay
+from lsl.common.metabundle import get_command_script
+from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
+from lsl.misc.beamformer import calc_delay
 
 import guppi
 
 
 __version__ = '0.8'
-__revision__ = '$Rev$'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
            'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
            'nsround', 'read_correlator_configuration', 'get_better_time', 
@@ -226,23 +223,23 @@ def multi_column_print(items, sep=';  ', width=86):
     # Find out how many columns to make using the width the print over, the 
     # maximum item size, and the size of the separator.  When doing this also
     # make sure that we have at least one column
-    nCol = width / (maxLen+len(sep))
+    nCol = width // (maxLen+len(sep))
     if nCol < 1:
         nCol = 1
         
     # Figure out how many rows to use.  This needs to take into acount partial
     # rows with len(items) % nCol != 0.
-    nRow = len(items) / nCol + (0 if (len(items) % nCol) == 0 else 1)
+    nRow = len(items) // nCol + (0 if (len(items) % nCol) == 0 else 1)
     
     # Print
-    for r in xrange(nRow):
+    for r in range(nRow):
         ## Build up the line
         out = sep.join([formatter % str(i) for i in items[r*nCol:(r+1)*nCol]])
         ## Add the separator at the end if this isn't the last line
         if r != nRow-1:
             out += sep
         ## Print
-        print out
+        print(out)
 
 
 _timeRE = re.compile('^[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>(([kmun]?s)|h|m))?[ \t]*$')
@@ -396,7 +393,7 @@ def _read_correlator_configuration(filename):
             srcs.append( EnhancedFixedBody(ephem.readdb(line)) )
             
         refSource = None
-        for i in xrange(len(srcs)):
+        for i in range(len(srcs)):
             if srcs[i].name == sources[0]['name']:
                 refSource = srcs[i]
                 break
@@ -448,7 +445,7 @@ def _read_correlator_configuration(filename):
         elif name.lower() in ('lwasv', 'lwa-sv'):
             aid = 52
         else:
-            for j in xrange(len(name)):
+            for j in range(len(name)):
                 try:
                     aid = int(name[j:], 10)
                     if name[:j].lower() == 'lwa':
@@ -458,15 +455,15 @@ def _read_correlator_configuration(filename):
                     pass
         pols = block['pols']
         location = block['location']
-        clockOffsets = block['clockOffset']
+        clock_offsets = block['clockOffset']
         
         if aid is None:
             raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
             
         stand = stations.Stand(aid, *location)
-        for pol,offset in zip(pols, clockOffsets):
+        for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
-            cable.setClockOffset(offset)
+            cable.clock_offset = offset
             
             if pol.lower() == 'x':
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=0)
@@ -551,51 +548,23 @@ def read_correlator_configuration(filename_or_npz):
     # Done
     return full_config
 
+
 def get_better_time(frame):
     """
     Given a lsl.reader.vdif.Frame, guppi.Frame, or lsl.reader.drx.Frame 
     instance, return a more accurate time for the frame.  Unlike the 
-    Frame.getTime() functions, this function returns a two-element tuple of:
+    Frame.get_time() functions, this function returns a two-element tuple of:
       * integer seconds since the UNIX epoch and
       * fractional second
     """
     
-    if type(frame) == vdif.Frame:
-        epochDT = datetime(2000+frame.header.refEpoch/2, (frame.header.refEpoch % 2)*6+1, 1, 0, 0, 0, 0)
-        epochMJD, epochMPM = datetime2mjdmpm(epochDT)
-        sec = int(round(astro.utcjd_to_unix(epochMJD + astro.MJD_OFFSET)))
-        sec += frame.header.secondsFromEpoch
-
-        dataSize = frame.header.frameLength*8 - 32 + 16*frame.header.isLegacy
-        samplesPerWord = 32 / frame.header.bitsPerSample                                # dimensionless
-        nSamples = dataSize / 4 * samplesPerWord                                # bytes -> words -> samples
-        frameRate = frame.header.sampleRate / nSamples
-        frac = frame.header.frameInSecond/frameRate
-        
-    elif type(frame) == guppi.Frame:
-        mjd = frame.header.imjd + frame.header.smjd / 86400.0
-        sec = int(round(astro.utcjd_to_unix(mjd + astro.MJD_OFFSET)))
-        
-        offset = frame.header.offset
-        whol = offset / int(frame.getSampleRate())
-        frac = (offset - whol*int(frame.getSampleRate())) / float(frame.getSampleRate())
-        
-        sec += whol
-        frac += frame.header.fmjd
-        if frac >= 1.0:
-            sec += 1
-            frac -= 1.0
-            
-    elif type(frame) == drx.Frame:
+    if isinstance(frame, drx.Frame):
         # HACK - What should T_NOM really be at LWA1???
-        tt = frame.data.timeTag - (6660 if frame.header.timeOffset else 0)
-        sec = tt/196000000
-        frac = (tt - sec*196000000)/196e6
-        
+        tt = frame.payload.timetag
+        to = 6660 if frame.header.time_offset else 0
+        return list(base.FrameTimestamp.from_dp_timetag(tt, to))
     else:
-        raise TypeError("Unknown frame type: %s" % type(frame).__name__)
-        
-    return [sec, frac]
+        return list(frame.time)
 
 
 def parse_lwa_metadata(filename):
@@ -610,9 +579,9 @@ def parse_lwa_metadata(filename):
     
     # Load in the command script and walk through the commands
     try:
-        cs = getCommandScript(filename)
-    except ValueError:
-        cs = getCommandScriptADP(filename)
+        cs = get_command_script(filename)
+    except (RuntimeError, ValueError):
+        cs = get_command_scriptADP(filename)
     for c in cs:
         ## Jump over any command that is not a BAM
         if c['commandID'] != 'BAM':
@@ -620,37 +589,37 @@ def parse_lwa_metadata(filename):
             
         ## Figure out the station, antenna layout, and antenna closest to the array center
         try:
-            refAnt
+            ref_ant
         except NameError:
             if c['subsystemID'] == 'DP':
                 site = stations.lwa1
             else:
                 site = stations.lwasv
-            ants = site.getAntennas()
+            ants = site.antennas
             
-            refAnt = 0
+            ref_ant = 0
             best = 1e20
             for i,a in enumerate(ants):
                 r = a.stand.x**2 + a.stand.y**2 + a.stand.z**2
                 if r < best:
                     best = r
-                    refAnt = i
+                    ref_ant = i
                     
         ## Parse the command to get the beamformer delays
         ### Pointing and frequency
         beam, df, gf = c['data'].split(None, 2)
-        freq, el, az = df.replace('.df','').split('_', 2)
+        freq, el, az = df.replace(b'.df',b'').split(b'_', 2)
         freq = float(freq)/10.0 * 1e6
         el = float(el)/10.0
         az = float(az)/10.0
         ### Delay calculation
-        b = calcDelay(ants, freq, az, el)
+        b = calc_delay(ants, freq, az, el)
         b = b.max() - b
         
         ## Figure out what it means and save it.  This includes a convertion to/from the MCS
         ## delay that breaks things down into a course and fine delay for DP
         t.append( c['time'] )
-        d.append( MCSDtodelay(delaytoMCSD(b[refAnt]*1e9))/1e9 )
+        d.append( mcsd_to_delay(delay_to_mcsd(b[ref_ant]*1e9))/1e9 )
         
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)
@@ -674,7 +643,7 @@ class PolyCos(object):
     def __init__(self, filename, psrname=None):
         if psrname is None:
             psrname = os.path.basename(filename)
-            psrname = os.path.split('_', 1)[0]
+            psrname = psrname.split('_', 1)[0]
             
         from polycos import polycos
         

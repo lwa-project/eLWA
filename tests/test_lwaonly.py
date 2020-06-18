@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unit tests for the a small LWA correlation job.
 """
@@ -17,7 +15,7 @@ import os
 import re
 import glob
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import subprocess
 
 _RAW = 'eLWA_test_raw.tar.gz'
@@ -70,7 +68,7 @@ class database(object):
         for regex in self._FILES:
             files.extend(glob.glob(regex))
             
-        cmd = ['python', '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
+        cmd = [sys.executable, '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
         status = subprocess.check_call(cmd)
         self.assertEqual(status, 0)
@@ -78,13 +76,13 @@ class database(object):
     def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
-               '-j', '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
+               '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-L.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
-        cmd = ['python', '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
-               '-j', '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
+               '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         
@@ -92,7 +90,7 @@ class database(object):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s[LH]-*.npz' % self._BASENAME)
-        cmd = ['python', '../buildMultiBandIDI.py', '-t', self._BASENAME]
+        cmd = [sys.executable, '../buildMultiBandIDI.py', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
@@ -101,7 +99,7 @@ class database(object):
     def test_3_flag_steps(self):
         """Flag LWA delay steps in the FITS-IDI file."""
         
-        cmd = ['python', '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag-0.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
@@ -109,7 +107,7 @@ class database(object):
     def test_4_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = ['python', '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
         with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
@@ -119,16 +117,20 @@ class database(object):
         
         _revRE = re.compile('\$Rev.*?\$')
         
-        hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = pyfits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Loop through the HDUs
         for hdu1,hdu2 in zip(hdulist1, hdulist2):
+            ## Skip over the FLAG header
+            if hdu1.name in ('FLAG',):
+                continue
+                
             ## Check the header values, modulo the old $Rev$ tag
             for key in hdu1.header:
-                if key in ('DATE-MAP',):
+                if key in ('DATE-MAP', 'UT1UTC', 'POLARX', 'POLARY'):
                     continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
@@ -140,15 +142,15 @@ class database(object):
     def test_6_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
-        hdulist1 = pyfits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = pyfits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Loop through the HDUs
         for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the PRIMARY header
-            if hdu1.name == 'PRIMARY':
+            ## Skip over the PRIMARY and FLAG headers
+            if hdu1.name in ('PRIMARY', 'FLAG'):
                 continue
                 
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
@@ -157,7 +159,7 @@ class database(object):
                         same_value = numpy.allclose(row1[f], row2[f])
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
-                    self.assertTrue(same_value, "row %i, field %i (%s) does not match" % (r, f, hdu1.data.columns[f]))
+                    self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))
                     
         hdulist1.close()
         hdulist2.close()

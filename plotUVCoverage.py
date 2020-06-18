@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -9,7 +14,7 @@ import tempfile
 from datetime import datetime
 
 from lsl.common import stations
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutils
 from lsl.reader import drx, vdif
 
 from utils import *
@@ -20,7 +25,7 @@ from matplotlib import pyplot as plt
 def main(args):
     # Build up the station
     site = stations.lwa1
-    observer = site.getObserver()
+    observer = site.get_observer()
     
     # Load in the file file to figure out what to do
     dataDict = numpy.load(args.filename[0])
@@ -34,7 +39,7 @@ def main(args):
     antennas = [ant for ant in antennas if ant.pol == 0]
     
     # Build up the list of baselines
-    blList = uvUtils.getBaselines(antennas)
+    blList = uvutils.get_baselines(antennas)
     
     # Loop through the files and do what we need to do
     t = []
@@ -56,24 +61,24 @@ def main(args):
         
         ## Compute u, v, and w
         t.append( datetime.utcfromtimestamp(tStart) )
-        uvw.append( uvUtils.computeUVW(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
+        uvw.append( uvutils.compute_uvw(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
     uvw = numpy.array(uvw) / 1e3
     
     # Compute the baseline lengths
     blLength = numpy.sqrt( (uvw**2).sum(axis=2) )
-    print len(blList), uvw.shape, blLength.shape
+    print(len(blList), uvw.shape, blLength.shape)
     
     # Report
-    print "Phase Center:"
-    print "  Name: %s" % refSrc.name
-    print "  RA: %s" % refSrc._ra
-    print "  Dec: %s" % refSrc._dec
-    print "Antennas:"
-    print "  Total: %i" % len(readers)
-    print "  VDIF: %i" % sum([1 for rdr in readers if rdr is vdif])
-    print "  DRX: %i" % sum([1 for rdr in readers if rdr is drx])
-    print "Baselines:"
-    print "  Total: %i" % (uvw.shape[0]*uvw.shape[1])
+    print("Phase Center:")
+    print("  Name: %s" % refSrc.name)
+    print("  RA: %s" % refSrc._ra)
+    print("  Dec: %s" % refSrc._dec)
+    print("Antennas:")
+    print("  Total: %i" % len(readers))
+    print("  VDIF: %i" % sum([1 for rdr in readers if rdr is vdif]))
+    print("  DRX: %i" % sum([1 for rdr in readers if rdr is drx]))
+    print("Baselines:")
+    print("  Total: %i" % (uvw.shape[0]*uvw.shape[1]))
     ## Minimum basline length
     m = numpy.argmin(blLength)
     b = m % uvw.shape[1]
@@ -87,8 +92,8 @@ def main(args):
         bl1 = 'EA%02i' % bl1
     else:
         bl1 = 'LWA%i' % (bl1-50)
-    print "  Minimum: %.2f klambda (%s <-> %s)" % (blLength.min(), bl0, bl1)
-    print "  Median: %.2f klambda" % numpy.median(blLength)
+    print("  Minimum: %.2f klambda (%s <-> %s)" % (blLength.min(), bl0, bl1))
+    print("  Median: %.2f klambda" % numpy.median(blLength))
     ## Maximum baseline length
     m = numpy.argmax(blLength)
     b = m % uvw.shape[1]
@@ -102,7 +107,7 @@ def main(args):
         bl1 = 'EA%02i' % bl1
     else:
         bl1 = 'LWA%i' % (bl1-50)
-    print "  Maximum %.2f klambda (%s <-> %s)" % (blLength.max(), bl0, bl1)
+    print("  Maximum %.2f klambda (%s <-> %s)" % (blLength.max(), bl0, bl1))
     
     # Plot
     fig = plt.figure()

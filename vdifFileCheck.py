@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
-Run through a DRX file and determine if it is bad or not.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Run through a VDIF file and determine if it is bad or not.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
@@ -23,7 +24,7 @@ from utils import *
 
 
 def usage(exitCode=None):
-    print """vdifFileCheck.py - Run through a VDIF file and determine if it is bad or not.
+    print("""vdifFileCheck.py - Run through a VDIF file and determine if it is bad or not.
 
 Usage: vdifFileCheck.py [OPTIONS] filename
 
@@ -33,7 +34,7 @@ Options:
 -s, --skip         Skip period in seconds between chunks (default 900 s)
 -t, --trim-level   Trim level for power analysis with clipping (default is 
                 set by bit depth)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -49,9 +50,9 @@ def parseConfig(args):
     
     try:
         opts, args = getopt.getopt(args, "hl:s:t:", ["help", "length=", "skip=", "trim-level="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
 
     # Work through opts
@@ -80,60 +81,60 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FrameSize
+    header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
     
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    srate = junkFrame.getSampleRate()
-    vdif.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = vdif.getThreadCount(fh)
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    srate = junkFrame.sample_rate
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
+    beam, pol = junkFrame.id
+    tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
     
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        s,p = junkFrame.parseID()
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Date
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    fh.seek(-vdif.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    fh.seek(-vdif.FRAME_SIZE, 1)
+    beginDate = junkFrame.time.datetime
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print(" ")
     
     # Determine the clip level
     if config['trim'] is None:
-        if junkFrame.header.bitsPerSample == 1:
+        if junkFrame.header.bits_per_sample == 1:
             config['trim'] = abs(1.0)**2
-        elif junkFrame.header.bitsPerSample == 2:
+        elif junkFrame.header.bits_per_sample == 2:
             config['trim'] = abs(3.3359)**2
-        elif junkFrame.header.bitsPerSample == 4:
+        elif junkFrame.header.bits_per_sample == 4:
             config['trim'] = abs(7/2.95)**2
-        elif junkFrame.header.bitsPerSample == 8:
+        elif junkFrame.header.bits_per_sample == 8:
             config['trim'] = abs(255/256.)**2
         else:
             config['trim'] = 1.0
-        print "Setting clip level to %.3f" % config['trim']
-        print " "
+        print("Setting clip level to %.3f" % config['trim'])
+        print(" ")
         
     # Convert chunk length to total frame count
-    chunkLength = int(config['length'] * srate / vdif.DataLength * tunepols)
+    chunkLength = int(config['length'] * srate / vdif.DATA_LENGTH * tunepols)
     chunkLength = int(1.0 * chunkLength / tunepols) * tunepols
     
     # Convert chunk skip to total frame count
-    chunkSkip = int(config['skip'] * srate / vdif.DataLength * tunepols)
+    chunkSkip = int(config['skip'] * srate / vdif.DATA_LENGTH * tunepols)
     chunkSkip = int(1.0 * chunkSkip / tunepols) * tunepols
     
     # Output arrays
@@ -144,28 +145,28 @@ def main(args):
     # Go!
     i = 1
     done = False
-    print "    |      Clipping   |     Power     |      RMS      |"
-    print "    |      1X      1Y |     1X     1Y |     1X     1Y |"
-    print "----+-----------------+---------------+---------------+"
+    print("    |      Clipping   |     Power     |      RMS      |")
+    print("    |      1X      1Y |     1X     1Y |     1X     1Y |")
+    print("----+-----------------+---------------+---------------+")
     
     while True:
         count = {0:0, 1:0}
-        data = numpy.empty((2,chunkLength*vdif.DataLength/tunepols), dtype=numpy.float32)
+        data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH/tunepols), dtype=numpy.float32)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0, Verbose=False)
-            except errors.eofError:
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
+            except errors.EOFError:
                 done = True
                 break
-            except errors.syncError:
+            except errors.SyncError:
                 continue
             
-            beam,pol = cFrame.parseID()
+            beam,pol = cFrame.id
             aStand = pol
             
             try:
-                data[aStand, count[aStand]*vdif.DataLength:(count[aStand]+1)*vdif.DataLength] = cFrame.data.data
+                data[aStand, count[aStand]*vdif.DATA_LENGTH:(count[aStand]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
                 
                 # Update the counters so that we can average properly later on
                 count[aStand] += 1
@@ -188,10 +189,10 @@ def main(args):
                 
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print "%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
+            print("%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
         
             i += 1
-            fh.seek(vdif.FrameSize*chunkSkip, 1)
+            fh.seek(vdif.FRAME_SIZE*chunkSkip, 1)
             
     clipFraction = numpy.array(clipFraction)
     meanPower = numpy.array(meanPower)
@@ -201,8 +202,8 @@ def main(args):
     power = meanPower.mean(axis=0)
     rms = meanRMS.mean(axis=0)
     
-    print "----+-----------------+---------------+---------------+"
-    print "%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1])
+    print("----+-----------------+---------------+---------------+")
+    print("%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
 
 
 if __name__ == "__main__":

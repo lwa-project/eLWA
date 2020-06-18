@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 
 """
-Run a collection of correlation jobs on the LWAUCF
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Run a collection of correlation jobs on the LWAUCF.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -17,7 +19,10 @@ import getopt
 import tempfile
 import threading
 import subprocess
-from Queue import Queue
+try:
+    from Queue import Queue
+except ImportError:
+    from queue import Queue
 from getpass import getuser
 
 
@@ -25,7 +30,7 @@ FAILED_QUEUE = Queue()
 
 
 def usage(exitCode=None):
-    print """launchJobs.py - Given a collection of superCorrelator.py configuration files, 
+    print("""launchJobs.py - Given a collection of superCorrelator.py configuration files, 
 process the runs and aggregate the results.
 
 Usage:
@@ -48,7 +53,7 @@ NOTE:  The -n/--nodes option also supports numerical node ranges using the
     is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also
     be combined with other comma separated entries to specify more complex
     node lists.
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -69,9 +74,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hp:n:o:br:", ["help", "processes-per-node=", "nodes=", "options=", "both-tunings", "results-dir="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Setup the node range parser
@@ -118,7 +123,7 @@ def parseConfig(args):
         if not os.path.isdir(config['results']):
             raise RuntimeError('%s is not a directory' % config['results'])
     else:
-        print "Warning: %s does not exist, creating" % config['results']
+        print("Warning: %s does not exist, creating" % config['results'])
         os.mkdir(config['results'])
         
     # Return configuration
@@ -184,7 +189,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     os.rmdir(cwd)
     code += run_command('mkdir %s' % cwd, node=node, quiet=True)
     if code != 0:
-        print "WARNING: failed to create directory on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to create directory on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -195,7 +200,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
-        print "WARNING: failed to sync software on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to sync software on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -203,7 +208,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     for filename in [configfile,]:
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
-        print "WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -222,7 +227,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     logfile = outname+".log"
     code += run_command('./superCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
     if code != 0:
-        print "WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -232,14 +237,14 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     code += run_command('rsync -e ssh -avH %s:%s/*.npz %s' % (node, cwd, resultsDir), quiet=True)
     code += run_command('rsync -e ssh -avH %s:%s/*.log %s' % (node, cwd, resultsDir), quiet=True)
     if code != 0:
-        print "WARNING: failed to sync results on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to sync results on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
     # Cleanup
     code += run_command('rm -rf %s' % cwd, node=node, quiet=True)
     if code != 0:
-        print "WARNING: failed to remove directory on %s - %s" % (node, os.path.basename(configfile))
+        print("WARNING: failed to remove directory on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -335,7 +340,7 @@ def main(args):
             threads[slot].daemon = True
             threads[slot].start()
             create_lock_file(node)
-            print "%s - %s started" % (slot, threads[slot].name)
+            print("%s - %s started" % (slot, threads[slot].name))
             time.sleep(2)
         except IndexError:
             pass
@@ -345,7 +350,7 @@ def main(args):
         ## Check for completed jobs
         done = get_done_slot(threads)
         if done is not None:
-            print "%s - %s finished" % (done, threads[done].name)
+            print("%s - %s finished" % (done, threads[done].name))
             threads[done] = None
             
         ## Schedule new jobs
@@ -358,7 +363,7 @@ def main(args):
                 threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
                 threads[slot].daemon = True
                 threads[slot].start()
-                print "%s - %s started" % (slot, threads[slot].name)
+                print("%s - %s started" % (slot, threads[slot].name))
                 time.sleep(2)
             except IndexError:
                 pass
@@ -397,7 +402,7 @@ def main(args):
         except:
             pass
             
-    print "Completed %i jobs (with %i failues) in %i hr, %i min, %.0f sec" % (nJobs, failed, h, m, s)
+    print("Completed %i jobs (with %i failues) in %i hr, %i min, %.0f sec" % (nJobs, failed, h, m, s))
     sys.exit(failed)
 
 

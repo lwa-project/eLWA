@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -16,7 +21,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """vdifSpectra.py - Read in a VDIF file and plot spectra
+    print("""vdifSpectra.py - Read in a VDIF file and plot spectra
 
 Usage:
 vdifSpectra.py [OPTIONS] <vdif_file>
@@ -28,7 +33,7 @@ Options:
                             default = 0 s)
 -t, --avg-time              Window to average visibilities in time (seconds; 
                             default = 1 s)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -47,9 +52,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "hl:t:s:", ["help", "fft-length=", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -81,81 +86,81 @@ def main(args):
     LFFT = config['LFFT']
     
     fh = open(filename, 'rb')
-    header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FrameSize
+    header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
     
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    srate = junkFrame.getSampleRate()
-    vdif.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = vdif.getThreadCount(fh)
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    srate = junkFrame.sample_rate
+    vdif.DATA_LENGTH = junkFrame.payload.data.size
+    beam, pol = junkFrame.id
+    tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
     
     if config['skip'] != 0:
-        print "Skipping forward %.3f s" % config['skip']
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
+        print("Skipping forward %.3f s" % config['skip'])
+        print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
         
-        offset = int(config['skip']*srate / vdif.DataLength)
-        fh.seek(beampols*vdif.FrameSize*offset, 1)
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        fh.seek(-vdif.FrameSize, 1)
+        offset = int(config['skip']*srate / vdif.DATA_LENGTH)
+        fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        fh.seek(-vdif.FRAME_SIZE, 1)
         
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
-        tStart = junkFrame.getTime()
+        print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
+        tStart = junkFrame.time
         
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        s,p = junkFrame.parseID()
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Set integration time
     tInt = config['avgTime']
-    nFrames = int(round(tInt*srate/vdif.DataLength))
-    tInt = nFrames*vdif.DataLength/srate
+    nFrames = int(round(tInt*srate/vdif.DATA_LENGTH))
+    tInt = nFrames*vdif.DATA_LENGTH/srate
     
-    nFrames = int(round(tInt*srate/vdif.DataLength))
+    nFrames = int(round(tInt*srate/vdif.DATA_LENGTH))
     
     # Read in some data
-    tFile = nFramesFile / beampols * vdif.DataLength / srate
+    tFile = nFramesFile / beampols * vdif.DATA_LENGTH / srate
     
     # Date
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    fh.seek(-vdif.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    fh.seek(-vdif.FRAME_SIZE, 1)
+    beginDate = junkFrame.time.datetime
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
-    print "  Integration Time: %.3f s" % tInt
-    print "  Integrations in File: %i" % int(tFile/tInt)
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Integration Time: %.3f s" % tInt)
+    print("  Integrations in File: %i" % int(tFile/tInt))
+    print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, vdif.DataLength*nFrames), dtype=numpy.complex64)
+    data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
     count = [0 for i in xrange(data.shape[0])]
     for i in xrange(beampols*nFrames):
         try:
-            cFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-        except errors.syncError:
-            print "Error @ %i" % i
-            fh.seek(vdif.FrameSize, 1)
+            cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        except errors.SyncError:
+            print("Error @ %i" % i)
+            fh.seek(vdif.FRAME_SIZE, 1)
             continue
-        std,pol = cFrame.parseID()
+        std,pol = cFrame.id
         sid = pol
         
-        data[sid, count[sid]*vdif.DataLength:(count[sid]+1)*vdif.DataLength] = cFrame.data.data
+        data[sid, count[sid]*vdif.DATA_LENGTH:(count[sid]+1)*vdif.DATA_LENGTH] = cFrame.payload.data
         count[sid] += 1
         
     # Transform and trim off the negative frequencies
-    freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, SampleRate=srate, CentralFreq=header['OBSFREQ']-srate/4)
+    freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, sample_rate=srate, central_freq=header['OBSFREQ']-srate/4)
     freq, psd = freq[LFFT:], psd[:,LFFT:]
     
     # Plot

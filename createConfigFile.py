@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Simple script to take in a collection of observation files and build up a 
 superCorrelator.py configuration script.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import git
@@ -21,7 +22,7 @@ from datetime import datetime, timedelta
 
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
-from lsl.common.mcs import mjdmpm2datetime
+from lsl.common.mcs import mjdmpm_to_datetime
 
 import guppi
 from utils import *
@@ -100,15 +101,15 @@ def main(args):
                 ## Extract the SDF
                 if len(sources) == 0:
                     try:
-                        sdf = metabundle.getSessionDefinition(filename)
+                        sdf = metabundle.get_sdf(filename)
                     except Exception as e:
-                        sdf = metabundleADP.getSessionDefinition(filename)
+                        sdf = metabundleADP.get_sdf(filename)
                         
                     context['observer'] = sdf.observer.name
                     context['project'] = sdf.id
                     context['session'] = sdf.sessions[0].id
                     
-                    comments = sdf.projectOffice.sessions[0]
+                    comments = sdf.project_office.sessions[0]
                     mtch = CORR_CHANNELS.search(comments)
                     if mtch is not None:
                         corr_channels = int(mtch.group('channels'), 10)
@@ -146,12 +147,12 @@ def main(args):
                             intent = obs.name
                             ra = ephem.hours(str(obs.ra))
                             dec = ephem.degrees(str(obs.dec))
-                        tStart = mjdmpm2datetime(obs.mjd, obs.mpm)
-                        tStop  = mjdmpm2datetime(obs.mjd, obs.mpm+obs.dur)
+                        tStart = mjdmpm_to_datetime(obs.mjd, obs.mpm)
+                        tStop  = mjdmpm_to_datetime(obs.mjd, obs.mpm+obs.dur)
                         sources.append( {'name':name, 'intent':intent, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
                         
                         ### Alternate phase centers
-                        comments = sdf.projectOffice.observations[0][o]
+                        comments = sdf.project_office.observations[0][o]
                         
                         alts = {}
                         for mtch in ALT_TARGET.finditer(comments):
@@ -190,13 +191,13 @@ def main(args):
                                 sources.append( {'name':alt_name, 'ra2000':alt_ra, 'dec2000':alt_dec, 'start':tStart, 'stop':tStop} )
                                 
                 ## Extract the file information so that we can pair things together
-                fileInfo = metabundle.getSessionMetaData(filename)
+                fileInfo = metabundle.get_session_metadata(filename)
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
                 ## Figure out LWA1 vs LWA-SV
                 try:
-                    cs = metabundle.getCommandScript(filename)
+                    cs = metabundle.get_command_script(filename)
                     for c in cs:
                         if c['subsystemID'] == 'DP':
                             site = 'LWA1'
@@ -204,7 +205,7 @@ def main(args):
                         elif c['subsystemID'] == 'ADP':
                             site = 'LWA-SV'
                             break
-                except ValueError:
+                except (RuntimeError, ValueError):
                     site = 'LWA-SV'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
@@ -220,7 +221,7 @@ def main(args):
     
     metadata = {}
     for filename in filenames:
-        #print "%s:" % os.path.basename(filename)
+        #print("%s:" % os.path.basename(filename))
         
         # Skip over empty files
         if os.path.getsize(filename) == 0:
@@ -258,20 +259,19 @@ def main(args):
                 enz[1] *= -1
                 
                 ## Read in the first few frames to get the start time
-                frames = [drx.readFrame(fh) for i in xrange(1024)]
+                frames = [drx.read_frame(fh) for i in xrange(1024)]
                 streams = []
                 freq1, freq2 = 0.0, 0.0
                 for frame in frames:
-                    beam, tune, pol = frame.parseID()
+                    beam, tune, pol = frame.id
                     if tune == 1:
-                        freq1 = frame.getCentralFreq()
+                        freq1 = frame.central_freq
                     else:
-                        freq2 = frame.getCentralFreq()
+                        freq2 = frame.central_freq
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
-                tStart = datetime.utcfromtimestamp(frames[0].getTime())
-                tStartAlt = datetime.utcfromtimestamp(frames[-1].getTime() \
-                                                      - 1023/len(streams)*4096/frames[-1].getSampleRate())
+                tStart = frames[0].time.datetime
+                tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
                     sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))
@@ -281,27 +281,27 @@ def main(args):
                 ###   with stale data in the DR buffers at LWA-SV
                     
                 ## Read in the last few frames to find the end time
-                fh.seek(os.path.getsize(filename) - 1024*drx.FrameSize)
+                fh.seek(os.path.getsize(filename) - 1024*drx.FRAME_SIZE)
                 backed = 0
-                while backed < 2*drx.FrameSize:
+                while backed < 2*drx.FRAME_SIZE:
                     try:
-                        drx.readFrame(fh)
-                        fh.seek(-drx.FrameSize, 1)
+                        drx.read_frame(fh)
+                        fh.seek(-drx.FRAME_SIZE, 1)
                         break
-                    except errors.syncError:
+                    except errors.SyncError:
                         backed += 1
-                        fh.seek(-drx.FrameSize-1, 1)
+                        fh.seek(-drx.FRAME_SIZE-1, 1)
                 for i in xrange(32):
                     try:
-                        frame = drx.readFrame(fh)
-                        beam, tune, _ = frame.parseID()
+                        frame = drx.read_frame(fh)
+                        beam, tune, _ = frame.id
                         if tune == 1:
-                            freq1 = frame.getCentralFreq()
+                            freq1 = frame.central_freq
                         else:
-                            freq2 = frame.getCentralFreq()
-                    except errors.syncError:
+                            freq2 = frame.central_freq
+                    except errors.SyncError:
                         continue
-                tStop = datetime.utcfromtimestamp(frame.getTime())
+                tStop = frame.time.datetime
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
@@ -318,32 +318,32 @@ def main(args):
             ## VDIF
             try:
                 ## Read in the GUPPI header
-                header = vdif.readGUPPIHeader(fh)
+                header = vdif.read_guppi_header(fh)
                 
                 ## Read in the first frame
-                vdif.FrameSize = vdif.getFrameSize(fh)
-                frame = vdif.readFrame(fh)
-                antID = frame.parseID()[0] - 12300
-                tStart =  datetime.utcfromtimestamp(frame.getTime())
-                nThread = vdif.getThreadCount(fh)
+                vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+                frame = vdif.read_frame(fh)
+                antID = frame.id[0] - 12300
+                tStart =  frame.time.datetime
+                nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
-                nJump = int(os.path.getsize(filename)/vdif.FrameSize)
+                nJump = int(os.path.getsize(filename)/vdif.FRAME_SIZE)
                 nJump -= 30
-                fh.seek(nJump*vdif.FrameSize, 1)
+                fh.seek(nJump*vdif.FRAME_SIZE, 1)
                 mark = fh.tell()
                 while True:
                     try:
-                        frame = vdif.readFrame(fh)
-                        tStop = datetime.utcfromtimestamp(frame.getTime())
+                        frame = vdif.read_frame(fh)
+                        tStop = frame.time.datetime
                     except Exception as e:
                         break
                         
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
                 x,y,z = db.get_xyz(pad, tStart)
-                #print "  Pad: %s" % pad
-                #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+                #print("  Pad: %s" % pad)
+                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF
@@ -381,28 +381,28 @@ def main(args):
             ## GUPPI Raw
             try:
                 ## Read in the GUPPI header
-                header = vdif.readGUPPIHeader(fh)
+                header = vdif.read_guppi_header(fh)
                 
                 ## Read in the first frame
-                guppi.FrameSize = guppi.getFrameSize(fh)
-                frame = guppi.readFrame(fh)
-                antID = frame.parseID()[0] - 12300
-                tStart =  datetime.utcfromtimestamp(frame.getTime())
-                nThread = guppi.getThreadCount(fh)
+                guppi.FRAME_SIZE = guppi.get_frame_size(fh)
+                frame = guppi.read_frame(fh)
+                antID = frame.id[0] - 12300
+                tStart =  frame.time.datetime
+                nThread = guppi.get_thread_count(fh)
                 
                 ## Read in the last frame
-                nJump = int(os.path.getsize(filename)/guppi.FrameSize)
+                nJump = int(os.path.getsize(filename)/guppi.FRAME_SIZE)
                 nJump -= 4
-                fh.seek(nJump*guppi.FrameSize, 1)
+                fh.seek(nJump*guppi.FRAME_SIZE, 1)
                 mark = fh.tell()
-                frame = guppi.readFrame(fh)
-                tStop = datetime.utcfromtimestamp(frame.getTime())
+                frame = guppi.read_frame(fh)
+                tStop = frame.time.datetime
             
                 ## Find the antenna location
                 pad, edate = db.get_pad('EA%02i' % antID, tStart)
                 x,y,z = db.get_xyz(pad, tStart)
-                #print "  Pad: %s" % pad
-                #print "  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z)
+                #print("  Pad: %s" % pad)
+                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF
@@ -442,7 +442,7 @@ def main(args):
             ## LWA Metadata
             try:
                 ## Extract the file information so that we can pair things together
-                fileInfo = metabundle.getSessionMetaData(filename)
+                fileInfo = metabundle.get_session_metadata(filename)
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
@@ -498,7 +498,7 @@ def main(args):
     # Sort the inputs based on the antenna name - this puts LWA1 first, 
     # LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
     # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else x['antenna']))
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else int(x['antenna'][2:], 10)))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:

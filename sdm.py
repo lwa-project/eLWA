@@ -1,16 +1,17 @@
-# -*- coding: utf-8 -*-
-
 """
-Module for working with VLA SDM files for flagging purposes
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Module for working with VLA SDM files for flagging purposes.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import numpy
 import struct
+from functools import reduce
 from xml.etree import ElementTree
 
 from lsl.astro import utcjd_to_unix, MJD_OFFSET
@@ -18,7 +19,6 @@ from lsl.misc.lru_cache import lru_cache
 
 
 __version__ = '0.5'
-__revision__ = '$Rev$'
 __all__ = ['vla_to_utcmjd', 'vla_to_utcjd', 'vla_to_unix', 'get_antennas', 
            'get_flags', 'filter_flags', 
            'get_noise_diode_values', 'filter_noise_diode_values', 

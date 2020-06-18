@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -82,6 +90,6 @@ def parse(filename):
 if __name__ == "__main__":
     filename = sys.argv[1]
     header, data = parse(filename)
-    print header
-    print data[1]
+    print(header)
+    print(data[1])
     

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unit tests for the various eLWA scripts.
 """
@@ -44,11 +42,12 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Module 'ephem",
                    "Instance of 'HDUList'",
                    "Unable to import 'polycos",
-                   "No name 'ccompiler"]
+                   "No name 'ccompiler",
+                   "No name 'c' in module 'astropy.constants'",]
 
 
 def _get_context(filename, line, before=0, after=0):
-    to_save = range(line-before, line+after+1)
+    to_save = range(line-1-before, line-1+after+1)
     context = []
     with open(filename, 'r') as fh:
         i = 0
@@ -89,7 +88,7 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E" % script, return_std=True)
+        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy" % script, return_std=True)
         out_lines = out.read().split('\n')
         err_lines = err.read().split('\n')
         out.close()
@@ -132,6 +131,14 @@ def _test_generator(script):
     return test
 
 
+def _name_to_name(filename):
+    filename = os.path.splitext(filename)[0]
+    parts = filename.split(os.path.sep)
+    start = parts.index('..')
+    parts = parts[start+1:]
+    return '_'.join(parts)
+
+
 if run_scripts_tests:
     _SCRIPTS = glob.glob(os.path.join(MODULE_BUILD, '..', '*.py'))
     for depth in range(1, 3):
@@ -141,20 +148,12 @@ if run_scripts_tests:
         _SCRIPTS.extend(glob.glob(os.path.join(*path)))
     _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
     _SCRIPTS.sort()
-    
-    _NAMES = {}
     for script in _SCRIPTS:
         test = _test_generator(script)
-        name = 'test_%s' % os.path.splitext(os.path.basename(script))[0]
-        try:
-            testname = name+('_%s' % _NAMES[name])
-        except KeyError:
-            testname = name
-            _NAMES[name] = 0
-        _NAMES[name] += 1
+        name = 'test_%s' % _name_to_name(script)
         doc = """Static analysis of the '%s' script.""" % os.path.basename(script)
         setattr(test, '__doc__', doc)
-        setattr(scripts_tests, testname, test)
+        setattr(scripts_tests, name, test)
 
 
 class scripts_test_suite(unittest.TestSuite):

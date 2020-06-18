@@ -1,19 +1,21 @@
 """
 RFI flagging module for use with eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python2 compatibility
+from __future__ import print_function, division, absolute_import
 
 import sys
 import time
 import numpy
-from StringIO import StringIO
-
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+    
 from lsl.common.stations import lwa1
 from lsl.statistics import robust
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutils
 
 
 def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=None):
@@ -43,9 +45,9 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     winSize += ((winSize+1)%2)
     
     # Compute the smoothed bandpass model
-    for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+    for i in range(smth.size):
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     try:
         scl = robust.mean(smth)
@@ -100,13 +102,17 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     return spec, bad
 
 
-def flag_bandpass_time(times, data, width=30.0, clip=3.0):
+def flag_bandpass_time(times, data, width=30.0, clip=3.0, time_range=None):
     """
     Given an array of times and a 2-D (time by frequency) data set, flag
     times that appear to deviate from the overall drift in power.  Returns
     a two-element tuple of the median power drift and the times to flag.
     """
     
+    # Ready the frequency range flagger
+    if time_range is None:
+        time_range = [numpy.inf, -numpy.inf]
+        
     # Create the median drift and setup the median smoothed drift model
     if data.dtype.kind == 'c':
         drift = numpy.abs(data)
@@ -121,9 +127,9 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0):
     winSize += ((winSize+1)%2)
     
     # Compute the smoothed drift model
-    for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+    for i in range(smth.size):
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(drift[mn:mx])
     try:
         scl = robust.mean(smth)
@@ -140,13 +146,14 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0):
     except ValueError:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) )[0]
+    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) \
+                       | ((times >= time_range[0]) & (times <= time_range[1])) )[0]
     
     # Done
     return drift, bad
 
 
-def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3, clip=3.0, grow=True, freq_range=None, verbose=False):
+def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3, clip=3.0, grow=True, freq_range=None, time_range=None, verbose=False):
     """
     Given a list of antennas, an array of times, and array of frequencies, 
     and a 3-D (time by baseline by frequency) data set, flag RFI and return 
@@ -160,9 +167,9 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
     
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -185,15 +192,16 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         if subpower.sum() == 0.0:
             mask[:,i,:] = True
             if verbose:
-                print "Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2)
+                print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
             continue
             
         ##
         ## Part 1 - Initial flagging with flag_bandpass_freq() and flag_bandpass_time()
         ##
-        bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow, 
+        bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow,
                                         freq_range=freq_range)
-        drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip)
+        drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip,
+                                           time_range=time_range)
         
         ## Build up a numpy.ma version of the data using the flags we just found
         try:
@@ -207,7 +215,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         ##
         ## Part 2 - Flatten the data with we we just found
         ##
-        for j in xrange(subpower.shape[0]):
+        for j in range(subpower.shape[0]):
             subpower.data[j,:] /= bp
             subpower.data[j,:] /= drift[j]
             
@@ -225,7 +233,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         
         ## Report, if requested
         if verbose:
-            print "Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2)
+            print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
             
         ## Update the global mask
         mask[:,i,:] = subpower.mask
@@ -249,9 +257,9 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
     power = numpy.abs(data)
@@ -323,7 +331,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         
         ## Report, if requested
         if len(bad) > 0 and verbose:
-            print "Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2)
+            print("Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2))
             
     # Cleanup the StringIO instance
     sys.stderr.close()
@@ -342,17 +350,17 @@ def cleanup_mask(mask, max_frac=0.75):
     
     nt, nb, nc = mask.shape
     # Time
-    for i in xrange(nt):
+    for i in range(nt):
         frac = 1.0*mask[i,:,:].sum() / nb / nc
         if frac > max_frac:
             mask[i,:,:] = True
     # Baseline
-    for i in xrange(nb):
+    for i in range(nb):
         frac = 1.0*mask[:,i,:].sum() / nt / nc
         if frac > max_frac:
             mask[:,i,:] = True
     # Frequency
-    for i in xrange(nc):
+    for i in range(nc):
         frac = 1.0*mask[:,:,i].sum() / nt / nb
         if frac > max_frac:
             mask[:,:,i] = True
@@ -369,15 +377,15 @@ def summarize_mask(antennas, times, freq, mask):
     
     # Load up the lists of baselines
     try:
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
     except AttributeError:
-        blList = uvUtils.getBaselines(antennas, IncludeAuto=True)
+        blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Build an antennas list to keep track of flagging
     antennaFracs = {}
     
     # Loop over baselines
-    print "Baseline Statistics:"
+    print("Baseline Statistics:")
     for i,bl in enumerate(blList):
         try:
             ant1, ant2 = bl[0].stand.id, bl[1].stand.id
@@ -400,16 +408,16 @@ def summarize_mask(antennas, times, freq, mask):
                 antennaFracs[ant2] = [frac,]
                 
         ## Baseline report
-        print "  %3i) Flagged %.1f%% on baseline %2i, %2i" % (i+1, frac, ant1, ant2)
+        print("  %3i) Flagged %.1f%% on baseline %2i, %2i" % (i+1, frac, ant1, ant2))
         
     frac = 100.0*mask.sum() / mask.size
-    print "Global Statistics:"
-    print "  Flagged %.1f%% globally" % frac
-    print "  Antenna Breakdown:"
+    print("Global Statistics:")
+    print("  Flagged %.1f%% globally" % frac)
+    print("  Antenna Breakdown:")
     for ant in sorted(antennaFracs.keys()):
         fracs = antennaFracs[ant]
         frac = 1.0 * sum(fracs) / len(fracs)
-        print "    %2i flagged %.1f%% on average" % (ant, frac)
+        print("    %2i flagged %.1f%% on average" % (ant, frac))
 
 
 def create_flag_groups(times, freq, mask):
@@ -424,7 +432,7 @@ def create_flag_groups(times, freq, mask):
     """
     
     # Pass 0 - Check to see if the mask is full
-    full = mask.sum() / mask.size
+    full = mask.sum() // mask.size
     if full:
         flagsD = [(0, mask.shape[0]-1, 0, mask.shape[1]-1),]
         flagsP = [(times.min(), times.max(), freq.min(), freq.max()),]
@@ -434,7 +442,7 @@ def create_flag_groups(times, freq, mask):
     flagsP = []
     claimed = numpy.zeros(mask.shape, dtype=numpy.bool)
     group = numpy.where( mask )
-    for l in xrange(len(group[0])):
+    for l in range(len(group[0])):
         i, j = group[0][l], group[1][l]
         if claimed[i,j]:
             continue

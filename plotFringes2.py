@@ -1,15 +1,16 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 A fancier version of plotFringes.py that makes waterfall-like plots from .npz
 files created by the next generation of correlator.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import glob
@@ -21,7 +22,7 @@ from datetime import datetime
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.misc import parser as aph
 
 from utils import read_correlator_configuration
@@ -61,7 +62,7 @@ def main(args):
     
     dataDict = numpy.load(filenames[0])
     tInt = dataDict['tInt']
-    nBL, nChan = dataDict['vis1XX'].shape
+    nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
@@ -100,16 +101,16 @@ def main(args):
     nBL = len(cross)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        if nchan % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nChan /= args.decimate
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        nchan //= args.decimate
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
-    visToPlot = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visToMask = numpy.zeros((nInt,nBL,nChan), dtype=numpy.bool)
+    visToPlot = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visToMask = numpy.zeros((nInt,nBL,nchan), dtype=numpy.bool)
     
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)
@@ -125,7 +126,7 @@ def main(args):
             cvis = dataDict['vis1%s' % args.polToPlot][cross,:]
             
         if args.decimate > 1:
-            cvis.shape = (cvis.shape[0], cvis.shape[1]/args.decimate, args.decimate)
+            cvis.shape = (cvis.shape[0], cvis.shape[1]//args.decimate, args.decimate)
             cvis = cvis.mean(axis=2)
             
         visToPlot[i,:,:] = cvis
@@ -150,14 +151,14 @@ def main(args):
         
         dataDict.close()
             
-    print "Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0]))
+    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
     for i in xrange(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max())
+    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
-    print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0])
+    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
 
     dTimes = times - times[0]
     

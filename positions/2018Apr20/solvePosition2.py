@@ -1,13 +1,21 @@
 #!/usr/bin/env python
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import ephem
 import numpy
 from scipy.optimize import leastsq
 
-from lsl.common.stations import ecef2geo, lwa1, lwasv
-from lsl.common.constants import c as vLight
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
+from lsl.common.stations import ecef_to_geo, lwa1, lwasv
 
 import prtab
 
@@ -79,7 +87,7 @@ def main(args):
     az = numpy.array(az)
     el = numpy.array(el)
     delay = numpy.array(delay)
-    print az.shape, el.shape, delay.shape
+    print(az.shape, el.shape, delay.shape)
     
     oaz = numpy.argsort(az)
     oel = numpy.argsort(el)
@@ -97,7 +105,7 @@ def main(args):
     
     uant = numpy.unique(ant)
     uant = list(uant)
-    print uant
+    print(uant)
     
     def fnc(p, x, ant=ant, uant=uant):
         lwasv = numpy.array([p[0], p[1], p[2]])
@@ -128,10 +136,10 @@ def main(args):
     p0 = [0, 0, 0]
     p0.extend( [delay.min() for u in numpy.unique(ant)] )
     p, stat = leastsq(err, p0, args=(x, delay))
-    print stat, p
-    print '!!', (delay-fnc(p,x))*1e9
-    print 'II', numpy.sqrt((delay-delay.mean()*1e9)**2).mean(), numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean())
-    print '->', numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean()) / numpy.sqrt((delay-delay.mean()*1e9)**2).mean()
+    print(stat, p)
+    print('!!', (delay-fnc(p,x))*1e9)
+    print('II', numpy.sqrt((delay-delay.mean()*1e9)**2).mean(), numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean()))
+    print('->', numpy.sqrt((((delay-fnc(p,x))*1e9)**2).mean()) / numpy.sqrt((delay-delay.mean()*1e9)**2).mean())
     
     delayFixed = err(p, x, delay)
     pylab.subplot(1, 2, 1)
@@ -152,7 +160,7 @@ def main(args):
     LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
                             [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
                             [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
-    print ecef2geo(*LWA1_ECEF), LWA1_LAT, LWA1_LON, lwa1.lat*1.0, lwa1.lon*1.0
+    print(ecef_to_geo(*LWA1_ECEF), LWA1_LAT, LWA1_LON, lwa1.lat*1.0, lwa1.lon*1.0)
 
     ## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
     ## with LWA1 and LWA-SV.  This also includes the shift detailed
@@ -164,7 +172,7 @@ def main(args):
                              [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
                              [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
     
-    print "***"
+    print("***")
     
     enz = numpy.array([0.0, 0.0, 0.0])
     enz -= p[0:3]
@@ -172,13 +180,13 @@ def main(args):
     sez = enz[[1,0,2]]
     rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     xyz = rho + LWA1_ECEF
-    print xyz, xyz-LWA1_ECEF
-    lat, lon, elev = ecef2geo(*xyz)
-    print LWA1_LAT*180/numpy.pi, lat*180/numpy.pi
-    print LWA1_LON*180/numpy.pi, lon*180/numpy.pi
-    print lwa1.elev, elev
+    print(xyz, xyz-LWA1_ECEF)
+    lat, lon, elev = ecef_to_geo(*xyz)
+    print(LWA1_LAT*180/numpy.pi, lat*180/numpy.pi)
+    print(LWA1_LON*180/numpy.pi, lon*180/numpy.pi)
+    print(lwa1.elev, elev)
     
-    print "==="
+    print("===")
     
     xyz = LWASV_ECEF
     rho = xyz - LWA1_ECEF
@@ -186,16 +194,16 @@ def main(args):
     enz = sez[[1,0,2]]
     enz[1] *= -1
     enz -= p[0:3]
-    #print enz, p[3]
+    #print(enz, p[3])
     enz[1] *= -1
     sez = enz[[1,0,2]]
     rho = numpy.dot(numpy.linalg.inv(LWA1_ROT), sez)
     xyz = rho + LWA1_ECEF
-    print xyz, xyz-LWASV_ECEF
-    lat, lon, elev = ecef2geo(*xyz)
-    print LWASV_LAT*180/numpy.pi, lat*180/numpy.pi
-    print LWASV_LON*180/numpy.pi, lon*180/numpy.pi
-    print lwasv.elev, elev
+    print(xyz, xyz-LWASV_ECEF)
+    lat, lon, elev = ecef_to_geo(*xyz)
+    print(LWASV_LAT*180/numpy.pi, lat*180/numpy.pi)
+    print(LWASV_LON*180/numpy.pi, lon*180/numpy.pi)
+    print(lwasv.elev, elev)
 
 
 if __name__ == "__main__":

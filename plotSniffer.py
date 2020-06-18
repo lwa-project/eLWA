@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a collection of .npz files search for course delays and rates.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import glob
@@ -18,7 +19,7 @@ import tempfile
 from datetime import datetime
 
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.misc import parser as aph
 
 from utils import read_correlator_configuration
@@ -48,7 +49,7 @@ def main(args):
     
     dataDict = numpy.load(filenames[0])
     tInt = dataDict['tInt']
-    nBL, nChan = dataDict['vis1XX'].shape
+    nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     dataDict.close()
@@ -79,19 +80,19 @@ def main(args):
     nBL = len(cross)
     
     if args.decimate > 1:
-        if nChan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nChan, args.decimate, nChan%args.decimate))
+        if nchan % args.decimate != 0:
+            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
 
-        nChan /= args.decimate
+        nchan /= args.decimate
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
-    visXX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+    visXX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
     if not args.y_only:
-        visXY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYX = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
-    visYY = numpy.zeros((nInt,nBL,nChan), dtype=numpy.complex64)
+        visXY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    visYY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
 
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)
@@ -104,13 +105,13 @@ def main(args):
         cvisYY = dataDict['vis1YY'][cross,:]
         
         if args.decimate > 1:
-            cvisXX.shape = (cvisXX.shape[0], cvisXX.shape[1]/args.decimate, args.decimate)
+            cvisXX.shape = (cvisXX.shape[0], cvisXX.shape[1]//args.decimate, args.decimate)
             cvisXX = cvisXX.mean(axis=2)
-            cvisXY.shape = (cvisXY.shape[0], cvisXY.shape[1]/args.decimate, args.decimate)
+            cvisXY.shape = (cvisXY.shape[0], cvisXY.shape[1]//args.decimate, args.decimate)
             cvisXY = cvisXY.mean(axis=2)
-            cvisYX.shape = (cvisYX.shape[0], cvisYX.shape[1]/args.decimate, args.decimate)
+            cvisYX.shape = (cvisYX.shape[0], cvisYX.shape[1]//args.decimate, args.decimate)
             cvisYX = cvisYX.mean(axis=2)
-            cvisYY.shape = (cvisYY.shape[0], cvisYY.shape[1]/args.decimate, args.decimate)
+            cvisYY.shape = (cvisYY.shape[0], cvisYY.shape[1]//args.decimate, args.decimate)
             cvisYY = cvisYY.mean(axis=2)
             
         visXX[i,:,:] = cvisXX
@@ -123,21 +124,21 @@ def main(args):
         
         dataDict.close()
             
-    print "Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0]))
+    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
     for i in xrange(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max())
+    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max()))
     iSize = int(round(args.interval/robust.mean(iTimes)))
-    print " -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes))
+    print(" -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes)))
     iCount = times.size/iSize
-    print " -> Working with %i chunks of data" % iCount
+    print(" -> Working with %i chunks of data" % iCount)
     
-    print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0])
+    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
 
     dTimes = times - times[0]
-    refTime = (int(times[0]) / 60) * 60
+    ref_time = (int(times[0]) / 60) * 60
     
     dMax = 1.0/(freq[1]-freq[0])/4
     dMax = int(dMax*1e6)*1e-6
@@ -172,9 +173,9 @@ def main(args):
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
     
-    print "Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres)
-    print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres)
-    print " "
+    print("Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres))
+    print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
+    print(" ")
     
     delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
     drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
@@ -196,8 +197,8 @@ def main(args):
     smth /= robust.mean(smth)
     bp = spec / smth
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-    nBad = nChan - len(good)
-    print "Masking %i of %i channels (%.1f%%)" % (nBad, nChan, 100.0*nBad/nChan)
+    nBad = nchan - len(good)
+    print("Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan))
     
     freq2 = freq*1.0
     freq2.shape += (1,)
@@ -277,10 +278,10 @@ def main(args):
                     bdly = delay[best[0][0]]*1e6
                     brat = drate[best[1][0]]*1e3
                     
-                    axR.plot(subTime-refTime, brat, linestyle='', marker=markers[pol], color='k')
-                    axD.plot(subTime-refTime, bdly, linestyle='', marker=markers[pol], color='k')
-                    axP.plot(subTime-refTime, subPhase, linestyle='', marker=markers[pol], color='k')
-                    axA.plot(subTime-refTime, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
+                    axR.plot(subTime-ref_time, brat, linestyle='', marker=markers[pol], color='k')
+                    axD.plot(subTime-ref_time, bdly, linestyle='', marker=markers[pol], color='k')
+                    axP.plot(subTime-ref_time, subPhase, linestyle='', marker=markers[pol], color='k')
+                    axA.plot(subTime-ref_time, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
                     
         # Legend and reference marks
         handles, labels = axA.get_legend_handles_labels()
@@ -293,7 +294,7 @@ def main(args):
         xticklabels = axR.get_xticklabels() + axD.get_xticklabels() + axP.get_xticklabels()
         plt.setp(xticklabels, visible=False)
         for ax in (axR, axD, axP, axA):
-            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(refTime).strftime('%Y%b%d %H:%M'))
+            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
         # Flip the y axis tick labels on every other plot
         for ax in (axR, axP):
             ax.yaxis.set_label_position('right')
