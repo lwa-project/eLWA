@@ -15,6 +15,7 @@ if sys.version_info > (3,):
     
 import os
 import re
+import git
 import sys
 import glob
 import time
@@ -147,11 +148,10 @@ def getSourceName(src):
 def main(args):
     # Parse the command line
     filenames = args.filename
-    # Special catch for when the command line is too short to list all of 
-    # the files to combine.  This works by running glob.glob() using the
-    # first input filename as the file regex
-    if len(filenames) == 1 and filenames[0].find('*') != -1:
-        filenames = glob.glob(filenames[0])
+    if args.regex:
+        filenames = []
+        for regex in args.filename:
+            filenames.extend(glob.glob(regex))
     try:
         filenames.sort(cmp=cmpNPZ)
     except TypeError:
@@ -171,7 +171,7 @@ def main(args):
     freq = dataDict['freq1']
     
     config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
-    if config is not None:
+    try:
         if config['basis'] == 'linear':
             args.linear = True
             args.circular = False
@@ -185,6 +185,8 @@ def main(args):
             args.circular = False
             args.stokes = True
         print("NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis'])
+    except (TypeError, KeyError):
+        pass
         
     visXX = dataDict['vis1XX'].astype(numpy.complex64)
     visXY = dataDict['vis1XY'].astype(numpy.complex64)
@@ -235,6 +237,23 @@ def main(args):
     if float(fitsidi.__version__) < 0.9:
         print("Warning: Applying conjugate to visibility data")
         conjugateVis = True
+        
+    # Figure out our revision
+    try:
+        repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+        try:
+            branch = repo.active_branch.name
+            hexsha = repo.active_branch.commit.hexsha
+        except TypeError:
+            branch = '<detached>'
+            hexsha = repo.head.commit.hexsha
+        shortsha = hexsha[-7:]
+        dirty = ' (dirty)' if repo.is_dirty() else ''
+    except git.exc.GitError:
+        branch = 'unknown'
+        hexsha = 'unknown'
+        shortsha = 'unknown'
+        dirty = ''
         
     # Fill in the data
     for i,filename in enumerate(filenames):
@@ -336,10 +355,24 @@ def main(args):
             elif args.stokes:
                 fits.set_stokes(['I', 'Q', 'U', 'V'])
             else:
-                fits.set_stokes(['XX', 'XY', 'YX', 'YY'])
+                fits.set_sokes(['XX', 'XY', 'YX', 'YY'])
             fits.set_frequency(freq)
             fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
-            fits.add_history('Created with %s, revision $Rev$' % os.path.basename(__file__))
+            if config['context'] is not None:
+                mode = 'LSBI'
+                if min([ma.stand.id for ma in master_antennas]) < 50 \
+                   and max([ma.stand.id for ma in master_antennas]) > 50:
+                   mode = 'ELWA'
+                elif min([ma.stand.id for ma in master_antennas]) < 50:
+                    mode = 'VLA'
+                    
+                fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
+                if config['context']['session'] is not None:
+                    fits.addHeaderKeyword('session', config['context']['session'])
+                if config['context']['vlaref'] is not None:
+                    fits.addHeaderKeyword('vlaref', config['context']['vlaref'])
+                fits.addHeaderKeyword('instrume', mode)
+            fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print("Opening %s for writing" % outname)
             
         if i % 10 == 0:
@@ -384,6 +417,8 @@ if __name__ == "__main__":
     )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
+    parser.add_argument('-r', '--regex', action='store_true',
+                        help='filename is actually a regular expression')
     pgroup = parser.add_mutually_exclusive_group(required=False)
     pgroup.add_argument('-x', '--linear', action='store_true', default=True, 
                         help='write linear polarization data')

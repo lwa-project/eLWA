@@ -64,8 +64,8 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     except ValueError:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-    bad = numpy.where( ((numpy.abs(bp-dm) > clip*ds) | (smth < 0.1)) \
-                           | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
+    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) \
+                       | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
     
     # Make sure we have flagged appropriately and revert the flags as needed.  We
     # specifically need this when we have flagged everything because the bandpass 
@@ -200,7 +200,8 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         ##
         bp, flagsF = flag_bandpass_freq(freq, subpower, width=width_freq, clip=clip, grow=grow,
                                         freq_range=freq_range)
-        drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip, time_range=time_range)
+        drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip,
+                                           time_range=time_range)
         
         ## Build up a numpy.ma version of the data using the flags we just found
         try:

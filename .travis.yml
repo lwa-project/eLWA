@@ -39,8 +39,10 @@ install:
         matplotlib \
         scipy \
         h5py \
-        jinja2
-    - pip install git+https://github.com/lwa-project/lsl.git
+        jinja2 \
+        GitPython
+    - pip install \ 
+        lsl
     - pip install pylint
 
 script:

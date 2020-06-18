@@ -12,6 +12,7 @@ if sys.version_info > (3,):
     raw_input = input
     
 import os
+import git
 import sys
 import time
 import numpy
@@ -388,6 +389,23 @@ def main(args):
                     reas.append( 'DEDISPERSEIDI.PY' )
                     sevs.append( -1 )
                     
+        ## Figure out our revision
+        try:
+            repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
+            try:
+                branch = repo.active_branch.name
+                hexsha = repo.active_branch.commit.hexsha
+            except TypeError:
+                branch = '<detached>'
+                hexsha = repo.head.commit.hexsha
+            shortsha = hexsha[-7:]
+            dirty = ' (dirty)' if repo.is_dirty() else ''
+        except git.exc.GitError:
+            branch = 'unknown'
+            hexsha = 'unknown'
+            shortsha = 'unknown'
+            dirty = ''
+            
         ## Build the FLAG table
         print('    FITS HDU')
         ### Columns
@@ -411,7 +429,7 @@ def main(args):
         flags.header['TABREV'] = (2, 'table format revision number')
         for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
             flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
-        flags.header['HISTORY'] = 'Flagged with %s, revision $Rev$' % os.path.basename(__file__)
+        flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
         
         # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
@@ -464,7 +482,7 @@ def main(args):
                     processed.append(key)
             else:
                 primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
-        primary.header['HISTORY'] = 'Dedispersed with %s, revision $Rev$' % os.path.basename(__file__)
+        primary.header['HISTORY'] = 'Dedispersed with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         primary.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
         hdulist2.append(primary)
         hdulist2.flush()
