@@ -1,25 +1,26 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 A FITS-IDI compatible version of plotFringes2.py.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
 from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -45,9 +46,9 @@ def main(args):
         args.polToPlot = 'YY'
     filename = args.filename
     
-    print "Working on '%s'" % os.path.basename(filename)
+    print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     fgdata = None
@@ -84,7 +85,7 @@ def main(args):
     flux = uvdata.data['FLUX'].astype(numpy.float32)
     
     # Convert the visibilities to something that we can easily work with
-    nComp = flux.shape[1] / nBand / nFreq / nStk
+    nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
         flux = flux.view(numpy.complex64)
@@ -109,7 +110,7 @@ def main(args):
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
         mintimes = reltimes - inttimes / 2.0 / 86400.0
         
-        bls_ant1 = bls/256
+        bls_ant1 = bls//256
         bls_ant2 = bls%256
         
         for row in fgdata.data:
@@ -182,23 +183,23 @@ def main(args):
         if nFreq % args.decimate != 0:
             raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
 
-        nFreq /= args.decimate
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        nFreq //= args.decimate
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]/args.decimate, args.decimate, flux.shape[3])
+        flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]//args.decimate, args.decimate, flux.shape[3])
         flux = flux.mean(axis=3)
         
-        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]/args.decimate, args.decimate, mask.shape[3])
+        mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
         mask = mask.mean(axis=3)
         
-    good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
+    good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
     
     # NOTE: Assumes that the Stokes parameters increment by -1
     namMapper = {}
     for i in xrange(nStk):
         stk = stk0 - i
-        namMapper[i] = NumericStokes[stk]
+        namMapper[i] = NUMERIC_STOKES[stk]
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
     
     fig1 = plt.figure()

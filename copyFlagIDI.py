@@ -1,19 +1,22 @@
 #!/usr/bin/env python
 
 """
-Copy the FLAG tables from one FITS-IDI file to another
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
+Copy the FLAG tables from one FITS-IDI file to another.
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import git
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 
 
@@ -24,8 +27,8 @@ def main(args):
     
     # Open
     t0 = time.time()
-    srclist = pyfits.open(srcname, mode='readonly')
-    dstlist = pyfits.open(dstname, mode='readonly')
+    srclist = astrofits.open(srcname, mode='readonly')
+    dstlist = astrofits.open(dstname, mode='readonly')
     
     # Find the FLAG tables to be copied
     toCopy = []
@@ -71,7 +74,7 @@ def main(args):
             dstlist[-2].header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (dstlist[-2].header['NO_CHAN'], dstlist[1].header['NO_CHAN'])
             
     # Save
-    print "  Saving to disk"
+    print("  Saving to disk")
     ## What to call it
     outname = os.path.basename(dstname)
     outname, outext = os.path.splitext(outname)
@@ -88,8 +91,8 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
     ## Open and create a new primary HDU
-    hdulist2 = pyfits.open(outname, mode='append')
-    primary = pyfits.PrimaryHDU()
+    hdulist2 = astrofits.open(outname, mode='append')
+    primary = astrofits.PrimaryHDU()
     processed = []
     for key in dstlist[0].header:
         if key in ('COMMENT', 'HISTORY'):
@@ -109,8 +112,8 @@ def main(args):
     hdulist2.close()
     dstlist.close()
     srclist.close()
-    print "  -> Flagged FITS IDI file is '%s'" % outname
-    print "  Finished in %.3f s" % (time.time()-t0,)
+    print("  -> Flagged FITS IDI file is '%s'" % outname)
+    print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":

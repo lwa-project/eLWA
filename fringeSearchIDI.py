@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 A FITS-IDI compatible version of fringeSearch.py to finding course delays and 
@@ -7,22 +6,24 @@ rates.
 
 NOTE:  This script does not try to fringe search only a single source.  Rather,
     it searches the file as a whole.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
 from lsl.statistics import robust
-from lsl.misc.mathutil import to_dB
+from lsl.misc.mathutils import to_dB
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
@@ -41,9 +42,9 @@ def main(args):
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
     
-    print "Working on '%s'" % os.path.basename(args.filename)
+    print("Working on '%s'" % os.path.basename(args.filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(args.filename, mode='readonly')
+    hdulist = astrofits.open(args.filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     uvdata = hdulist['UV_DATA']
@@ -81,7 +82,7 @@ def main(args):
     flux = uvdata.data['FLUX'].astype(numpy.float32)
     
     # Convert the visibilities to something that we can easily work with
-    nComp = flux.shape[1] / nBand / nFreq / nStk
+    nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
         flux = flux.view(numpy.complex64)
@@ -141,9 +142,9 @@ def main(args):
     iTimes = numpy.zeros(times.size-1, dtype=times.dtype)
     for i in xrange(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print " -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max())
+    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
-    print "Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0])
+    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
 
     dTimes = times - times[0]
     
@@ -180,9 +181,9 @@ def main(args):
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
     
-    print "Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres)
-    print "           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres)
-    print " "
+    print("Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres))
+    print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
+    print(" ")
     
     delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
     drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
@@ -198,14 +199,14 @@ def main(args):
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
-        mx = min([i+winSize/2+1, smth.size])
+        mn = max([0, i-winSize//2])
+        mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
     good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nFreq - len(good)
-    print "Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq)
+    print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()
@@ -224,7 +225,7 @@ def main(args):
     # NOTE: Assumed linear data
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
     
-    print "%3s  %9s  %2s  %6s  %9s  %11s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate')
+    print("%3s  %9s  %2s  %6s  %9s  %11s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate'))
     for b in xrange(len(search_bls)):
         bl = search_bls[b]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
@@ -284,9 +285,9 @@ def main(args):
                 bsnr = (amp[best]-amp.mean())[0]/amp.std()
                 bdly = delay[best[0][0]]*1e6
                 brat = drate[best[1][0]]*1e3
-                print "%3i  %9s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat)
+                print("%3i  %9s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat))
             else:
-                print "%3i  %9s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----')
+                print("%3i  %9s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----'))
                 
             if args.plot:
                 axs[pol].imshow(amp, origin='lower', interpolation='nearest', 
@@ -296,7 +297,8 @@ def main(args):
                 
         if args.plot:
             fig.suptitle(os.path.basename(args.filename))
-            for pol,ax in axs.iteritems():
+            for pol in axs.keys():
+                ax = axs[pol]
                 ax.axis('auto')
                 ax.set_title(pol)
                 ax.set_xlabel('Rate [mHz]')

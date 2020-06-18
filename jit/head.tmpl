@@ -1,17 +1,7 @@
-/*
- * Version Control Information - head.tmpl
- * 
- * $Rev$
- * $LastChangedBy$
- * $LastChangedDate$
- * 
- */
-
 #include "Python.h"
 #include <math.h>
 #include <stdio.h>
 #include <complex.h>
-#include <cblas.h>
 #include <fftw3.h>
 #include <stdlib.h>
 
@@ -26,6 +16,10 @@
 
 #include "numpy/arrayobject.h"
 #include "numpy/npy_math.h"
+
+#include "blas.h"
+
+#include "py3_compat.h"
 
 
 /*

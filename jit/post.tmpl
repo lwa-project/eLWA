@@ -1,13 +1,4 @@
 /*
- * Version Control Information - post.tmpl
- * 
- * $Rev$
- * $LastChangedBy$
- * $LastChangedDate$
- * 
- */
-
-/*
   Cross-Multiplication And Accumulation Function ("X Engines")
     1. XEngine2 - XMAC two collections of signals
 */
@@ -82,7 +73,7 @@ static PyObject *XEngine2(PyObject *self, PyObject *args) {
             }
             
             for(c=0; c<{{nChan}}; c++) {
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + {{nChan}}*bl + c) = tempVis / nActVis;
             }
         }
@@ -193,20 +184,20 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
             
             for(c=0; c<{{nChan}}; c++) {
                 // XX
-                cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 0*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureX;
                 
                 // XY
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
                 
                 // YX
-                //cblas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                //blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 //*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
                 *(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
                 
                 // YY
-                cblas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
                 *(v + 3*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisPureY;
             }
         }
@@ -267,21 +258,36 @@ PyDoc_STRVAR(cDoc, \
   Module Setup - Initialization
 */
 
-PyMODINIT_FUNC init{{module}}(void) {
+MOD_INIT({{module}}) {
     char filename[256];
-    PyObject *m, *pModule, *pDataPath;
+    PyObject *m, *all, *pModule, *pDataPath;
 
     // Module definitions and functions
-    m = Py_InitModule3("{{module}}", cMethods, cDoc);
+    MOD_DEF(m, "{{module}}", cMethods, cDoc);
+    if( m == NULL ) {
+        return MOD_ERROR_VAL;
+    }
     import_array();
+    
+    // Function listings
+	all = PyList_New(0);
+	PyList_Append(all, PyString_FromString("specS"));
+	PyList_Append(all, PyString_FromString("specF"));
+	PyList_Append(all, PyString_FromString("specL"));
+	PyList_Append(all, PyString_FromString("FEngine"));
+	PyList_Append(all, PyString_FromString("PFBEngine"));
+	PyList_Append(all, PyString_FromString("XEngine2"));
+	PyList_Append(all, PyString_FromString("XEngine3"));
+    PyModule_AddObject(m, "__all__", all);
     
     // LSL FFTW Wisdom
     pModule = PyImport_ImportModule("lsl.common.paths");
     if( pModule != NULL ) {
-        pDataPath = PyObject_GetAttrString(pModule, "data");
+        pDataPath = PyObject_GetAttrString(pModule, "DATA");
         sprintf(filename, "%s/fftwf_wisdom.txt", PyString_AsString(pDataPath));
         read_wisdom(filename, m);
     } else {
         PyErr_Warn(PyExc_RuntimeWarning, "Cannot load the LSL FFTWF wisdom");
     }
+    return MOD_SUCCESS_VAL(m);
 }

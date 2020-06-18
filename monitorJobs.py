@@ -2,12 +2,14 @@
 
 """
 Monitor jobs launch on the LWAUCF by launchJobs.py.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import re
 import sys
@@ -48,6 +50,10 @@ def get_directories(node):
     if status != 0:
         dirnames = []
     else:
+        try:
+            dirnames = dirnames.decode(encoding='ascii', errors='ignore')
+        except AttributeError:
+            pass
         dirnames = dirnames.split('\n')[:-1]
         dirnames = [dirname.strip().rstrip() for dirname in dirnames]
     return dirnames
@@ -58,6 +64,10 @@ def get_processes(node):
     if status != 0:
         processes = []
     else:
+        try:
+            processes = processes.decode(encoding='ascii', errors='ignore')
+        except AttributeError:
+            pass
         processes = processes.split('\n')[:-1]
         processes = [process.strip().rstrip() for process in processes]
     return processes
@@ -68,6 +78,10 @@ def get_directory_contents(node, dirname):
     if status != 0:
         filenames = []
     else:
+        try:
+            filenames = filenames.decode(encoding='ascii', errors='ignore')
+        except AttributeError:
+            pass
         filenames = filenames.split('\n')[:-1]
         filenames = [filename.strip().rstrip() for filename in filenames]
     return filenames
@@ -189,11 +203,11 @@ def main(args):
             t1 = time.time()
             
             # Report
-            print "=== %s ===" % datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print("=== %s ===" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             for node in sorted(status.keys()):
                 entry = status[node]
                 
-                print "%s:" % node
+                print("%s:" % node)
                 for dirname in entry['dirnames']:
                     nFiles = entry['progress'][dirname]
                     if dirname in entry['active']:
@@ -228,13 +242,13 @@ def main(args):
                             
                         info = '%s (?)' % configfile if configfile is not None else None
                         
-                    print '  %s (%s)' % (dirname, active)
-                    print '    %i integrations processed' % nFiles
+                    print('  %s (%s)' % (dirname, active))
+                    print('    %i integrations processed' % nFiles)
                     if info is not None:
-                        print '    %s' % info
+                        print('    %s' % info)
                         
             t2 = time.time()
-            print "query %.3f, report %.3f" % (t1-t0, t2-t1)
+            print("query %.3f, report %.3f" % (t1-t0, t2-t1))
             
             # Sleep
             while (time.time() - t0) < 60:

@@ -1,6 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -17,7 +22,7 @@ from matplotlib import pyplot as plt
 
 
 def usage(exitCode=None):
-    print """guppiHistogram.py - Read in a GUPPI file and plot sample histograms
+    print("""guppiHistogram.py - Read in a GUPPI file and plot sample histograms
 
 Usage:
 guppiHistogram.py [OPTIONS] <guppi_file>
@@ -28,7 +33,7 @@ Options:
                             default = 0 s)
 -t, --avg-time              Window to average visibilities in time (seconds; 
                             default = 1 s)
-"""
+""")
     
     if exitCode is not None:
         sys.exit(exitCode)
@@ -46,9 +51,9 @@ def parseConfig(args):
     # Read in and process the command line flags
     try:
         opts, args = getopt.getopt(args, "ht:s:", ["help", "avg-time=", "skip="])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         # Print help information and exit:
-        print str(err) # will print something like "option -a not recognized"
+        print(str(err)) # will print something like "option -a not recognized"
         usage(exitCode=2)
         
     # Work through opts
@@ -75,81 +80,81 @@ def main(args):
     filename = config['args'][0]
     
     fh = open(filename, 'rb')
-    header = guppi.readGUPPIHeader(fh)
-    guppi.FrameSize = guppi.getFrameSize(fh)
-    nFramesFile = os.path.getsize(filename) / guppi.FrameSize
+    header = guppi.read_guppi_header(fh)
+    guppi.FRAME_SIZE = guppi.get_frame_size(fh)
+    nFramesFile = os.path.getsize(filename) / guppi.FRAME_SIZE
     
-    junkFrame = guppi.readFrame(fh)
-    srate = junkFrame.getSampleRate()
-    guppi.DataLength = junkFrame.data.data.size
-    beam, pol = junkFrame.parseID()
-    tunepols = guppi.getThreadCount(fh)
+    junkFrame = guppi.read_frame(fh)
+    srate = junkFrame.sample_rate
+    guppi.DATA_LENGTH = junkFrame.payload.data.size
+    beam, pol = junkFrame.id
+    tunepols = guppi.get_thread_count(fh)
     beampols = tunepols
     
     if config['skip'] != 0:
-        print "Skipping forward %.3f s" % config['skip']
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
+        print("Skipping forward %.3f s" % config['skip'])
+        print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
         
-        offset = int(config['skip']*srate / guppi.DataLength )
-        fh.seek(guppi.FrameSize*beampols*(offset - 1), 1)
-        junkFrame = guppi.readFrame(fh)
-        fh.seek(-guppi.FrameSize, 1)
+        offset = int(config['skip']*srate / guppi.DATA_LENGTH )
+        fh.seek(guppi.FRAME_SIZE*beampols*(offset - 1), 1)
+        junkFrame = guppi.read_frame(fh)
+        fh.seek(-guppi.FRAME_SIZE, 1)
         
-        print "-> %.6f (%s)" % (junkFrame.getTime(), datetime.utcfromtimestamp(junkFrame.getTime()))
-        tStart = junkFrame.getTime()
+        print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
+        tStart = junkFrame.time
         
     # Get the frequencies
     cFreq = 0.0
     for j in xrange(4):
-        junkFrame = guppi.readFrame(fh)
-        s,p = junkFrame.parseID()
+        junkFrame = guppi.read_frame(fh)
+        s,p = junkFrame.id
         if p == 0:
-            cFreq = junkFrame.getCentralFreq()
+            cFreq = junkFrame.central_freq
             
     # Set integration time
     tInt = config['avgTime']
-    nFrames = int(round(tInt*srate/guppi.DataLength))
-    tInt = nFrames*guppi.DataLength/srate
+    nFrames = int(round(tInt*srate/guppi.DATA_LENGTH))
+    tInt = nFrames*guppi.DATA_LENGTH/srate
     
-    nFrames = int(round(tInt*srate/guppi.DataLength))
+    nFrames = int(round(tInt*srate/guppi.DATA_LENGTH))
     
     # Read in some data
-    tFile = nFramesFile / beampols * guppi.DataLength / srate
+    tFile = nFramesFile / beampols * guppi.DATA_LENGTH / srate
     
     # Date
-    junkFrame = guppi.readFrame(fh)
-    fh.seek(-guppi.FrameSize, 1)
-    beginDate = datetime.utcfromtimestamp(junkFrame.getTime())
+    junkFrame = guppi.read_frame(fh)
+    fh.seek(-guppi.FRAME_SIZE, 1)
+    beginDate = junkFrame.time.datetime
         
     # Report
-    print "Filename: %s" % os.path.basename(filename)
-    print "  Date of First Frame: %s" % beginDate
-    print "  Station: %i" % beam
-    print "  Sample Rate: %i Hz" % srate
-    print "  Tuning 1: %.1f Hz" % cFreq
-    print "  Bit Depth: %i" % junkFrame.header.bitsPerSample
-    print "  Integration Time: %.3f s" % tInt
-    print "  Integrations in File: %i" % int(tFile/tInt)
-    print " "
+    print("Filename: %s" % os.path.basename(filename))
+    print("  Date of First Frame: %s" % beginDate)
+    print("  Station: %i" % beam)
+    print("  Sample Rate: %i Hz" % srate)
+    print("  Tuning 1: %.1f Hz" % cFreq)
+    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
+    print("  Integration Time: %.3f s" % tInt)
+    print("  Integrations in File: %i" % int(tFile/tInt))
+    print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, guppi.DataLength*nFrames), dtype=numpy.complex64)
+    data = numpy.zeros((beampols, guppi.DATA_LENGTH*nFrames), dtype=numpy.complex64)
     count = [0 for i in xrange(data.shape[0])]
     for i in xrange(beampols*nFrames):
         try:
-            cFrame = guppi.readFrame(fh)
-        except errors.syncError:
-            print "Error @ %i" % i
-            fh.seek(guppi.FrameSize, 1)
+            cFrame = guppi.read_frame(fh)
+        except errors.SyncError:
+            print("Error @ %i" % i)
+            fh.seek(guppi.FRAME_SIZE, 1)
             continue
-        std,pol = cFrame.parseID()
+        std,pol = cFrame.id
         sid = pol
         
-        data[sid, count[sid]*guppi.DataLength:(count[sid]+1)*guppi.DataLength] = cFrame.data.data
+        data[sid, count[sid]*guppi.DATA_LENGTH:(count[sid]+1)*guppi.DATA_LENGTH] = cFrame.payload.data
         count[sid] += 1
         
     # Plot
-    nBins = 2**junkFrame.header.bitsPerSample
+    nBins = 2**junkFrame.header.bits_per_sample
     weights = numpy.ones(data.shape[1], dtype=numpy.float32) * 100.0/data.shape[1]
     
     fig = plt.figure()

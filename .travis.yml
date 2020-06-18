@@ -4,6 +4,14 @@ language: python
 
 python:
     - 2.7
+    - 3.6
+    ## PyPy versions
+    #- pypy2.7-6.0
+    #- pypy3
+
+jobs:
+  allow_failures:
+    - python: 2.7
 
 addons:
     apt:
@@ -18,26 +26,29 @@ addons:
             - libfftw3-dev
             - libgdbm-dev
             - libhdf5-dev
-            - libatlas-base-dev
+
+before_install:
+    - sudo add-apt-repository -y ppa:deadsnakes/ppa
+    - sudo apt-get -q update
+    - sudo apt-get -y install python3.6 python3.6-dev
 
 install:
     - pip install \
         setuptools \
-        numpy==1.13.3 \
-        matplotlib==2.1.1 \
-        scipy==0.19.1 \
+        numpy \
+        matplotlib \
+        scipy \
         h5py \
         jinja2 \
         GitPython
     - pip install \ 
-        lsl==1.2.5
+        lsl
     - pip install pylint
-    - curl https://fornax.phys.unm.edu/lwa/data/finals2000A.data -o $HOME/.lsl/geodesy_cache/finals2000A.data --create-dirs
 
 script:
     - cd tests
     - python -m unittest discover
 
 cache:
-    directories:
-      - $HOME/.lsl
+  directories:
+    - $HOME/.astropy/cache

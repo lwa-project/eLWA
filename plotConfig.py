@@ -1,14 +1,15 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Small script to plot up the configuration in a file.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
 import os
 import sys
 import numpy
@@ -51,20 +52,20 @@ def main(args):
     blLength = numpy.array(blLength) / 1e3
     
     # Report
-    print "Filename: %s" % os.path.basename(args.filename)
-    print "  Phase Center:"
-    print "    Name: %s" % refSrc.name
-    print "    RA: %s" % refSrc._ra
-    print "    Dec: %s" % refSrc._dec
-    print "  Antennas:"
-    print "    Total: %i" % len(filenames)
-    print "    VDIF: %i" % sum([1 for rdr in readers if rdr is vdif])
-    print "    DRX: %i" % sum([1 for rdr in readers if rdr is drx])
-    print "  Baselines:"
-    print "    Total: %i" % len(bl)
-    print "    Minimum: %.2f km (%s <-> %s)" % (blLength.min(), names[bl[numpy.argmin(blLength)][0]], names[bl[numpy.argmin(blLength)][1]])
-    print "    Median: %.2f km" % numpy.median(blLength)
-    print "    Maximum %.2f km (%s <-> %s)" % (blLength.max(), names[bl[numpy.argmax(blLength)][0]], names[bl[numpy.argmax(blLength)][1]])
+    print("Filename: %s" % os.path.basename(args.filename))
+    print("  Phase Center:")
+    print("    Name: %s" % refSrc.name)
+    print("    RA: %s" % refSrc._ra)
+    print("    Dec: %s" % refSrc._dec)
+    print("  Antennas:")
+    print("    Total: %i" % len(filenames))
+    print("    VDIF: %i" % sum([1 for rdr in readers if rdr is vdif]))
+    print("    DRX: %i" % sum([1 for rdr in readers if rdr is drx]))
+    print("  Baselines:")
+    print("    Total: %i" % len(bl))
+    print("    Minimum: %.2f km (%s <-> %s)" % (blLength.min(), names[bl[numpy.argmin(blLength)][0]], names[bl[numpy.argmin(blLength)][1]]))
+    print("    Median: %.2f km" % numpy.median(blLength))
+    print("    Maximum %.2f km (%s <-> %s)" % (blLength.max(), names[bl[numpy.argmax(blLength)][0]], names[bl[numpy.argmax(blLength)][1]]))
     
     # Color-code the stands by their elevation
     color = data[:,2]

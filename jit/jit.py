@@ -1,19 +1,20 @@
-# -*- coding: utf-8 -*-
-
 """
 Module for creating optimized data processing code when it is needed.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python2 compatibility
+from __future__ import print_function, division, absolute_import
+    
 import os
 import sys
 import glob
 import time
 import numpy
-import StringIO
+import importlib
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 import platform
 import warnings
 import subprocess
@@ -22,12 +23,11 @@ from distutils import ccompiler
 
 from jinja2 import Environment, FileSystemLoader, Template
 
-from lsl.correlator.fx import noWindow
+from lsl.correlator.fx import null_window
 
 
 __version__ = '0.1'
-__revision__ = '$Rev$'
-__all__ = ['JustInTimeOptimizer', '__version__', '__revision__', '__all__']
+__all__ = ['JustInTimeOptimizer',]
 
 
 # Setup
@@ -64,11 +64,18 @@ class JustInTimeOptimizer(object):
                       'complex64': 'float complex', 
                       'complex128': 'double complex'}
                      
-    def __init__(self, cacheDir=None, verbose=True):
+    def __init__(self, cache_dir=None, verbose=True):
+        # Setup the Python version tag
+        self._tag = "py%i%i" % (sys.version_info.major, sys.version_info.minor)
+        try:
+            self._tag = self._tag+sys.abiflags.replace('.', '')
+        except AttributeError:
+            pass
+            
         # Setup the module cache and fill it
-        if cacheDir is None:
-            cacheDir = os.path.dirname(__file__)
-        self.cacheDir = os.path.abspath(cacheDir)
+        if cache_dir is None:
+            cache_dir = os.path.dirname(__file__)
+        self.cache_dir = os.path.abspath(cache_dir)
         self._cache = {}
         self._load_cache_dir(verbose=verbose)
         
@@ -89,11 +96,11 @@ class JustInTimeOptimizer(object):
         """
         
         if verbose:
-            print "JIT cache directory: %s" % self.cacheDir
+            print("JIT cache directory: %s" % self.cache_dir)
             
         # Make sure the cache directory is in the path as well
-        if self.cacheDir not in sys.path:
-            sys.path.append(self.cacheDir)
+        if self.cache_dir not in sys.path:
+            sys.path.append(self.cache_dir)
             
         # Come up with a 'reference time' that we can use to see what may be outdated
         refFiles = glob.glob(os.path.join(os.path.dirname(__file__), '*.tmpl'))
@@ -101,25 +108,27 @@ class JustInTimeOptimizer(object):
         refTime = max([os.stat(refFile)[8] for refFile in refFiles])
         
         # Find the modules and load the valid ones
-        for soFile in glob.glob(os.path.join(self.cacheDir, '*.so')):
+        for soFile in glob.glob(os.path.join(self.cache_dir, '*.so')):
             soTime = os.stat(soFile)[8]
             module = os.path.splitext(os.path.basename(soFile))[0]
+            if module.find(self._tag) == -1:
+                continue
             if soTime < refTime:
                 ## This file is too old, clean it out
                 if verbose:
-                    print " -> Purged %s as outdated" % module
+                    print(" -> Purged %s as outdated" % module)
                 for ext in ('.c', '.o', '.so'):
                     try:
-                        os.unlink(os.path.join(self.cacheDir, '%s%s' % (module, ext)))
+                        os.unlink(os.path.join(self.cache_dir, '%s%s' % (module, ext)))
                     except OSError:
                         pass
                         
             else:
                 ## This file is OK, load it and cache it
                 if verbose:
-                    print " -> Loaded %s" % module
-                exec("import %s as loadedModule" % module)
-                exec("self._cache['%s'] = loadedModule" % module)
+                    print(" -> Loaded %s" % module)
+                loadedModule = importlib.import_module(module)
+                self._cache[module] = loadedModule
                 
     def get_compiler(self):
         """
@@ -143,12 +152,16 @@ class JustInTimeOptimizer(object):
         cflags, ldflags = [], []
         
         # Python
-        cflags.extend( subprocess.check_output(['python-config', '--cflags']).split() )
-        ldflags.extend( subprocess.check_output(['python-config', '--ldflags']).split() )
+        try:
+            pyconfig = subprocess.check_output(['which', sys.executable+'-config']).rstrip()
+        except subprocess.CalledProcessError:
+            pyconfig = 'python-config'
+        cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
+        ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
         
         # Native architecture
-        cflags.append( '-march=native' )
-        ldflags.append( '-march=native' )
+        #cflags.append( '-march=native' )
+        #ldflags.append( '-march=native' )
         
         # fPIC since it seems to be needed
         cflags.append( '-fPIC' )
@@ -159,54 +172,25 @@ class JustInTimeOptimizer(object):
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
         ldflags.append( '-lm' )
         
-        # ATLAS
-        sys.stdout = StringIO.StringIO()
-        sys.stderr = StringIO.StringIO()
-        from numpy.distutils.system_info import get_info
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore",category=DeprecationWarning)
-            atlas_info = get_info('atlas_blas', notfound_action=2)
-        atlas_version = ([v[3:-3] for k,v in atlas_info.get('define_macros',[])
-                        if k == 'ATLAS_INFO']+[None])[0]
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-        try:
-            cflags.extend( ['-I%s' % idir for idir in atlas_info['include_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-L%s' % ldir for ldir in atlas_info['library_dirs']] )
-        except KeyError:
-            pass
-        try:
-            ldflags.extend( ['-l%s' % lib for lib in atlas_info['libraries']] )
-        except KeyError:
-            pass
-            
         # FFTW3
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
             cflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--cflags']).split() )
             ldflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--libs']).split() )
         except subprocess.CalledProcessError:
-            if platform.system() != 'FreeBSD':
-                cflags.extend( [] )
-                ldflags.extend( ['-lfftw3f', '-lm'] )
-            else:
-                cflags.extend( ['-I/usr/local/include',] )
-                ldflags.extend( ['-L/usr/local/lib', '-lfftw3f', '-lm'] )
-                
+            cflags.extend( [] )
+            ldflags.extend( ['-lfftw3f', '-lm'] )
+            
         # OpenMP
-        fh = open('openmp_test.c', 'w')
-        fh.write(r"""#include <omp.h>
+        with open('openmp_test.c', 'w') as fh:
+            fh.write(r"""#include <omp.h>
 #include <stdio.h>
 int main(void) {
 #pragma omp parallel
 printf("Hello from thread %d, nthreads %d\n", omp_get_thread_num(), omp_get_num_threads());
 return 0;
 }
-        """)
-        fh.close()
+            """)
         try:
             call = [cc,]
             call.extend(cflags)
@@ -271,7 +255,7 @@ return 0;
         else:
             return subprocess.check_output(call)
             
-    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, window=noWindow):
+    def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, window=null_window):
         """
         Generate an optimized version of the various time-domain functions 
         for the given parameters, update the cache, and return the module.
@@ -279,7 +263,7 @@ return 0;
         
         # Figure out if we are in window mode or not
         useWindow = False
-        if window is not noWindow:
+        if window is not null_window:
             useWindow = True
             
         # Sort out the data types we need
@@ -291,34 +275,34 @@ return 0;
             raise RuntimeError("Unknown data type: %s" % dtype)
             
         # Build up the file names we need
-        module = '%s_%i_%i_%i_%i_%i_%i' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB)
-        srcname = os.path.join(self.cacheDir, '%s.c' % module)
-        objname = os.path.join(self.cacheDir, '%s.o' % module)
-        soname = os.path.join(self.cacheDir, '%s.so' % module)
+        module = '%s_%i_%i_%i_%i_%i_%i_%s' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, self._tag)
+        srcname = os.path.join(self.cache_dir, '%s.c' % module)
+        objname = os.path.join(self.cache_dir, '%s.o' % module)
+        soname = os.path.join(self.cache_dir, '%s.so' % module)
         
         # Is it cached?
+        loadedModule = None
         try:
-            exec("loadedModule = self._cache['%s']" % module)
+            loadedModule = self._cache[module]
             ## Yes!
         except KeyError:
             ## No, additional work is needed
             ### Get the number of FFT windows and the number of baselines
             if funcTemplate == 'real':
-                nFFT = nSamps / (2*nChan/nOverlap) - 2*nChan/(2*nChan/nOverlap) + 1
+                nFFT = nSamps // (2*nChan//nOverlap) - 2*nChan//(2*nChan//nOverlap) + 1
             else:
-                nFFT = nSamps / (nChan/nOverlap) - nChan/(nChan/nOverlap) + 1
-            nBL = nStand*(nStand+1)/2
+                nFFT = nSamps // (nChan//nOverlap) - nChan//(nChan//nOverlap) + 1
+            nBL = nStand*(nStand+1)//2
             
             ### Generate the code
             config = {'module':module, 'dtype':dtype, 'dtypeN':dtypeN, 'dtypeC':dtypeC, 
                       'nStand':'%iL'%nStand, 'nSamps':'%iL'%nSamps, 'nChan':'%iL'%nChan, 'nOverlap':'%iL'%nOverlap, 
                       'nFFT':'%iL'%nFFT, 'nBL':'%iL'%nBL, 'ClipLevel':ClipLevel, 'LSB':LSB, 'useWindow':useWindow}
-            fh = open(os.path.join(self.cacheDir, srcname), 'w')
-            fh.write( self._templates['head'].render(**config) )
-            fh.write( self._templates[funcTemplate].render(**config) )
-            fh.write( self._templates['post'].render(**config) )
-            fh.close()
-            
+            with open(os.path.join(self.cache_dir, srcname), 'w') as fh:
+                fh.write( self._templates['head'].render(**config) )
+                fh.write( self._templates[funcTemplate].render(**config) )
+                fh.write( self._templates['post'].render(**config) )
+                
             ### Compile, link, and cleanup
             self._compile(srcname, objname)
             self._link(objname, soname)
@@ -328,8 +312,8 @@ return 0;
                 pass
                 
             ## Load and cache
-            exec("import %s as loadedModule" % module)
-            exec("self._cache['%s'] = loadedModule" % module)
+            loadedModule = importlib.import_module(module)
+            self._cache[module] = loadedModule
             
         # Done
         return loadedModule
@@ -374,11 +358,11 @@ return 0;
             nSamps = args[0].shape[1]
             nChan = kwds['LFFT']
         try:
-            nOverlap = kwds['Overlap']
+            nOverlap = kwds['overlap']
         except KeyError:
             nOverlap = 1
         try:
-            ClipLevel = kwds['ClipLevel']
+            ClipLevel = kwds['clip_level']
         except KeyError:
             ClipLevel = 0
         try:
@@ -388,7 +372,7 @@ return 0;
         try:
             window = kwds['window']
         except KeyError:
-            window = noWindow
+            window = null_window
             
         # Get the optimized module
         mod = self.get_module(dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, LSB, window)
@@ -402,17 +386,17 @@ return 0;
             ## Yes
             if ftype == 'spec':
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specS')(*args)
                 tS = time.time()-t0
                 
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specF')(*args)
                 tF = time.time()-t0
                 
                 t0 = time.time()
-                for i in xrange(10):
+                for i in range(10):
                     getattr(mod, 'specL')(*args)
                 tL = time.time()-t0
                 

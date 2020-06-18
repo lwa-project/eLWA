@@ -1,15 +1,18 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a collection of .npz files create a FITS-IDI file that can be read in by
 AIPS.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    from functools import cmp_to_key
+    
 import os
 import re
 import git
@@ -22,15 +25,17 @@ import argparse
 import tempfile
 from datetime import datetime, timedelta, tzinfo
 
+from astropy.constants import c as vLight
+vLight = vLight.to('m/s').value
+
 from lsl import astro
 from lsl.common import stations, metabundle
 from lsl.statistics import robust
-from lsl.correlator import uvUtils
+from lsl.correlator import uvutils
 from lsl.correlator import fx as fxc
-from lsl.writer import fitsidi
-from lsl.correlator.uvUtils import computeUVW
-from lsl.common.constants import c as vLight
-from lsl.common.mcs import datetime2mjdmpm
+#from lsl.writer import fitsidi
+from lsl.correlator.uvutils import compute_uvw
+from lsl.common.mcs import datetime_to_mjdmpm
 
 from utils import read_correlator_configuration
 
@@ -55,7 +60,7 @@ def cmpNPZ(x, y):
         yDD.close()
         yT = _CMP_CACHE[y]
         
-    return cmp(xT, yT)
+    return (xT > yT) - (xT < yT)
 
 
 _SIMBAD_CACHE = {}
@@ -66,8 +71,13 @@ def getSourceName(src):
     count) name within 2" of the provided position.
     """
     
-    import urllib
-    
+    try:
+        from urllib import quote_plus
+        from urllib2 import urlopen
+    except ImportError:
+        from urllib.parse import quote_plus
+        from urllib.request import urlopen
+        
     # Pull out what we know about the source
     name = src.name
     ra = str(src._ra)
@@ -86,12 +96,17 @@ def getSourceName(src):
     # If not, we need to query Simbad to find out what to call it
     try:
         ## Query
-        result = urllib.urlopen('http://simbad.u-strasbg.fr/simbad/sim-coo?Coord=%s&CooFrame=FK5&CooEpoch=%s&CooEqui=%s&CooDefinedFrames=none&Radius=2&Radius.unit=arcsec&submit=submit%%20query&CoordList=&output.format=ASCII' % (urllib.quote_plus('%s %s' % (ra, dec)), epoch, epoch))
+        result = urlopen('http://simbad.u-strasbg.fr/simbad/sim-coo?Coord=%s&CooFrame=FK5&CooEpoch=%s&CooEqui=%s&CooDefinedFrames=none&Radius=2&Radius.unit=arcsec&submit=submit%%20query&CoordList=&output.format=ASCII' % (quote_plus('%s %s' % (ra, dec)), epoch, epoch))
         matches = result.readlines()
         
         ## Parse
         rank = 0
         for line in matches:
+            try:
+                line = line.decode(encoding='ascii', errors='ignore')
+            except AttributeError:
+                pass
+                
             ### Skip over blank lines, comments, and ASCII table headers
             if len(line) < 3:
                 continue
@@ -137,13 +152,16 @@ def main(args):
         filenames = []
         for regex in args.filename:
             filenames.extend(glob.glob(regex))
-    filenames.sort(cmp=cmpNPZ)
+    try:
+        filenames.sort(cmp=cmpNPZ)
+    except TypeError:
+        filenames.sort(key=cmp_to_key(cmpNPZ))
     if args.limit != -1:
         filenames = filenames[:args.limit]
         
     # Build up the station
     site = stations.lwa1
-    observer = site.getObserver()
+    observer = site.get_observer()
     
     # Load in the file file to figure out what to do
     dataDict = numpy.load(filenames[0])
@@ -166,7 +184,7 @@ def main(args):
             args.linear = False
             args.circular = False
             args.stokes = True
-        print "NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis']
+        print("NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis'])
     except (TypeError, KeyError):
         pass
         
@@ -195,29 +213,29 @@ def main(args):
     for i in range(len(master_antennas)):
         master_antennas[i].id = i+1
         
-    print "Antennas:"
+    print("Antennas:")
     for ant in master_antennas:
-        print "  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol)
+        print("  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol))
         
-    nChan = visXX.shape[1]
-    master_blList = uvUtils.getBaselines([ant for ant in master_antennas if ant.pol == 0], IncludeAuto=True)
+    nchan = visXX.shape[1]
+    master_blList = uvutils.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
     
     if args.decimate > 1:
         to_trim = (freq.size/args.decimate)*args.decimate
         to_drop = freq.size - to_trim
         if to_drop != 0:
-            print "Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3)
+            print("Warning: Dropping %i channels (%.1f%%; %.3f kHz)" % (to_drop, 100.0*to_drop/freq.size, to_drop*(freq[1]-freq[0])/1e3))
             
-        nChan /= args.decimate
+        nchan //= args.decimate
         if to_drop != 0:
             freq = freq[:to_trim]
-        freq.shape = (freq.size/args.decimate, args.decimate)
+        freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
     # Figure out the visibility conjugation problem in LSL, pre-1.1.4
     conjugateVis = False
     if float(fitsidi.__version__) < 0.9:
-        print "Warning: Applying conjugate to visibility data"
+        print("Warning: Applying conjugate to visibility data")
         conjugateVis = True
         
     # Figure out our revision
@@ -250,7 +268,7 @@ def main(args):
         except AttributeError:
             ## Moving sources cannot have their names changed
             pass
-        blList = uvUtils.getBaselines([ant for ant in antennas if ant.pol == 0], IncludeAuto=True)
+        blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
         
         tStart = dataDict['tStart'].item()
         tInt = dataDict['tInt'].item()
@@ -276,13 +294,13 @@ def main(args):
                 visYX = visYX[:,:to_trim]
                 visYY = visYY[:,:to_trim]
                 
-            visXX.shape = (visXX.shape[0], visXX.shape[1]/args.decimate, args.decimate)
+            visXX.shape = (visXX.shape[0], visXX.shape[1]//args.decimate, args.decimate)
             visXX = visXX.mean(axis=2)
-            visXY.shape = (visXY.shape[0], visXY.shape[1]/args.decimate, args.decimate)
+            visXY.shape = (visXY.shape[0], visXY.shape[1]//args.decimate, args.decimate)
             visXY = visXY.mean(axis=2)
-            visYX.shape = (visYX.shape[0], visYX.shape[1]/args.decimate, args.decimate)
+            visYX.shape = (visYX.shape[0], visYX.shape[1]//args.decimate, args.decimate)
             visYX = visYX.mean(axis=2)
-            visYY.shape = (visYY.shape[0], visYY.shape[1]/args.decimate, args.decimate)
+            visYY.shape = (visYY.shape[0], visYY.shape[1]//args.decimate, args.decimate)
             visYY = visYY.mean(axis=2)
             
         if conjugateVis:
@@ -314,9 +332,9 @@ def main(args):
             ## Create the FITS-IDI file as needed
             ### What to call it
             if args.tag is None:
-                outname = 'buildIDI.FITS_%i' % (i/args.split+1,)
+                outname = 'buildIDI.FITS_%i' % (i//args.split+1,)
             else:
-                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i/args.split+1,)
+                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i//args.split+1,)
                 
             ### Does it already exist or not
             if os.path.exists(outname):
@@ -331,37 +349,39 @@ def main(args):
                     raise RuntimeError("Output file '%s' already exists" % outname)
                     
             ### Create the file
-            fits = fitsidi.IDI(outname, refTime=tStart)
+            fits = fitsidi.Idi(outname, ref_time=tStart)
             if args.circular:
-                fits.setStokes(['RR', 'RL', 'LR', 'LL'])
+                fits.set_stokes(['RR', 'RL', 'LR', 'LL'])
             elif args.stokes:
-                fits.setStokes(['I', 'Q', 'U', 'V'])
+                fits.set_stokes(['I', 'Q', 'U', 'V'])
             else:
-                fits.setStokes(['XX', 'XY', 'YX', 'YY'])
-            fits.setFrequency(freq)
-            fits.setGeometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
+                fits.set_sokes(['XX', 'XY', 'YX', 'YY'])
+            fits.set_frequency(freq)
+            fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             if config['context'] is not None:
                 mode = 'LSBI'
                 if min([ma.stand.id for ma in master_antennas]) < 50 \
                    and max([ma.stand.id for ma in master_antennas]) > 50:
-                   mode == 'ELWA'
+                   mode = 'ELWA'
                 elif min([ma.stand.id for ma in master_antennas]) < 50:
                     mode = 'VLA'
                     
                 fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
-                if config['context']['sbid'] is not None:
-                    fits.addHeaderKeyword('sbid', config['context']['sbid'])
+                if config['context']['session'] is not None:
+                    fits.addHeaderKeyword('session', config['context']['session'])
+                if config['context']['vlaref'] is not None:
+                    fits.addHeaderKeyword('vlaref', config['context']['vlaref'])
                 fits.addHeaderKeyword('instrume', mode)
             fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
-            print "Opening %s for writing" % outname
+            print("Opening %s for writing" % outname)
             
         if i % 10 == 0:
-            print i
+            print(i)
             
         ## Save any delay step information
         for step,ant in zip(delayStepApplied, [ant for ant in antennas if ant.pol == 0]):
             if step:
-                fits.addHistory("Delay step at %i %f" % (ant.stand.id, tStart))
+                fits.add_history("Delay step at %i %f" % (ant.stand.id, tStart))
                 
         ## Update the observation
         observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
@@ -370,20 +390,20 @@ def main(args):
         ## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
         obsTime = astro.unix_to_taimjd(tStart)
         if args.circular:
-            fits.addDataSet(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
         elif args.stokes:
-            fits.addDataSet(obsTime, tInt, blList, visI, pol='I', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visU, pol='U', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visV, pol='V', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visI, pol='I', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visU, pol='U', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visV, pol='V', source=refSrc)
         else:
-            fits.addDataSet(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
-            fits.addDataSet(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visXX, pol='XX', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visXY, pol='XY', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visYX, pol='YX', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visYY, pol='YY', source=refSrc)
             
     # Cleanup the last file
     fits.write()

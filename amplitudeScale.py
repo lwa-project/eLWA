@@ -3,22 +3,25 @@
 """
 Apply an amplitude scaling based on the VLA's switched power system 
 to FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
+    
 import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
 
 from sdm import get_noise_diode_values, filter_noise_diode_values, \
                 get_switched_power_diffs, filter_switched_power_diffs
@@ -36,9 +39,9 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print "Working on '%s'" % os.path.basename(filename)
+        print("Working on '%s'" % os.path.basename(filename))
         # Open the FITS IDI file and access the UV_DATA extension
-        hdulist = pyfits.open(filename, mode='readonly')
+        hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
         fqdata = hdulist['FREQUENCY']
         fgdata = None
@@ -64,7 +67,7 @@ def main(args):
         polMapper = {}
         for i in xrange(uvdata.header['NO_STKD']):
             stk = uvdata.header['STK_1'] - i
-            polMapper[i] = NumericStokes[stk]
+            polMapper[i] = NUMERIC_STOKES[stk]
             
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
@@ -87,7 +90,7 @@ def main(args):
         flux = uvdata.data['FLUX'].astype(numpy.float32)
         
         # Convert the visibilities to something that we can easily work with
-        nComp = flux.shape[1] / nBand / nFreq / nStk
+        nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
             flux = flux.view(numpy.complex64)
@@ -113,10 +116,10 @@ def main(args):
         for an in antLookup:
             last_pdiff_idx[an.replace('LWA0', 'EA')] = 0
             
-        print "  Scaling"
+        print("  Scaling")
         for i in xrange(nBL_Ints):
             if i % 10000 == 0 or i+1 == nBL_Ints:
-                print "    Baseline/integration %i of %i" % (i+1, nBL_Ints)
+                print("    Baseline/integration %i of %i" % (i+1, nBL_Ints))
                 
             intbl = bls[i]
             ant0, ant1 = sdmLookup[(intbl >> 8) & 0xFF], sdmLookup[intbl & 0xFF]
@@ -187,24 +190,24 @@ def main(args):
                 #    scaleRef
                 #except NameError:
                 #    scaleRef = scale
-                #    print 'ScaleRef:', scaleRef
+                #    print('ScaleRef:', scaleRef)
                 #scale /= scaleRef
                 
                 flux[i,:,:,pol] *= scale
                 
         # Report
         scales = numpy.array(scales)
-        print "  Mean scale factor applied is %.6f" % (numpy.mean(scales),)
-        print "  Median scale factor applied is %.6f" % (numpy.median(scales),)
-        print "  Std. dev. scale factor applied is %.6f" % (numpy.std(scales),)
+        print("  Mean scale factor applied is %.6f" % (numpy.mean(scales),))
+        print("  Median scale factor applied is %.6f" % (numpy.median(scales),))
+        print("  Std. dev. scale factor applied is %.6f" % (numpy.std(scales),))
         if len(not_applied):
-            print "  WARNING: amplitude scaling not applied for: %s" % ", ".join([ant.replace('EA', 'LWA0') for ant in not_applied])
+            print("  WARNING: amplitude scaling not applied for: %s" % ", ".join([ant.replace('EA', 'LWA0') for ant in not_applied]))
             
         # Build up the mask
         mask = numpy.where(numpy.isfinite(flux), False, True)
         
         # Convert the masks into a format suitable for writing to a FLAG table
-        print "  Building FLAG table"
+        print("  Building FLAG table")
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
         if not args.drop:
             ## Old flags
@@ -222,13 +225,13 @@ def main(args):
                     reas.append( row['REASON'] )
                     sevs.append( row['SEVERITY'] )
         ## New Flags
-        obsdates.shape = (obsdates.shape[0]/nBL, nBL)
-        obstimes.shape = (obstimes.shape[0]/nBL, nBL)
-        mask.shape = (mask.shape[0]/nBL, nBL, nBand, nFreq, nStk)
+        obsdates.shape = (obsdates.shape[0]//nBL, nBL)
+        obstimes.shape = (obstimes.shape[0]//nBL, nBL)
+        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print "    Baseline %i of %i" % (i+1, nBL)
+                print("    Baseline %i of %i" % (i+1, nBL))
                 
             for b,offset in enumerate(fqoffsets):
                 maskXX = mask[:,i,b,:,0]
@@ -257,22 +260,22 @@ def main(args):
                     sevs.append( -1 )
                     
         ## Build the FLAG table
-        print '    FITS HDU'
+        print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = pyfits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = pyfits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = pyfits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = pyfits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = pyfits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = pyfits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = pyfits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = pyfits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = pyfits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = pyfits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
-        colDefs = pyfits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
+        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
-        flags = pyfits.new_table(colDefs)
+        flags = astrofits.BinTableHDU.from_columns(colDefs)
         ### The header
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
@@ -297,12 +300,12 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print "  WARNING: removing old FLAG table - version %i" % ver 
+                print("  WARNING: removing old FLAG table - version %i" % ver )
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
         # Save
-        print "  Saving to disk"
+        print("  Saving to disk")
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
@@ -319,8 +322,8 @@ def main(args):
             else:
                 raise RuntimeError("Output file '%s' already exists" % outname)
         ## Open and create a new primary HDU
-        hdulist2 = pyfits.open(outname, mode='append')
-        primary =   pyfits.PrimaryHDU()
+        hdulist2 = astrofits.open(outname, mode='append')
+        primary =   astrofits.PrimaryHDU()
         processed = []
         for key in hdulist[0].header:
             if key in ('COMMENT', 'HISTORY'):
@@ -349,8 +352,8 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print "  -> Amplitude scaled FITS IDI file is '%s'" % outname
-        print "  Finished in %.3f s" % (time.time()-t0,)
+        print("  -> Amplitude scaled FITS IDI file is '%s'" % outname)
+        print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":

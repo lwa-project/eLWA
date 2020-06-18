@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-
 """
 Module for working with polarization to get LWA and VLA into the same frame.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python2 compatibility
+from __future__ import print_function, division, absolute_import
 
 import os
 import sys
@@ -14,10 +11,9 @@ import time
 import ephem
 import numpy
 
-from lsl.common.paths import data as dataPath
+from lsl.common.paths import DATA as dataPath
 
 __version__ = '0.3'
-__revision__ = '$Rev$'
 __all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 
            'apply_matrix']
 
@@ -89,10 +85,10 @@ def get_matrix_lwa(site, src, inverse=False):
     # The matrix
     if not inverse:
         matrix = numpy.array([[cosGA, -sinGA], 
-                            [sinGB,  cosGB]])
+                              [sinGB,  cosGB]])
     else:
         matrix = numpy.array([[ cosGB, sinGA],
-                            [-sinGB, cosGA]])
+                              [-sinGB, cosGA]])
         matrix /= cosGA*cosGB + sinGA*sinGB
         
     # Done
@@ -125,10 +121,10 @@ def get_matrix_vla(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00
     # The matrix
     if not inverse:
         matrix = numpy.array([[cosGA, -sinGA], 
-                            [sinGB,  cosGB]])
+                              [sinGB,  cosGB]])
     else:
         matrix = numpy.array([[ cosGB, sinGA],
-                            [-sinGB, cosGA]])
+                              [-sinGB, cosGA]])
         matrix /= cosGA*cosGB + sinGA*sinGB
         
     # Done
@@ -145,7 +141,7 @@ def apply_matrix(data, matrix):
     nStand, nSamps = data.shape
     
     # Apply
-    for i in xrange(nStand/2):
+    for i in range(nStand//2):
         s0 = 2*i + 0
         s1 = 2*i + 2
         data[s0:s1,:] = numpy.dot(matrix, data[s0:s1,:])
