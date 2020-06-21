@@ -243,7 +243,7 @@ class WriterBase(object):
         self.observer = 'UNKNOWN'
         self.project = 'UNKNOWN'
         self.mode = 'ZA'
-        self.ref_time = self.parse_time(refTime)
+        self.ref_time = self.parse_time(ref_time)
         self.nAnt = 0
         self.nChan = 0
         self.nStokes = 0
