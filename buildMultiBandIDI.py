@@ -417,9 +417,9 @@ def main(args):
                 fits.set_observer(config['context']['observer'], config['context']['project'], 'eLWA')
                 if config['context']['session'] is not None:
                     fits.add_header_keyword('session', config['context']['session'])
-                if config['context']['valref'] is not None:
+                if config['context']['vlaref'] is not None:
                     fits.add_header_keyword('vlaref', config['context']['vlaref'])
-                fits.add_eader_keyword('instrume', mode)
+                fits.add_header_keyword('instrume', mode)
             fits.add_history('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print("Opening %s for writing" % outname)
             
