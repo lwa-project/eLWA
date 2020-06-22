@@ -243,7 +243,7 @@ class WriterBase(object):
         self.observer = 'UNKNOWN'
         self.project = 'UNKNOWN'
         self.mode = 'ZA'
-        self.ref_time = self.parse_time(refTime)
+        self.ref_time = self.parse_time(ref_time)
         self.nAnt = 0
         self.nChan = 0
         self.nStokes = 0
@@ -573,8 +573,8 @@ class Idi(WriterBase):
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
         primary.header['LWATYPE'] = (self.mode, 'LWA FITS file type')
-        primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
-        primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
+        primary.header['LWAMAJV'] = (IDI_VERSION[0], 'LWA FITS file format major version')
+        primary.header['LWAMINV'] = (IDI_VERSION[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
@@ -1396,8 +1396,8 @@ class Aips(Idi):
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
         primary.header['LWATYPE'] = ('AIPS-%s' % self.mode, 'LWA FITS file type')
-        primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
-        primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
+        primary.header['LWAMAJV'] = (IDI_VERSION[0], 'LWA FITS file format major version')
+        primary.header['LWAMINV'] = (IDI_VERSION[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')
@@ -1477,8 +1477,8 @@ class ExtendedIdi(Idi):
         primary.header['CORRELAT'] = ('LWASWC', 'Correlator used')
         primary.header['FXCORVER'] = ('1', 'Correlator version')
         primary.header['LWATYPE'] = ('EXTENDED-%s' % self.mode, 'LWA FITS file type')
-        primary.header['LWAMAJV'] = (IDIVersion[0], 'LWA FITS file format major version')
-        primary.header['LWAMINV'] = (IDIVersion[1], 'LWA FITS file format minor version')
+        primary.header['LWAMAJV'] = (IDI_VERSION[0], 'LWA FITS file format major version')
+        primary.header['LWAMINV'] = (IDI_VERSION[1], 'LWA FITS file format minor version')
         primary.header['DATE-OBS'] = (self.ref_time, 'IDI file data collection date')
         ts = str(astro.get_date_from_sys())
         primary.header['DATE-MAP'] = (ts.split()[0], 'IDI file creation date')

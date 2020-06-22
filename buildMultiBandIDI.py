@@ -414,13 +414,13 @@ def main(args):
                 elif min([ma.stand.id for ma in master_antennas]) < 50:
                     mode = 'VLA'
                     
-                fits.setObserver(config['context']['observer'], config['context']['project'], 'eLWA')
+                fits.set_observer(config['context']['observer'], config['context']['project'], 'eLWA')
                 if config['context']['session'] is not None:
-                    fits.addHeaderKeyword('session', config['context']['session'])
-                if config['context']['valref'] is not None:
-                    fits.addHeaderKeyword('vlaref', config['context']['vlaref'])
-                fits.addHeaderKeyword('instrume', mode)
-            fits.addHistory('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
+                    fits.add_header_keyword('session', config['context']['session'])
+                if config['context']['vlaref'] is not None:
+                    fits.add_header_keyword('vlaref', config['context']['vlaref'])
+                fits.add_header_keyword('instrume', mode)
+            fits.add_history('Created with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty))
             print("Opening %s for writing" % outname)
             
         if i % 10 == 0:
