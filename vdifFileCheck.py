@@ -89,7 +89,7 @@ def main(args):
     else:
         header = vdif.read_guppi_header(fh)
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // vdif.FRAME_SIZE
     
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
     srate = junkFrame.sample_rate
@@ -157,7 +157,7 @@ def main(args):
     
     while True:
         count = {0:0, 1:0}
-        data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH/tunepols), dtype=numpy.float32)
+        data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH//tunepols), dtype=numpy.float32)
         for j in xrange(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:

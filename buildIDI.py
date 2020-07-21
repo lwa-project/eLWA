@@ -355,7 +355,7 @@ def main(args):
             elif args.stokes:
                 fits.set_stokes(['I', 'Q', 'U', 'V'])
             else:
-                fits.set_sokes(['XX', 'XY', 'YX', 'YY'])
+                fits.set_stokes(['XX', 'XY', 'YX', 'YY'])
             fits.set_frequency(freq)
             fits.set_geometry(stations.lwa1, [a for a in master_antennas if a.pol == 0])
             if config['context'] is not None:
