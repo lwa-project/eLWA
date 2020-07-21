@@ -159,7 +159,7 @@ def main(args):
     header = vdif.read_guppi_header(fh)
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
     nThreads = get_thread_count(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // vdif.FRAME_SIZE
     nFramesSecond = get_frames_per_second(fh)
     
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)

@@ -213,7 +213,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
-    nFramesSecond = int(srate) / vdif.DATA_LENGTH
+    nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
     nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
@@ -289,7 +289,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
@@ -400,7 +400,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
-    nFramesSecond = int(srate) / vdif.DATA_LENGTH
+    nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
     nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
@@ -476,7 +476,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
         
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH/beampols), dtype=numpy.csingle)
+        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
@@ -557,7 +557,7 @@ def main(args):
     fh = open(filename, "rb")
     header = vdif.read_guppi_header(fh)
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
-    nFramesFile = os.path.getsize(filename) / vdif.FRAME_SIZE
+    nFramesFile = os.path.getsize(filename) // vdif.FRAME_SIZE
     
     while True:
         try:
@@ -675,8 +675,8 @@ def main(args):
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * vdif.DATA_LENGTH / srate))
     print("---")
     print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg / beampols))
-    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames / beampols))
+    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg // beampols))
+    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames // beampols))
     print("Chunks: %i" % nChunks)
     print(" ")
     
@@ -687,7 +687,7 @@ def main(args):
     # Make the pseudo-antennas for Stokes calculation
     antennas = []
     for i in xrange(4):
-        if i / 2 == 0:
+        if i // 2 == 0:
             newAnt = stations.Antenna(1)
         else:
             newAnt = stations.Antenna(2)
