@@ -440,7 +440,7 @@ def main(args):
                 corrConfig['context']['observer'] = header['OBSERVER']
                 corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
                 corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
-                corrConfig['context']['vlaref'] = header['BASENAME']
+                corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -501,7 +501,7 @@ def main(args):
                 corrConfig['context']['observer'] = header['OBSERVER']
                 corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
                 corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
-                corrConfig['context']['valref'] = header['BASENAME']
+                corrConfig['context']['valref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
