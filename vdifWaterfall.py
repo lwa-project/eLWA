@@ -210,14 +210,14 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
+    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
     nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
     nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
+    nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     config['average'] = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
@@ -319,7 +319,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = cTime
+        dataSets['obs%i-time' % obsID][i] = float(cTime)
         
         if config['countSats']:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -397,14 +397,14 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
+    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
     nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
     nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
-    nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
+    nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     config['average'] = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
@@ -506,7 +506,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = cTime
+        dataSets['obs%i-time' % obsID][i] = float(cTime)
         
         if config['countSats']:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -520,7 +520,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
             freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
-            freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
+            freq, tempSpec1 = freq[LFFT:], tempSpec1[:,:,LFFT:]
             
             for t in (1,2):
                 for l,p in enumerate(data_products):
@@ -529,12 +529,12 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         else:
             freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
             freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip2)
-            freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
+            freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,:,LFFT:], tempSpec2[:,:,LFFT:]
             
             for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
-                
+
         # We don't really need the data array anymore, so delete it
         del(data)
         
