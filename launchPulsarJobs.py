@@ -259,7 +259,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     pythonPathVariable = os.environ.get('PYTHONPATH')
     if pythonPathVariable is not None:
         pythonPath = 'PYTHONPATH=%s' % pythonPathVariable
-    code += run_command('%s ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (pythonPath, options, outname, configfile, logfile), node=node, cwd=cwd)
+    code += run_command('%s %s ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (pythonPath, sys.executable, options, outname, configfile, logfile), node=node, cwd=cwd)
     if code != 0:
         print("WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
