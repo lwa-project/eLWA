@@ -153,7 +153,7 @@ class JustInTimeOptimizer(object):
         
         # Python
         try:
-            pyconfig = subprocess.check_output(['which', sys.executable+'-config']).rstrip()
+            pyconfig = subprocess.check_output(['which', os.path.basename(sys.executable)+'-config']).rstrip()
         except subprocess.CalledProcessError:
             pyconfig = 'python-config'
         cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
@@ -248,7 +248,6 @@ return 0;
         else:
             call.append(objName)
         call.extend(self.ldflags)
-        call.extend(self.cflags)
         
         if verbose:
             return subprocess.check_output(call, stderr=subprocess.STDOUT)
