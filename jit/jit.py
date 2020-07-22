@@ -204,10 +204,6 @@ return 0;
         finally:
             os.unlink('openmp_test.c')
             
-        # Remove duplicates
-        cflags = list(set(cflags))
-        ldflags = list(set(ldflags))
-        
         return cflags, ldflags
         
     def _load_templates(self):
