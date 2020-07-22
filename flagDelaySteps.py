@@ -16,6 +16,7 @@ import git
 import sys
 import time
 import numpy
+import shutil
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -79,8 +80,33 @@ def main(args):
         except KeyError:
             pass
         if len(delaysteps) == 0:
-            print("  No delay step information found, skipping")
             hdulist.close()
+            
+            if args.regardless:
+                all_skipped = False
+                
+                ## What to call it
+                outname = os.path.basename(filename)
+                outname, outext = os.path.splitext(outname)
+                outname = '%s_flagged%s' % (outname, outext)
+                ## Does it already exist or not
+                if os.path.exists(outname):
+                    if not args.force:
+                        yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                    else:
+                        yn = 'y'
+                        
+                    if yn not in ('n', 'N'):
+                        os.unlink(outname)
+                    else:
+                        raise RuntimeError("Output file '%s' already exists" % outname)
+                ## Just copy it over and be done with it
+                shutil.copy(filename, outname)
+                print("  -> Not Really Flagged FITS IDI file is '%s'" % outname)
+                print("  Finished in %.3f s" % (time.time()-t0,))
+            else:
+                print("  No delay step information found, skipping")
+                
             continue
         else:
             all_skipped = False
@@ -232,6 +258,8 @@ if __name__ == "__main__":
                         help='filename to process')
     parser.add_argument('-d', '--drop', action='store_true', 
                         help='drop all existing FLAG tables')
+    parser.add_argument('-r', '--regardless', action='store_true',
+                        help='build the output files regardless of whether or not there is anything to flag')
     parser.add_argument('-f', '--force', action='store_true', 
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()

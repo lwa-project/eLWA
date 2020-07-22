@@ -225,7 +225,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    code += run_command('./superCorrelator.py %s -g %s %s > %s 2>&1' % (options, outname, configfile, logfile), node=node, cwd=cwd)
+    code += run_command('%s ./superCorrelator.py %s -g %s %s > %s 2>&1' % (sys.executable, options, outname, configfile, logfile), node=node, cwd=cwd)
     if code != 0:
         print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
