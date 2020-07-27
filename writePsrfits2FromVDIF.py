@@ -53,7 +53,7 @@ def main(args):
     if is_vlite:
         ## TODO:  Clean this up
         header = {'OBSERVER': 'Heimdall',
-                  'BASENAME': 'VLITE-FAST_-1',
+                  'BASENAME': 'VLITE-FAST_0',
                   'SRC_NAME': args.vlite_target,
                   'RA_STR':   args.vlite_ra,
                   'DEC_STR':  args.vlite_dec,
