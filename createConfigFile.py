@@ -417,16 +417,16 @@ def main(args):
                     try:
 
                         pds = pipe_delays[curr_delays[aid]['vlite']]
-                        idx = numpy.where(pds['edges_mjd'] >= datetime_to_mjdmpm(tStart)[0])[0][0]
+                        try:
+                            idx = numpy.where(pds['edges_mjd'] >= datetime_to_mjdmpm(tStart)[0])[0][0]
+                        except IndexError:
+                            idx = pds['polx_delays'].size
                         if idx == pds['polx_delays'].size:
                             idx = -1
                         dX += pds['polx_delays'][idx]
                         dY += pds['poly_delays'][idx]
                     except KeyError as e:
                         sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
-                        pass
-                    except IndexError as e:
-                        sys.stderr.write("ERROR setting VLITE delays: %s - %s\n" % (aid, str(e)))
                         pass
                         
                     dX = '%.1fns' % (-dX)
