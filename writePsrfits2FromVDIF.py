@@ -1,13 +1,10 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Given a DRX file, create one of more PSRFITS file(s).
-
-$Rev: -1 $
-$LastChangedBy: $
-$LastChangedDate: $
 """
+
+from __future__ import print_function, division
 
 import os
 import sys
@@ -36,7 +33,7 @@ except ImportError:
     import subprocess
     ## Downlaod everything we need to build _psr.so
     for filename in ('dedispersion.c', 'fft.c', 'helper.c', 'kurtosis.c', 'psr.c', 'psr.h', 
-                     'quantize.c', 'reduce.c', 'utils.c', 'Makefile'):
+                     'py3_compat.h', 'quantize.c', 'reduce.c', 'utils.c', 'Makefile'):
         subprocess.check_call(['wget', 'https://raw.githubusercontent.com/lwa-project/pulsar/master/%s' % filename, 
                                        '-O', filename])
     # Build _psr.so
@@ -60,9 +57,9 @@ def main(args):
                   'OBSFREQ':  352e6,
                   'OBSBW':    64e6}
     else:
-        header = vdif.readGUPPIHeader(fh)
-    vdif.FrameSize = vdif.getFrameSize(fh)
-    nFramesFile = os.path.getsize(args.filename) / vdif.FrameSize
+        header = vdif.read_guppi_header(fh)
+    vdif.FRAME_SIZE = vdif.get_frame_size(fh)
+    nFramesFile = os.path.getsize(args.filename) // vdif.FRAME_SIZE
     
     # Extract the source parameters
     source = header['SRC_NAME']
@@ -72,45 +69,45 @@ def main(args):
     # Find the good data (non-zero decimation)
     while True:
         try:
-            junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-            srate = junkFrame.getSampleRate()
+            junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+            srate = junkFrame.sample_rate
             break
         except ZeroDivisionError:
             pass
-    fh.seek(-vdif.FrameSize, 1)
+    fh.seek(-vdif.FRAME_SIZE, 1)
     
     # Load in basic information about the data
-    junkFrame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
-    fh.seek(-vdif.FrameSize, 1)
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    fh.seek(-vdif.FRAME_SIZE, 1)
     ## What's in the data?
-    beam,pol = junkFrame.parseID()
-    srate = junkFrame.getSampleRate()
-    centralFreq1 = junkFrame.getCentralFreq()
-    nSampsFrame = junkFrame.data.data.size
+    beam,pol = junkFrame.id
+    srate = junkFrame.sample_rate
+    central_freq1 = junkFrame.central_freq
+    nSampsFrame = junkFrame.payload.data.size
     beams = 1
     tunepols = (2,)
     tunepol = tunepols[0]
     
     ## Date
-    beginDate = ephem.Date(astro.unix_to_utcjd(junkFrame.getTime()) - astro.DJD_OFFSET)
-    beginTime = beginDate.datetime()
-    mjd = astro.jd_to_mjd(astro.unix_to_utcjd(junkFrame.getTime()))
+    beginDate = junkFrame.time
+    beginTime = beginDate.datetime
+    mjd = beginDate.mjd
     mjd_day = int(mjd)
     mjd_sec = (mjd-mjd_day)*86400
     if args.output is None:
         args.output = "vdif_%05d_%s" % (mjd_day, source.replace(' ', ''))
         
     # File summary
-    print "Input Filename: %s" % args.filename
-    print "Date of First Frame: %s (MJD=%f)" % (str(beginDate),mjd)
-    print "Beams: %i" % beams
-    print "Tune/Pols: %i" % tunepols
-    print "Tunings: %.1f Hz" % centralFreq1
-    print "Sample Rate: %i Hz" % srate
-    print "Sample Time: %f s" % (2*LFFT/srate,)
-    print "Frames: %i (%.3f s)" % (nFramesFile, nSampsFrame*nFramesFile / srate / tunepol)
-    print "---"
-    print "Using FFTW Wisdom? %s" % useWisdom
+    print("Input Filename: %s" % args.filename)
+    print("Date of First Frame: %s (MJD=%f)" % (str(beginDate),mjd))
+    print("Beams: %i" % beams)
+    print("Tune/Pols: %i" % tunepols)
+    print("Tunings: %.1f Hz" % central_freq1)
+    print("Sample Rate: %i Hz" % srate)
+    print("Sample Time: %f s" % (2*LFFT/srate,))
+    print("Frames: %i (%.3f s)" % (nFramesFile, nSampsFrame*nFramesFile / srate / tunepol))
+    print("---")
+    print("Using FFTW Wisdom? %s" % useWisdom)
     
     # Create the output PSRFITS file(s)
     pfu_out = []
@@ -145,7 +142,7 @@ def main(args):
     pfo.rows_per_file = 32768
     
     ## Frequency, bandwidth, and channels
-    pfo.hdr.fctr=centralFreq1/1e6
+    pfo.hdr.fctr=central_freq1/1e6
     pfo.hdr.BW = srate/2/1e6
     pfo.hdr.nchan = LFFT
     pfo.hdr.df = srate/2/1e6/LFFT
@@ -175,14 +172,14 @@ def main(args):
     
     ## Setup the subintegration structure
     pfo.sub.tsubint = pfo.hdr.dt*pfo.hdr.nsblk
-    pfo.sub.bytes_per_subint = pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk*pfo.hdr.nbits/8
+    pfo.sub.bytes_per_subint = pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk*pfo.hdr.nbits//8
     pfo.sub.dat_freqs   = pfu.malloc_doublep(pfo.hdr.nchan*8)				# 8-bytes per double @ LFFT channels
     pfo.sub.dat_weights = pfu.malloc_floatp(pfo.hdr.nchan*4)				# 4-bytes per float @ LFFT channels
     pfo.sub.dat_offsets = pfu.malloc_floatp(pfo.hdr.nchan*pfo.hdr.npol*4)		# 4-bytes per float @ LFFT channels per pol.
     pfo.sub.dat_scales  = pfu.malloc_floatp(pfo.hdr.nchan*pfo.hdr.npol*4)		# 4-bytes per float @ LFFT channels per pol.
     if args.four_bit_data:
         pfo.sub.data = pfu.malloc_ucharp(pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk)	# 1-byte per unsigned char @ (LFFT channels x pols. x nsblk sub-integrations) samples
-        pfo.sub.rawdata = pfu.malloc_ucharp(pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk/2)	# 4-bits per nibble @ (LFFT channels x pols. x nsblk sub-integrations) samples
+        pfo.sub.rawdata = pfu.malloc_ucharp(pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk//2)	# 4-bits per nibble @ (LFFT channels x pols. x nsblk sub-integrations) samples
     else:
         pfo.sub.rawdata = pfu.malloc_ucharp(pfo.hdr.nchan*pfo.hdr.npol*pfo.hdr.nsblk)	# 1-byte per unsigned char @ (LFFT channels x pols. x nsblk sub-integrations) samples
         
@@ -205,11 +202,11 @@ def main(args):
     
     # Speed things along, the data need to be processed in units of 'nsblk'.  
     # Find out how many frames per tuning/polarization that corresponds to.
-    chunkSize = nsblk*2*LFFT/nSampsFrame
+    chunkSize = nsblk*2*LFFT//nSampsFrame
     
     # Calculate the SK limites for weighting
     if (not args.no_sk_flagging):
-        skLimits = kurtosis.getLimits(4.0, 1.0*nsblk)
+        skLimits = kurtosis.get_limits(4.0, 1.0*nsblk)
         
         GenerateMask = lambda x: ComputeSKMask(x, skLimits[0], skLimits[1])
     else:
@@ -220,11 +217,8 @@ def main(args):
             return flag
             
     # Create the progress bar so that we can keep up with the conversion.
-    try:
-        pbar = progress.ProgressBarPlus(max=nFramesFile/(2*chunkSize), span=55)
-    except AttributeError:
-        pbar = progress.ProgressBar(max=nFramesFile/(2*chunkSize), span=55)
-        
+    pbar = progress.ProgressBarPlus(max=nFramesFile//(2*chunkSize), span=55)
+    
     # Go!
     done = False
     siCount = 0
@@ -240,9 +234,9 @@ def main(args):
         i = 0
         while i < chunkSize:
             try:
-                frame = vdif.readFrame(fh, centralFreq=header['OBSFREQ'], sampleRate=header['OBSBW']*2.0)
+                frame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                 vdifBuffer.append(frame)
-            except errors.eofError:
+            except errors.EOFError:
                 try:
                     ## VLITE files are limited to 1 s so there may be multiple files
                     ## to read in.  Try to find the next one.
@@ -256,12 +250,12 @@ def main(args):
                     assert(os.path.exists(nextname))
                     fh.close()
                     fh = open(nextname, 'rb')
-                    print "Switched from %s to %s" % (os.path.basename(oldname), vfts)
+                    print("Switched from %s to %s" % (os.path.basename(oldname), vfts))
                 except (ValueError, AssertionError) as e:
                     done = True
                     break
-            except errors.syncError:
-                fh.seek(vdif.FrameSize, 1)
+            except errors.SyncError:
+                fh.seek(vdif.FRAME_SIZE, 1)
                 continue
                 
             frames = vdifBuffer.get()
@@ -269,11 +263,11 @@ def main(args):
                 continue
                 
             for frame in frames:
-                beam,pol = frame.parseID()
+                beam,pol = frame.id
                 tune = 1
                 aStand = 2*(tune-1) + pol
                 
-                rawData[aStand, count[aStand]*nSampsFrame:(count[aStand]+1)*nSampsFrame] = frame.data.data
+                rawData[aStand, count[aStand]*nSampsFrame:(count[aStand]+1)*nSampsFrame] = frame.payload.data
                 count[aStand] += 1
             i += 1
             
@@ -296,7 +290,7 @@ def main(args):
         flag = GenerateMask(rawSpectra)
         if is_vlite:
             ### Flag MUOS
-            flag[:,5*LFFT/8:] = 1
+            flag[:,5*LFFT//8:] = 1
         weight1 = numpy.where( flag[:2,:].sum(axis=0) == 0, 0, 1 ).astype(numpy.float32)
         ff1 = 1.0*(LFFT - weight1.sum()) / LFFT
         
@@ -347,7 +341,7 @@ def main(args):
     sys.stdout.flush()
     
     # Final report on the buffer
-    print vdifBuffer.status()
+    print(vdifBuffer.status())
 
 
 if __name__ == "__main__":
