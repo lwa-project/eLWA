@@ -369,11 +369,11 @@ def main(args):
                     header = vdif.read_guppi_header(fh)
                     
                 ## Read in the first frame
-                vdif.FRAME_SIZE = vdif.getFrameSize(fh)
+                vdif.FRAME_SIZE = vdif.get_frame_size(fh)
                 frame = vdif.read_frame(fh)
                 antID = frame.id[0] - (0 if is_vlite else 12300)
                 tStart =  frame.time.datetime
-                nThread = vdif.getThreadCount(fh)
+                nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
                 nJump = int(os.path.getsize(filename)/vdif.FRAME_SIZE)
@@ -417,7 +417,7 @@ def main(args):
                     try:
 
                         pds = pipe_delays[curr_delays[aid]['vlite']]
-                        idx = numpy.where(pds['edges_mjd'] >= datetime2mjdmpm(tStart)[0])[0][0]
+                        idx = numpy.where(pds['edges_mjd'] >= datetime_to_mjdmpm(tStart)[0])[0][0]
                         if idx == pds['polx_delays'].size:
                             idx = -1
                         dX += pds['polx_delays'][idx]
