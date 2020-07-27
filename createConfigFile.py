@@ -425,6 +425,9 @@ def main(args):
                     except KeyError as e:
                         sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
                         pass
+                    except IndexError as e:
+                        sys.stderr.write("ERROR setting VLITE delays: %s - %s\n" % (aid, str(e)))
+                        pass
                         
                     dX = '%.1fns' % (-dX)
                     dY = '%.1fns' % (-dY)                   
