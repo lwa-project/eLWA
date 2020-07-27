@@ -441,7 +441,7 @@ def main(args):
                         cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                         buffers[j].append( cFrame )
                     except errors.SyncError:
-                        print "Error - VDIF @ %i, %i" % (i, j)
+                        print("Error - VDIF @ %i, %i" % (i, j))
                         f.seek(readers[j].FRAME_SIZE, 1)
                         continue
                     except errors.EOFError:
@@ -459,7 +459,7 @@ def main(args):
                             f.close()
                             f = open(nextname, 'rb')
                             fh[j] = f
-                            print "NF - switched from %s to %s" % (os.path.basename(oldname), vfts)
+                            print("NF - switched from %s to %s" % (os.path.basename(oldname), vfts))
                         except (ValueError, AssertionError) as e:
                             done = True
                             break
