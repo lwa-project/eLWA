@@ -595,9 +595,9 @@ def main(args):
         fh.write("  Observer  %s\n" % corrConfig['context']['observer'])
         fh.write("  Project   %s\n" % corrConfig['context']['project'])
         if corrConfig['context']['session'] is not None:
-            fh.write("  Session  %s\n" % corrConfig['context']['session'])
+            fh.write("  Session   %s\n" % corrConfig['context']['session'])
         if corrConfig['context']['vlaref'] is not None:
-            fh.write("  VLARef   %s\n" % corrConfig['context']['vlaref'])
+            fh.write("  VLARef    %s\n" % corrConfig['context']['vlaref'])
         fh.write("EndContext\n")
         fh.write("\n")
         ## Configuration, if present
