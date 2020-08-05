@@ -671,7 +671,7 @@ def main(args):
             
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
-                dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc)
+                dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
                 dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
                 dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
                 
