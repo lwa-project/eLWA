@@ -17,7 +17,6 @@ import sys
 import h5py
 import math
 import numpy
-import ephem
 import getopt
 from datetime import datetime
 
