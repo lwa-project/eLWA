@@ -5,6 +5,10 @@ get_vla_ant_pos.py
 META_*
 *.repickle
 
+# Cache files
+_data.py
+_data.etag
+
 # Python stuff
 *.pyc
 *.c
