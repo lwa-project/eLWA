@@ -207,24 +207,24 @@ def main(args):
     ## Time mark
     tStart = time.time()
     ## Sort
-    configfiles = config['args']
+    configfiles = args.filename
     configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
     ## Threads - processes by nodes so that small jobs are spread across jobs
     threads = {}
-    for p in xrange(config['processes']):
-        for node in config['nodes']:
+    for p in xrange(args.processes_per_node):
+        for node in args.nodes:
             threads['%s-%02i' % (node, p)] = None
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
-        if config['both'] and configfile_is_lwa_only(configfile):
-            coptions = config['options']
+        if args.both_tunings and configfile_is_lwa_only(configfile):
+            coptions = args.options
             coptions = coptions.replace('-w 1', '').replace('-w1', '')
             coptions = coptions.replace('-w 2', '').replace('-w2', '')
-            jobs.append( (configfile, coptions+' -w 1', config['results']) )
-            jobs.append( (configfile, coptions+' -w 2', config['results']) )
+            jobs.append( (configfile, coptions+' -w 1', args.results_dir) )
+            jobs.append( (configfile, coptions+' -w 2', args.results_dir) )
         else:
-            jobs.append( (configfile, config['options'], config['results']) )
+            jobs.append( (configfile, args.options, args.results_dir) )
     nJobs = len(jobs)
     
     # Start
@@ -268,7 +268,7 @@ def main(args):
                 
         ## Lock file maintenance
         if not check_for_other_instances():
-            for node in config['nodes']:
+            for node in args.nodes:
                 if not any_active(threads, node=node):
                     remove_lock_file(node)
                     
@@ -278,7 +278,7 @@ def main(args):
     # Teardown
     ## Lock files
     if not check_for_other_instances():
-        for node in config['nodes']:
+        for node in args.nodes:
             ## Lock file cleanup
             remove_lock_file(node)
     ## Stop time

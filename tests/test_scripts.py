@@ -26,6 +26,10 @@ try:
     from pylint import epylint as lint
     if MODULE_BUILD is not None:
         run_scripts_tests = True
+        
+        # Pre-seed data.py
+        os.system("%s ../data.py" % sys.executable)
+        
 except ImportError:
     pass
 
