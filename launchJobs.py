@@ -203,9 +203,6 @@ def remove_lock_file(node):
 
 
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    
     # Setup
     ## Time mark
     tStart = time.time()
