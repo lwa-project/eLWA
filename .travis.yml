@@ -41,8 +41,7 @@ install:
         h5py \
         jinja2 \
         GitPython
-    - pip install \ 
-        lsl
+    - pip install git+https://github.com/lwa-project/lsl.git
     - pip install pylint
 
 script:
