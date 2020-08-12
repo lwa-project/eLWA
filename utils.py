@@ -26,10 +26,8 @@ from lsl.common.metabundle import get_command_script
 from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
-import guppi
 
-
-__version__ = '0.8'
+__version__ = '0.9'
 __all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
            'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
            'nsround', 'read_correlator_configuration', 'get_better_time', 
@@ -427,8 +425,6 @@ def _read_correlator_configuration(filename):
     for block in blocks:
         if block['type'] == 'vdif':
             readers.append( vdif )
-        elif block['type'] == 'guppi':
-            readers.append( guppi )
         elif block['type'] == 'drx':
             readers.append( drx )
         else:
@@ -551,9 +547,9 @@ def read_correlator_configuration(filename_or_npz):
 
 def get_better_time(frame):
     """
-    Given a lsl.reader.vdif.Frame, guppi.Frame, or lsl.reader.drx.Frame 
-    instance, return a more accurate time for the frame.  Unlike the 
-    Frame.get_time() functions, this function returns a two-element tuple of:
+    Given a lsl.reader.vdif.Frame or lsl.reader.drx.Frame instance, return a
+    more accurate time for the frame.  Unlike the Frame.get_time() functions,
+    this function returns a two-element tuple of:
       * integer seconds since the UNIX epoch and
       * fractional second
     """
