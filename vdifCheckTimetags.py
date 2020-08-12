@@ -12,8 +12,6 @@ if sys.version_info > (3,):
     
 import os
 import sys
-import ephem
-import gc
 
 from lsl import astro
 from lsl.reader import vdif
@@ -171,8 +169,7 @@ def main(args):
     beampols = tunepols
     fh.seek(-vdif.FRAME_SIZE, 1)
     
-    # Store the information about the first frame and convert the timetag to 
-    # an ephem.Date object.
+    # Store the information about the first frame
     prevDate = junkFrame.time.datetime
     prevTime = junkFrame.header.seconds_from_epoch
     prevFrame = junkFrame.header.frame_in_second

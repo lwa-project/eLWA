@@ -12,7 +12,6 @@ if sys.version_info > (3,):
     
 import os
 import sys
-import ephem
 import numpy
 import getopt
 from datetime import datetime
