@@ -9,74 +9,21 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl.reader import vdif, errors
 from lsl.correlator import fx as fxc
+from lsl.misc import parser as aph
 
 from utils import *
 
 from matplotlib import pyplot as plt
 
 
-def usage(exitCode=None):
-    print("""vdifHistogram.py - Read in a VDIF file and plot sample histograms
-
-Usage:
-vdifHistogram.py [OPTIONS] <vdif_file>
-
-Options:
--h, --help                  Display this help information
--s, --skip                  Amount of time in to skip into the files (seconds; 
-                            default = 0 s)
--t, --avg-time              Window to average visibilities in time (seconds; 
-                            default = 1 s)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['avgTime'] = 1.0
-    config['skip'] = 0.0
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "ht:s:", ["help", "avg-time=", "skip="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-t', '--avg-time'):
-            config['avgTime'] = float(value)
-        elif opt in ('-s', '--skip'):
-            config['skip'] = float(value)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filename = config['args'][0]
+    filename = args.filename
     
     fh = open(filename, 'rb')
     header = vdif.read_guppi_header(fh)
@@ -90,11 +37,11 @@ def main(args):
     tunepols = vdif.get_thread_count(fh)
     beampols = tunepols
     
-    if config['skip'] != 0:
-        print("Skipping forward %.3f s" % config['skip'])
+    if args.skip != 0:
+        print("Skipping forward %.3f s" % args.skip)
         print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
         
-        offset = int(config['skip']*srate / vdif.DATA_LENGTH)
+        offset = int(args.skip*srate / vdif.DATA_LENGTH)
         fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         fh.seek(-vdif.FRAME_SIZE, 1)
@@ -111,7 +58,7 @@ def main(args):
             cFreq = junkFrame.central_freq
             
     # Set integration time
-    tInt = config['avgTime']
+    tInt = args.avg_time
     nFrames = int(round(tInt*srate/vdif.DATA_LENGTH))
     tInt = nFrames*vdif.DATA_LENGTH/srate
     
@@ -176,5 +123,16 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='read in a VDIF file and plot sample histograms', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to analyze')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='amount of time in seconds to skip into the file')
+    parser.add_argument('-t', '--avg-time', type=aph.positive_float, default=1.0,
+                        help='window to use for histogram in seconds')
+    args = parser.parse_args()
+    main(args)
     

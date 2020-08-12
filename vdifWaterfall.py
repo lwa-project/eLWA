@@ -17,7 +17,7 @@ import sys
 import h5py
 import math
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 import lsl.reader.vdif as vdif
@@ -28,122 +28,13 @@ import lsl.correlator.fx as fxc
 from lsl.astro import unix_to_utcjd, DJD_OFFSET
 from lsl.common import progress, stations
 from lsl.common import mcs, metabundle
+from lsl.misc import parser as aph
 
 import matplotlib.pyplot as plt
 
 from utils import *
 
 import data as hdfData
-
-
-def usage(exitCode=None):
-    print("""vdifWaterfall.py - Read in VDIF files and create a collection of 
-time-averaged spectra.  These spectra are saved to a HDF5 file called <filename>-waterfall.hdf5.
-
-Usage: vdifWaterfall.py [OPTIONS] file
-
-Options:
--h, --help                  Display this help information
--t, --bartlett              Apply a Bartlett window to the data
--b, --blackman              Apply a Blackman window to the data
--n, --hanning               Apply a Hanning window to the data
--s, --skip                  Skip the specified number of seconds at the beginning
-                            of the file (default = 0)
--a, --average               Number of seconds of data to average for spectra 
-                            (default = 1)
--d, --duration              Number of seconds to calculate the waterfall for 
-                            (default = 0; run the entire file)
--q, --quiet                 Run vdifSpectra in silent mode and do not show the plots
--l, --fft-length            Set FFT length (default = 4096)
--c, --clip-level            FFT blanking clipping level in counts (default = 0, 
-                            0 disables)
--f, --force                 Force overwritting of existing HDF5 files
--k, --stokes                Generate Stokes parameters instead of XX and YY
--w, --without-sats          Do not generate saturation counts
-
-Note:  Both the -m/--metadata and -i/--sdf options provide the same additional
-    observation information to hdfWaterfall.py so only one needs to be provided.
-
-Note:  Specifying the -m/--metadata or -i/--sdf optiosn overrides the 
-    -d/--duration setting and the entire file is reduced.
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseOptions(args):
-    config = {}
-    # Command line flags - default values
-    config['offset'] = 0.0
-    config['average'] = 1.0
-    config['LFFT'] = 4096
-    config['freq1'] = 0
-    config['freq2'] = 0
-    config['maxFrames'] = 28000
-    config['window'] = fxc.null_window
-    config['duration'] = 0.0
-    config['verbose'] = True
-    config['clip'] = 0
-    config['metadata'] = None
-    config['sdf'] = None
-    config['force'] = False
-    config['linear'] = True
-    config['countSats'] = True
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hqtbnl:s:a:d:c:fkw", ["help", "quiet", "bartlett", "blackman", "hanning", "fft-length=", "skip=", "average=", "duration=", "freq1=", "freq2=", "clip-level=", "force", "stokes", "without-sats"])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-q', '--quiet'):
-            config['verbose'] = False
-        elif opt in ('-t', '--bartlett'):
-            config['window'] = numpy.bartlett
-        elif opt in ('-b', '--blackman'):
-            config['window'] = numpy.blackman
-        elif opt in ('-n', '--hanning'):
-            config['window'] = numpy.hanning
-        elif opt in ('-l', '--fft-length'):
-            config['LFFT'] = int(value)
-        elif opt in ('-s', '--skip'):
-            config['offset'] = float(value)
-        elif opt in ('-a', '--average'):
-            config['average'] = float(value)
-        elif opt in ('-d', '--duration'):
-            config['duration'] = float(value)
-        elif opt in ('-c', '--clip-level'):
-            config['clip'] = int(value)
-        elif opt in ('-e', '--estimate-clip'):
-            config['estimate'] = True
-        elif opt in ('-m', '--metadata'):
-            config['metadata'] = value
-        elif opt in ('-i', '--sdf'):
-            config['sdf'] = value
-        elif opt in ('-f', '--force'):
-            config['force'] = True
-        elif opt in ('-k', '--stokes'):
-            config['linear'] = False
-        elif opt in ('-w', '--without-sats'):
-            config['countSats'] = False
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return configuration
-    return config
 
 
 def bestFreqUnits(freq):
@@ -172,14 +63,14 @@ def bestFreqUnits(freq):
     return (newFreq, units)
 
 
-def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw vdif file into linear polarization 
     products and add the contents to an HDF5 file.
     """
     
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
     
     # Find the start of the observation
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
@@ -209,20 +100,20 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
+    maxFrames = int(1.0*28000/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
     nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
-    nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
+    nFramesAvg = int(round(args.average * srate / vdif.DATA_LENGTH * beampols))
     nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
+    args.average = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    nChunks = int(round(duration / config['average']))
+    nChunks = int(round(duration / args.average))
     if nChunks == 0:
         nChunks = 1
     nFrames = nFramesAvg*nChunks
@@ -267,7 +158,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
-    obs.attrs['tInt'] = config['average']
+    obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
     obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
@@ -320,7 +211,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = float(cTime)
         
-        if config['countSats']:
+        if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
             dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
             dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
@@ -331,7 +222,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
             
             l = 0
@@ -341,8 +232,8 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                     l += 1
                     
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
             
             for l,p in enumerate(data_products):
@@ -359,14 +250,14 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     return True
 
 
-def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, config, dataSets, obsID=1, clip1=0, clip2=0):
+def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, args, dataSets, obsID=1, clip1=0, clip2=0):
     """
     Process a chunk of data in a raw vdif file into Stokes parameters and 
     add the contents to an HDF5 file.
     """
     
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
     
     # Find the start of the observation
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
@@ -396,20 +287,20 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
+    maxFrames = int(1.0*28000/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
     
     # Number of frames per second 
     nFramesSecond = int(srate) // vdif.DATA_LENGTH
     
     # Number of frames to integrate over
-    nFramesAvg = int(round(config['average'] * srate / vdif.DATA_LENGTH * beampols))
+    nFramesAvg = int(round(args.average * srate / vdif.DATA_LENGTH * beampols))
     nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT//vdif.DATA_LENGTH*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
+    args.average = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    nChunks = int(round(duration / config['average']))
+    nChunks = int(round(duration / args.average))
     if nChunks == 0:
         nChunks = 1
     nFrames = nFramesAvg*nChunks
@@ -454,7 +345,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
     obs = dataSets['obs%i' % obsID]
-    obs.attrs['tInt'] = config['average']
+    obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
     obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
@@ -507,7 +398,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         # Save out some easy stuff
         dataSets['obs%i-time' % obsID][i] = float(cTime)
         
-        if config['countSats']:
+        if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
             dataSets['obs%i-Saturation1' % obsID][i,:] = sats[0:2]
             dataSets['obs%i-Saturation2' % obsID][i,:] = sats[2:4]
@@ -518,7 +409,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,:,LFFT:]
             
             for t in (1,2):
@@ -526,8 +417,8 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=config['window'], verbose=config['verbose'], sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,:,LFFT:], tempSpec2[:,:,LFFT:]
             
             for l,p in enumerate(data_products):
@@ -545,14 +436,20 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
 
 
 def main(args):
-    # Parse command line options
-    config = parseOptions(args)
-    
     # Length of the FFT
-    LFFT = config['LFFT']
+    LFFT = args.fft_length
+    if args.bartlett:
+        window = numpy.bartlett
+    elif args.blackman:
+        window = numpy.blackman
+    elif args.hanning:
+        window = numpy.hanning
+    else:
+        window = fxc.null_window
+    args.window = window
     
     # Open the file and find good data (not spectrometer data)
-    filename = config['args'][0]
+    filename = args.filename
     fh = open(filename, "rb")
     header = vdif.read_guppi_header(fh)
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
@@ -580,7 +477,7 @@ def main(args):
     beampols = tunepol
 
     # Offset in frames for beampols beam/tuning/pol. sets
-    offset = int(config['offset'] * srate / vdif.DATA_LENGTH * beampols)
+    offset = int(args.skip * srate / vdif.DATA_LENGTH * beampols)
     offset = int(1.0 * offset / beampols) * beampols
     fh.seek(offset*vdif.FRAME_SIZE, 1)
     
@@ -599,7 +496,7 @@ def main(args):
         fh.seek(-vdif.FRAME_SIZE, 1)
         
         ## See how far off the current frame is from the target
-        tDiff = t1 - (t0 + config['offset'])
+        tDiff = t1 - (t0 + args.skip)
         
         ## Half that to come up with a new seek parameter
         tCorr = -tDiff / 2.0
@@ -614,32 +511,30 @@ def main(args):
         fh.seek(cOffset*vdif.FRAME_SIZE, 1)
     
     # Update the offset actually used
-    config['offset'] = t1 - t0
-    offset = int(round(config['offset'] * srate / vdif.DATA_LENGTH * beampols))
+    args.skip = t1 - t0
+    offset = int(round(args.skip * srate / vdif.DATA_LENGTH * beampols))
     offset = int(1.0 * offset / beampols) * beampols
 
     # Make sure that the file chunk size contains is an integer multiple
     # of the FFT length so that no data gets dropped.  This needs to
     # take into account the number of beampols in the data, the FFT length,
     # and the number of samples per frame.
-    maxFrames = int(1.0*config['maxFrames']/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
+    maxFrames = int(1.0*28000/beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
 
     # Number of frames to integrate over
-    nFramesAvg = int(config['average'] * srate / vdif.DATA_LENGTH * beampols)
+    nFramesAvg = int(args.average * srate / vdif.DATA_LENGTH * beampols)
     nFramesAvg = int(1.0 * nFramesAvg / beampols*vdif.DATA_LENGTH/float(2*LFFT))*2*LFFT/vdif.DATA_LENGTH*beampols
-    config['average'] = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
+    args.average = 1.0 * nFramesAvg / beampols * vdif.DATA_LENGTH / srate
     maxFrames = nFramesAvg
     
     # Number of remaining chunks (and the correction to the number of
     # frames to read in).
-    if config['metadata'] is not None:
-        config['duration'] = 0
-    if config['duration'] == 0:
-        config['duration'] = 1.0 * nFramesFile / beampols * vdif.DATA_LENGTH / srate
-        config['duration'] -= config['offset']
+    if args.duration == 0:
+        args.duration = 1.0 * nFramesFile / beampols * vdif.DATA_LENGTH / srate
+        args.duration -= args.skip
     else:
-        config['duration'] = int(round(config['duration'] * srate * beampols / vdif.DATA_LENGTH) / beampols * vdif.DATA_LENGTH / srate)
-    nChunks = int(round(config['duration'] / config['average']))
+        args.duration = int(round(args.duration * srate * beampols / vdif.DATA_LENGTH) / beampols * vdif.DATA_LENGTH / srate)
+    nChunks = int(round(args.duration / args.average))
     if nChunks == 0:
         nChunks = 1
     nFrames = nFramesAvg*nChunks
@@ -660,9 +555,6 @@ def main(args):
             pass
     fh.seek(-4*vdif.FRAME_SIZE, 1)
     
-    config['freq1'] = central_freq1
-    config['freq2'] = central_freq2
-
     # File summary
     print("Filename: %s" % filename)
     print("Date of First Frame: %s" % str(beginDate))
@@ -673,15 +565,15 @@ def main(args):
     print("Tuning Frequency: %.3f Hz (1); %.3f Hz (2)" % (central_freq1, central_freq2))
     print("Frames: %i (%.3f s)" % (nFramesFile, 1.0 * nFramesFile / beampols * vdif.DATA_LENGTH / srate))
     print("---")
-    print("Offset: %.3f s (%i frames)" % (config['offset'], offset))
-    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average'], nFramesAvg, nFramesAvg // beampols))
-    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (config['average']*nChunks, nFrames, nFrames // beampols))
+    print("Offset: %.3f s (%i frames)" % (args.skip, offset))
+    print("Integration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average, nFramesAvg, nFramesAvg // beampols))
+    print("Duration: %.3f s (%i frames; %i frames per beam/tune/pol)" % (args.average*nChunks, nFrames, nFrames // beampols))
     print("Chunks: %i" % nChunks)
     print(" ")
     
     # Get the clip levels
-    clip1 = config['clip']
-    clip2 = config['clip']
+    clip1 = args.clip_level
+    clip2 = args.clip_level
         
     # Make the pseudo-antennas for Stokes calculation
     antennas = []
@@ -704,7 +596,7 @@ def main(args):
     outname = '%s-waterfall.hdf5' % outname
     
     if os.path.exists(outname):
-        if not config['force']:
+        if not args.force:
             yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
@@ -720,62 +612,17 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    if config['metadata'] is not None:
-        sdf = metabundle.get_sdf(config['metadata'])
+    obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
+    hdfData.fillMinimum(f, 1, beam, srate)
         
-        sdfBeam  = sdf.sessions[0].vdifBeam
-        spcSetup = sdf.sessions[0].spcSetup
-        if sdfBeam != beam:
-            raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
-            
-        for i,obs in enumerate(sdf.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
-            obsDur   = obs.dur/1000.0
-            obsSR    = srate
-            
-            obsList[i+1] = (sdfStart, sdfStop, obsDur, obsSR)
-            
-        print("Observations:")
-        for i in sorted(obsList.keys()):
-            obs = obsList[i]
-            print(" #%i: %s to %s (%.3f s) at %.3f MHz" % (i, obs[0], obs[1], obs[2], obs[3]/1e6))
-        print(" ")
-            
-        hdfData.fillFromMetabundle(f, config['metadata'])
-        
-    elif config['sdf'] is not None:
-        from lsl.common import mcs
-        from lsl.common.sdf import parse_sdf
-        sdf = parse_sdf(config['sdf'])
-        
-        sdfBeam  = sdf.sessions[0].vdifBeam
-        spcSetup = sdf.sessions[0].spcSetup
-        if sdfBeam != beam:
-            raise RuntimeError("Metadata is for beam #%i, but data is from beam #%i" % (sdfBeam, beam))
-            
-        for i,obs in enumerate(sdf.sessions[0].observations):
-            sdfStart = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm)
-            sdfStop  = mcs.mjdmpm_to_datetime(obs.mjd, obs.mpm + obs.dur)
-            obsChunks = int(numpy.ceil(obs.dur/1000.0 * srate / (spcSetup[0]*spcSetup[1])))
-            
-            obsList[i+1] = (sdfStart, sdfStop, obsChunks)
-            
-        hdfData.fillFromSDF(f, config['sdf'])
-        
-    else:
-        obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), config['duration'], srate)
-        
-        hdfData.fillMinimum(f, 1, beam, srate)
-        
-    if config['linear']:
+    if (not args.stokes):
         data_products = ['XX', 'YY']
     else:
         data_products = ['I', 'Q', 'U', 'V']
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/config['average'])), data_products)
+            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(filename)
@@ -786,7 +633,7 @@ def main(args):
         obs = hdfData.getObservationSet(f, o)
         
         ds['obs%i' % o] = obs
-        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/config['average'])),), 'f8')
+        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
         
         for t in (1,2):
             ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
@@ -795,7 +642,7 @@ def main(args):
             ds['obs%i-Saturation%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'Saturation')
             
     # Load in the correct analysis function
-    if config['linear']:
+    if (not args.stokes):
         processDataBatch = processDataBatchLinear
     else:
         processDataBatch = processDataBatchStokes
@@ -803,7 +650,7 @@ def main(args):
     # Go!
     for o in sorted(obsList.keys()):
         try:
-            processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], config, ds, obsID=o, clip1=clip1, clip2=clip2)
+            processDataBatch(fh, header, antennas, obsList[o][0], obsList[o][2], obsList[o][3], args, ds, obsID=o, clip1=clip1, clip2=clip2)
         except RuntimeError as e:
             print("Observation #%i: %s, abandoning this observation" % (o, str(e)))
 
@@ -812,4 +659,39 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+            description='read in a VDIF file and create a collection of time-averaged spectra stored as an HDF5 file called <filename>-waterfall.hdf5', 
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+            )
+    parser.add_argument('filename', type=str, 
+                        help='filename to process')
+    wgroup = parser.add_mutually_exclusive_group(required=False)
+    wgroup.add_argument('-t', '--bartlett', action='store_true', 
+                        help='apply a Bartlett window to the data')
+    wgroup.add_argument('-b', '--blackman', action='store_true', 
+                        help='apply a Blackman window to the data')
+    wgroup.add_argument('-n', '--hanning', action='store_true', 
+                        help='apply a Hanning window to the data')
+    parser.add_argument('-s', '--skip', type=aph.positive_or_zero_float, default=0.0, 
+                        help='skip the specified number of seconds at the beginning of the file')
+    parser.add_argument('-a', '--average', type=aph.positive_float, default=1.0, 
+                        help='number of seconds of data to average for spectra')
+    parser.add_argument('-d', '--duration', type=aph.positive_or_zero_float, default=0.0, 
+                        help='number of seconds to calculate the waterfall for; 0 for everything') 
+    parser.add_argument('-q', '--quiet', dest='verbose', action='store_false',
+                        help='run %(prog)s in silent mode')
+    parser.add_argument('-l', '--fft-length', type=aph.positive_int, default=4096, 
+                        help='set FFT length')
+    parser.add_argument('-c', '--clip-level', type=aph.positive_or_zero_int, default=0,  
+                        help='FFT blanking clipping level in counts; 0 disables')
+    parser.add_argument('-e', '--estimate-clip-level', action='store_true', 
+                        help='use robust statistics to estimate an appropriate clip level; overrides -c/--clip-level')
+    parser.add_argument('-f', '--force', action='store_true', 
+                        help='force overwritting of existing HDF5 files')
+    parser.add_argument('-k', '--stokes', action='store_true', 
+                        help='generate Stokes parameters instead of XX and YY')
+    parser.add_argument('-w', '--without-sats', action='store_true',
+                        help='do not generate saturation counts')
+    args = parser.parse_args()
+    main(args)
+    
