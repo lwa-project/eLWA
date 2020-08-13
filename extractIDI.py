@@ -16,7 +16,7 @@ import argparse
 from datetime import datetime
 
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
 
 
 def main(args):
@@ -45,7 +45,7 @@ def main(args):
     polMapper = {}
     for i in xrange(uvdata.header['NO_STKD']):
         stk = uvdata.header['STK_1'] - i
-        polMapper[i] = NumericStokes[stk]
+        polMapper[i] = NUMERIC_STOKES[stk]
         
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
