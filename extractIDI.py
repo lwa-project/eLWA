@@ -2,11 +2,10 @@
 
 """
 Integration extractor for FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python2 compatibility
+from __future__ import print_function
 
 import os
 import sys
@@ -25,7 +24,7 @@ def main(args):
     filename = args.filename
     
     t0 = time.time()
-    print "Working on '%s'" % os.path.basename(filename)
+    print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
     hdulist = pyfits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
@@ -91,10 +90,10 @@ def main(args):
 
     # Downselect
     to_keep = range(args.start_int*len(ubls), (args.stop_int+1)*len(ubls))
-    print "UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1])
+    print("UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1]))
     
     # Save
-    print "  Saving to disk"
+    print("  Saving to disk")
     ## What to call it
     outname = os.path.basename(filename)
     outname, outext = os.path.splitext(outname)
@@ -133,7 +132,7 @@ def main(args):
                 ## Drop this flag table
                 fgcount -= 1
                 ver = hdu.header['EXTVER'] 
-                print "  WARNING: removing old FLAG table - version %i" % ver
+                print("  WARNING: removing old FLAG table - version %i" % ver)
                 continue
             else:
                 ## Reset the EXTVER on the last FLAG table
@@ -165,8 +164,8 @@ def main(args):
         hdulist2.flush()
     hdulist2.close()
     hdulist.close()
-    print "  -> Extracted FITS IDI file is '%s'" % outname
-    print "  Finished in %.3f s" % (time.time()-t0,)
+    print("  -> Extracted FITS IDI file is '%s'" % outname)
+    print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
