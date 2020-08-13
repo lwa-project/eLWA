@@ -151,7 +151,7 @@ def main(args):
                 columns.append( astrofits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
             colDefs = astrofits.ColDefs(columns)
             
-            hduprime = astrofits.new_table(colDefs)
+            hduprime = astrofits.BinTableHDU.from_columns(colDefs)
             processed = ['NAXIS1', 'NAXIS2']
             for key in hdu.header:
                 if key in ('COMMENT', 'HISTORY'):
