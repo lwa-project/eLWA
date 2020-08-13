@@ -229,7 +229,7 @@ def main(args):
     while True:
         ## Read in the data
         rawData *= 0.0
-        count = [0 for i in xrange(rawData.shape[0])]
+        count = [0 for i in range(rawData.shape[0])]
         
         i = 0
         while i < chunkSize:

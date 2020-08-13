@@ -43,7 +43,7 @@ def main(args):
         
     # NOTE: Assumes that the Stokes parameters increment by -1
     polMapper = {}
-    for i in xrange(uvdata.header['NO_STKD']):
+    for i in range(uvdata.header['NO_STKD']):
         stk = uvdata.header['STK_1'] - i
         polMapper[i] = NUMERIC_STOKES[stk]
         
