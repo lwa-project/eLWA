@@ -6,7 +6,11 @@ Integration extractor for FITS-IDI files containing eLWA data.
 
 # Python2 compatibility
 from __future__ import print_function
-
+try:
+    input = raw_input
+except NameError:
+    pass
+    
 import os
 import sys
 import time
@@ -101,7 +105,7 @@ def main(args):
     ## Does it already exist or not
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
