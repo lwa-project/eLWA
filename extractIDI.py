@@ -11,7 +11,7 @@ import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -26,7 +26,7 @@ def main(args):
     t0 = time.time()
     print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     fgcount = 0
@@ -110,8 +110,8 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
     ## Open and create a new primary HDU
-    hdulist2 = pyfits.open(outname, mode='append')
-    primary =	pyfits.PrimaryHDU()
+    hdulist2 = astrofits.open(outname, mode='append')
+    primary =	astrofits.PrimaryHDU()
     processed = []
     for key in hdulist[0].header:
         if key in ('COMMENT', 'HISTORY'):
@@ -144,10 +144,10 @@ def main(args):
             for col in hdu.data.columns:
                 temp = hdu.data[col.name]
                 temp = temp[to_keep]
-                columns.append( pyfits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
-            colDefs = pyfits.ColDefs(columns)
+                columns.append( astrofits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
+            colDefs = astrofits.ColDefs(columns)
             
-            hduprime = pyfits.new_table(colDefs)
+            hduprime = astrofits.new_table(colDefs)
             processed = ['NAXIS1', 'NAXIS2']
             for key in hdu.header:
                 if key in ('COMMENT', 'HISTORY'):

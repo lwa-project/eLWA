@@ -50,7 +50,22 @@ _SAFE_TO_IGNORE = ["Possible",
                    "psrfits_utils",
                    "No name 'c' in module 'astropy.constants'",
                    "Instance of 'GitError' has no 'GitError' member",
-                   "Instance of 'Exception' has no 'GitError' member"]
+                   "Instance of 'Exception' has no 'GitError' member",
+                   "Undefined variable 'BindToCore",
+                   "Undefined variable 'BindOpenMPToCores",
+                   "Undefined variable 'PulsarEngineRaw",
+                   "Undefined variable 'PulsarEngineRawWindow",
+                   "Undefined variable 'PhaseRotator",
+                   "Undefined variable 'ComputeSKMask",
+                   "Undefined variable 'ComputePseudoSKMask",
+                   "Undefined variable 'MultiChannelCD",
+                   "Undefined variable 'CombineToIntensity",
+                   "Undefined variable 'CombineToLinear",
+                   "Undefined variable 'CombineToCircular",
+                   "Undefined variable 'CombineToStokes",
+                   "Undefined variable 'OptimizeDataLevels8Bit",
+                   "Undefined variable 'OptimizeDataLevels4Bit",
+                   "Undefined variable 'useWisdom"]
 
 
 def _get_context(filename, line, before=0, after=0):

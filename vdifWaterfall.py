@@ -240,7 +240,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             if lsb:
                 tempSpec1, tempSpec2 = tempSpec1[:,::-1], tempSpec2[:,::-1]
                 
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,:]
                 
@@ -440,7 +440,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 ## TODO:  It may not be this simple
                 tempSpec1, tempSpec2 = tempSpec1[:,:,::-1], tempSpec2[:,:,::-1]
                 
-            for l,p in enumerate(dataProducts):
+            for l,p in enumerate(data_products):
                 dataSets['obs%i-%s%i' % (obsID, p, 1)][i,:] = tempSpec1[l,0,:]
                 dataSets['obs%i-%s%i' % (obsID, p, 2)][i,:] = tempSpec2[l,0,:]
 
