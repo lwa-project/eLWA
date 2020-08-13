@@ -165,6 +165,9 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
+    # Create the progress bar so that we can keep up with the conversion.
+    pbar = progress.ProgressBarPlus(max=nChunks)
+    
     data_products = ['XX', 'YY']
     done = False
     for i in xrange(nChunks):
@@ -176,8 +179,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
-        
+            
         count = {0:0, 1:0, 2:0, 3:0}
         data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
@@ -185,8 +187,6 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        print("Working on %.1f ms of data" % ((framesWork*vdif.DATA_LENGTH/beampols/srate)*1000.0))
-        
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
@@ -247,6 +247,15 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         if done:
             break
             
+        ## Update the progress bar and remaining time estimate
+        pbar.inc()
+        sys.stdout.write('%s\r' % pbar.show())
+        sys.stdout.flush()
+        
+    pbar.amount = pbar.max
+    sys.stdout.write('%s\n' % pbar.show())
+    sys.stdout.flush()
+    
     return True
 
 
@@ -352,6 +361,9 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
+    # Create the progress bar so that we can keep up with the conversion.
+    pbar = progress.ProgressBarPlus(max=nChunks)
+    
     data_products = ['I', 'Q', 'U', 'V']
     done = False
     for i in xrange(nChunks):
@@ -363,8 +375,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = maxFrames
         else:
             framesWork = framesRemaining
-        print("Working on chunk %i, %i frames remaining" % (i+1, framesRemaining))
-        
+            
         count = {0:0, 1:0, 2:0, 3:0}
         data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
@@ -372,8 +383,6 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        print("Working on %.1f ms of data" % ((framesWork*vdif.DATA_LENGTH/beampols/srate)*1000.0))
-        
         for j in xrange(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
@@ -432,6 +441,15 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         if done:
             break
             
+        ## Update the progress bar and remaining time estimate
+        pbar.inc()
+        sys.stdout.write('%s\r' % pbar.show())
+        sys.stdout.flush()
+        
+    pbar.amount = pbar.max
+    sys.stdout.write('%s\n' % pbar.show())
+    sys.stdout.flush()
+    
     return True
 
 
