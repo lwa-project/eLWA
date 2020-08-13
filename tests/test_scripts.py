@@ -26,6 +26,10 @@ try:
     from pylint import epylint as lint
     if MODULE_BUILD is not None:
         run_scripts_tests = True
+        
+        # Pre-seed data.py
+        os.system("%s ../data.py" % sys.executable)
+        
 except ImportError:
     pass
 
@@ -44,7 +48,9 @@ _SAFE_TO_IGNORE = ["Possible",
                    "Unable to import 'polycos",
                    "No name 'ccompiler",
                    "psrfits_utils",
-                   "No name 'c' in module 'astropy.constants'",]
+                   "No name 'c' in module 'astropy.constants'",
+                   "Instance of 'GitError' has no 'GitError' member",
+                   "Instance of 'Exception' has no 'GitError' member"]
 
 
 def _get_context(filename, line, before=0, after=0):
