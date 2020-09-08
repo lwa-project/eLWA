@@ -105,7 +105,7 @@ def main(args):
                     fields = line.split()
                     vid, aid = int(fields[0]), int(fields[1])
                     aid = 'EA%02i' % aid
-                    vid = 'V%02i' % (vid+1)
+                    vid = 'V%02i' % vid
                     valid = int(fields[-1])
                     curr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
             corr_delays[filedate] = curr_delays
