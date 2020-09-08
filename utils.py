@@ -644,7 +644,7 @@ def is_vlite_vdif(filehandle):
     vlite = True
     mark = filehandle.tell()
     data = filehandle.read(16384)
-    if data.find('END') != -1 or data.find('CONTINUE') != -1:
+    if data.find(b'END') != -1 or data.find(b'CONTINUE') != -1:
         vlite = False
     filehandle.seek(mark)
     return vlite

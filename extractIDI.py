@@ -2,17 +2,20 @@
 
 """
 Integration extractor for FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
 
+# Python2 compatibility
+from __future__ import print_function
+try:
+    input = raw_input
+except NameError:
+    pass
+    
 import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -25,9 +28,9 @@ def main(args):
     filename = args.filename
     
     t0 = time.time()
-    print "Working on '%s'" % os.path.basename(filename)
+    print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     fgcount = 0
@@ -44,7 +47,7 @@ def main(args):
         
     # NOTE: Assumes that the Stokes parameters increment by -1
     polMapper = {}
-    for i in xrange(uvdata.header['NO_STKD']):
+    for i in range(uvdata.header['NO_STKD']):
         stk = uvdata.header['STK_1'] - i
         polMapper[i] = NUMERIC_STOKES[stk]
         
@@ -91,10 +94,10 @@ def main(args):
 
     # Downselect
     to_keep = range(args.start_int*len(ubls), (args.stop_int+1)*len(ubls))
-    print "UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1])
+    print("UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1]))
     
     # Save
-    print "  Saving to disk"
+    print("  Saving to disk")
     ## What to call it
     outname = os.path.basename(filename)
     outname, outext = os.path.splitext(outname)
@@ -102,7 +105,7 @@ def main(args):
     ## Does it already exist or not
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
@@ -111,8 +114,8 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
     ## Open and create a new primary HDU
-    hdulist2 = pyfits.open(outname, mode='append')
-    primary =	pyfits.PrimaryHDU()
+    hdulist2 = astrofits.open(outname, mode='append')
+    primary =	astrofits.PrimaryHDU()
     processed = []
     for key in hdulist[0].header:
         if key in ('COMMENT', 'HISTORY'):
@@ -133,7 +136,7 @@ def main(args):
                 ## Drop this flag table
                 fgcount -= 1
                 ver = hdu.header['EXTVER'] 
-                print "  WARNING: removing old FLAG table - version %i" % ver
+                print("  WARNING: removing old FLAG table - version %i" % ver)
                 continue
             else:
                 ## Reset the EXTVER on the last FLAG table
@@ -145,10 +148,10 @@ def main(args):
             for col in hdu.data.columns:
                 temp = hdu.data[col.name]
                 temp = temp[to_keep]
-                columns.append( pyfits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
-            colDefs = pyfits.ColDefs(columns)
+                columns.append( astrofits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
+            colDefs = astrofits.ColDefs(columns)
             
-            hduprime = pyfits.new_table(colDefs)
+            hduprime = astrofits.BinTableHDU.from_columns(colDefs)
             processed = ['NAXIS1', 'NAXIS2']
             for key in hdu.header:
                 if key in ('COMMENT', 'HISTORY'):
@@ -165,8 +168,8 @@ def main(args):
         hdulist2.flush()
     hdulist2.close()
     hdulist.close()
-    print "  -> Extracted FITS IDI file is '%s'" % outname
-    print "  Finished in %.3f s" % (time.time()-t0,)
+    print("  -> Extracted FITS IDI file is '%s'" % outname)
+    print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
