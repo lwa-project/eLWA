@@ -88,41 +88,6 @@ def main(args):
         sys.stderr.flush()
         db = None
         
-    # Load the base VLITE correlator delays
-    corr_delays = OrderedDict()
-    for filename in sorted(glob.glob('META_*[0-9]')):
-        filedate = filename.rsplit('_', 1)[1]
-        filedate = int(filedate, 10)
-        
-        try:
-            curr_delays = {}
-            with open(filename, 'r') as fh:
-                for line in fh:
-                    if len(line) < 3:
-                        continue
-                    elif line[0] == '#':
-                        continue
-                    fields = line.split()
-                    vid, aid = int(fields[0]), int(fields[1])
-                    aid = 'EA%02i' % aid
-                    vid = 'V%02i' % vid
-                    valid = int(fields[-1])
-                    curr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
-            corr_delays[filedate] = curr_delays
-        except IOError as e:
-            sys.stderr.write("WARNING: could not load VLITE correlator delays: %s\n" % str(e))
-            sys.stderr.flush()
-            
-    # Load in the array of VLITE pipeline delays
-    pipe_delays = {}
-    try:
-        with open('vlite_delays.repickle', 'rb') as fh:
-            import pickle
-            pipe_delays = pickle.load(fh)
-    except IOError as e:
-        sys.stderr.write("WARNING: could not load VLITE pipeline delays: %s\n" % str(e))
-        sys.stderr.flush()
-        
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     context = {'observer':'Unknown', 'project':'Unknown', 'session':None, 'vlaref':None}
     setup = None
@@ -364,6 +329,17 @@ def main(args):
                               'DEC_STR':  args.vlite_dec,
                               'OBSFREQ':  352e6,
                               'OBSBW':    64e6}
+                    
+                    ## Load in the metadata
+                    try:
+                        vlite_meta
+                    except NameError:
+                        import ubjson
+                        vlite_metaname = glob.glob(os.path.join(os.path.dirname(filename), '*.meta'))[0]
+                        with open(vlite_metaname, 'rb') as mh:
+                            vlite_meta = ubjson.load(mh)
+                    header['BASENAME'] = vlite_meta['antprops']['datasetId']
+                    
                 else:
                     ## Read in the GUPPI header
                     header = vdif.read_guppi_header(fh)
@@ -405,44 +381,29 @@ def main(args):
                 
                 if is_vlite:
                     ## VLITE delays
-                    aid = 'EA%02i' % antID
-                    idx = numpy.where(numpy.array(list(corr_delays.keys())) <= int(tStart.strftime("%s"), 10))[0][-1]
-                    curr_delays = corr_delays[list(corr_delays.keys())[idx]]
-                    vid = curr_delays[aid]['vlite']
-                    dX = curr_delays[aid]['delayX']
-                    dY = curr_delays[aid]['delayY']
-                    if not curr_delays[aid]['valid']:
-                        continue
-                        
-                    try:
-
-                        pds = pipe_delays[curr_delays[aid]['vlite']]
-                        try:
-                            idx = numpy.where(pds['edges_mjd'] >= datetime_to_mjdmpm(tStart)[0])[0][0]
-                        except IndexError:
-                            idx = pds['polx_delays'].size
-                        if idx == pds['polx_delays'].size:
-                            idx = -1
-                        dX += pds['polx_delays'][idx]
-                        dY += pds['poly_delays'][idx]
-                    except KeyError as e:
-                        sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
-                        pass
-                        
+                    idx = vlite_meta['delays']['vlant'].index(antID)
+                    vid = vlite_meta['delays']['va_id'][idx]
+                    dX = vlite_meta['delays']['clkoffset'][idx]
+                    dY = vlite_meta['delays']['clkoffset'][idx]
+                    
                     dX = '%.1fns' % (-dX)
                     dY = '%.1fns' % (-dY)                   
                     off = (dX, dY)
                     
                     ## Update the pad name with the VLITE antenna ID
-                    pad = '%s (VLITE antenna %s)' % (pad, vid)
+                    pad = '%s (VLITE antenna V%i)' % (pad, vid)
                 else:
                     ## VLA time offset
                     off = (args.vla_offset, args.vla_offset)
                     
                 ## Save
                 corrConfig['context']['observer'] = header['OBSERVER']
-                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                try:
+                    corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
+                    corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                except IndexError:
+                    corrConfig['context']['project'] = 'Unknown'
+                    corrConfig['context']['session'] = None
                 corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
