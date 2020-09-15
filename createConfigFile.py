@@ -222,6 +222,7 @@ def main(args):
                   'inputs': []}
     
     metadata = {}
+    vlite_timestamps_done = []
     for filename in filenames:
         #print("%s:" % os.path.basename(filename))
         
@@ -340,6 +341,16 @@ def main(args):
                             vlite_meta = ubjson.load(mh)
                     header['BASENAME'] = vlite_meta['antprops']['datasetId']
                     
+                    ## Check the timestamp so that we can weed out sequential files in the set
+                    timestamp = os.path.basename(filename)
+                    timestamp = timestamp.rsplit('.', 1)[0]
+                    timestamp = timestamp.rsplit('_', 1)[1]
+                    timestamp = int(timestamp, 10)
+                    if timestamp not in vlite_timestamps_done:
+                        vlite_timestamps_done.append(timestamp)
+                    if timestamp > min(vlite_timestamps_done):
+                        continue
+                        
                 else:
                     ## Read in the GUPPI header
                     header = vdif.read_guppi_header(fh)
@@ -380,9 +391,15 @@ def main(args):
                 enz[1] *= -1
                 
                 if is_vlite:
-                    ## VLITE delays
+                    ## VLITE status
                     idx = vlite_meta['delays']['vlant'].index(antID)
                     vid = vlite_meta['delays']['va_id'][idx]
+                    if vlite_meta['delays']['enable'][idx] == 0:
+                        sys.stderr.write("WARNING: EA%02i (V%i) is disabled according to the VLITE metadata\n" % (antID, vid))
+                        sys.stderr.flush()
+                        continue
+                        
+                    ## Delays
                     dX = vlite_meta['delays']['clkoffset'][idx]
                     dY = vlite_meta['delays']['clkoffset'][idx]
                     
@@ -589,7 +606,9 @@ def main(args):
         
         dur = source['stop'] - source['start']
         dur = dur.total_seconds()
-        
+        if len(vlite_timestamps_done) > 0:
+            dur = len(vlite_timestamps_done)*1.0
+            
         ## Skip over dummy scans and scans that start after the files end
         if source['intent'] in (None, 'dummy'):
             continue
