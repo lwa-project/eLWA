@@ -29,6 +29,85 @@ from lsl.misc import parser as aph
 from matplotlib import pyplot as plt
 
 
+def get_flags_as_mask(hdulist, selection=None, version=0):
+    """
+    Given a astrofits hdulist, build a mask for the visibility data based using 
+    the specified version of the FLAG table.  This can also be done for a 
+    sub-set of the full visibility data by using the 'selection' keyword to 
+    provide a list of visility entries to create the mask for.
+    
+    .. note::
+        Be default the FLAG version used is the most recent version.
+    """
+    
+    # Get the tables
+    fgdata = None
+    for hdu in hdulist[1:]:
+        if hdu.header['EXTNAME'] == 'FLAG':
+            if version == 0 or hdu.header['EXTVER'] == version:
+                fgdata = hdu
+    uvdata = hdulist['UV_DATA']
+    
+    # Pull out various bits of information we need to flag the file
+    ## Frequency and polarization setup
+    nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
+    ## Baseline list
+    bls = uvdata.data['BASELINE']
+    ## Time of each integration
+    obsdates = uvdata.data['DATE']
+    obstimes = uvdata.data['TIME']
+    inttimes = uvdata.data['INTTIM']
+    ## Number of rows in the file
+    if selection is None:
+        flux_rows = uvdata.data['FLUX'].shape[0]
+    else:
+        flux_rows = len(selection)
+        
+    # Create the mask
+    mask = numpy.zeros((flux_rows, nBand, nFreq, nStk), dtype=numpy.bool)
+    if fgdata is not None:
+        reltimes = obsdates - obsdates[0] + obstimes
+        maxtimes = reltimes + inttimes / 2.0 / 86400.0
+        mintimes = reltimes - inttimes / 2.0 / 86400.0
+        if selection is not None:
+            bls = bls[selection]
+            maxtimes = maxtimes[selection]
+            mintimes = mintimes[selection]
+            
+        bls_ant1 = bls//256
+        bls_ant2 = bls%256
+        
+        for row in fgdata.data:
+            ant1, ant2 = row['ANTS']
+            tStart, tStop = row['TIMERANG']
+            band = row['BANDS']
+            try:
+                len(band)
+            except TypeError:
+                band = [band,]
+            cStart, cStop = row['CHANS']
+            if cStop == 0:
+                cStop = -1
+            pol = row['PFLAGS'].astype(numpy.bool)
+            
+            if ant1 == 0 and ant2 == 0:
+                btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            elif ant1 == 0 or ant2 == 0:
+                ant1 = max([ant1, ant2])
+                btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            else:
+                btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+            for b,v in enumerate(band):
+                if not v:
+                    continue
+                mask[btmask,b,cStart-1:cStop,:] |= pol
+                
+    # Done
+    return mask
+
+
 def main(args):
     # Parse the command line
     ## Baseline list
@@ -113,6 +192,14 @@ def main(args):
             else:
                 blocks.append( [v,v] )
     blocks.sort()
+    
+    # Create a mask of the old flags, and come up with a list of bad channels
+    mask = get_flags_as_mask(hdulist, version=1)
+    print(flux.shape, mask.shape)
+    mask = numpy.mean(mask, axis=0)
+    print(flux.shape, mask.shape)
+    mask = numpy.max(mask[0,:,[0,1]], axis=0)
+    print(flux.shape, mask.shape)
     
     # Make sure the reference antenna is in there
     if args.ref_ant is None:
@@ -204,7 +291,7 @@ def main(args):
         smth[i] = numpy.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & (mask < 0.25) )[0]
     nBad = nFreq - len(good)
     print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
     if args.plot:
