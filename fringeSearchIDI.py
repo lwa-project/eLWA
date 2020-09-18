@@ -194,13 +194,13 @@ def main(args):
     blocks.sort()
     
     # Create a mask of the old flags, and come up with a list of bad channels
-    mask = get_flags_as_mask(hdulist, version=1)
-    print(flux.shape, mask.shape)
-    mask = numpy.mean(mask, axis=0)
-    print(flux.shape, mask.shape)
-    mask = numpy.max(mask[0,:,[0,1]], axis=0)
-    print(flux.shape, mask.shape)
-    
+    if args.ignore_flags:
+        mask = numpy.zeros(nFreq)
+    else:
+        mask = get_flags_as_mask(hdulist)
+        mask = numpy.mean(mask, axis=0)
+        mask = numpy.max(mask[0,:,[0,1]], axis=0)
+        
     # Make sure the reference antenna is in there
     if args.ref_ant is None:
         bl = ubls[0]
@@ -416,6 +416,8 @@ if __name__ == "__main__":
                         help='delay search window in us; defaults to maximum allowed')
     parser.add_argument('-a', '--rate-window', type=str, default='-inf,inf', 
                         help='rate search window in mHz; defaults to maximum allowed')
+    parser.add_argument('-i', '--ignore-flags', action='store_true',
+                        help='do not use the FLAG table(s) when determining bad channels')
     parser.add_argument('-p', '--plot', action='store_true', 
                         help='show search plots at the end')
     args = parser.parse_args()
