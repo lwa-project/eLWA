@@ -187,6 +187,7 @@ def get_idle_slot(threads):
 
 
 def create_lock_file(node):
+    node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         fh = open('/home/%s/correlator%s' % (getuser(), node[6:]), 'w')
         fh.close()
@@ -194,7 +195,8 @@ def create_lock_file(node):
 
 
 def remove_lock_file(node):
-    if node[:6] == 'lwaucf':
+    node = node.replace('10.1.1.10', 'lwaucf')
+    if node[:6] == 'lwaucf'
         try:
             os.unlink('/home/%s/correlator%s' % (getuser(), node[6:]))
         except OSError:
