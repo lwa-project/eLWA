@@ -360,8 +360,12 @@ def main(args):
                                 
                 ## Save
                 corrConfig['context']['observer'] = header['OBSERVER']
-                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                try:
+                    corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
+                    corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                except IndexError:
+                    corrConfig['context']['project'] = header['BASENAME'].split('.')[0]
+                    corrConfig['context']['session'] = header['BASENAME'].split('.')[1].replace('sb', '')
                 corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
