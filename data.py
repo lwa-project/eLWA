@@ -15,6 +15,10 @@ except ImportError:
 # URL to download
 MODULE_URL = 'https://raw.githubusercontent.com/lwa-project/commissioning/master/DRX/HDF5/data.py'
 
+# Where it lives
+MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
+MODULE_NAME = os.path.join(MODULE_PATH, '_data.py')
+MODULE_ETAG = os.path.join(MODULE_PATH, '_data.etag')
 
 # Maximum file age to accept without checking for a newer version
 MAX_AGE_SEC = 86400
@@ -23,10 +27,10 @@ MAX_AGE_SEC = 86400
 # Get the current file age and entity tag (if it exists)
 age = 1e6
 etag = ''
-if os.path.exists('_data.py'):
-    age = time.time() - os.path.getmtime('_data.py')
-    if os.path.exists('_data.etag'):
-        with open('_data.etag', 'r') as fh:
+if os.path.exists(MODULE_NAME):
+    age = time.time() - os.path.getmtime(MODULE_NAME)
+    if os.path.exists(MODULE_ETAG):
+        with open(MODULE_ETAG, 'r') as fh:
             etag = fh.read()
             
 # If the file is more than MAX_AGE_SEC old, check for an update
@@ -35,9 +39,9 @@ if age > MAX_AGE_SEC:
     opener = urlrequest.build_opener()
     data = opener.open(request)
     if data.headers['etag'] != etag:
-        with open('_data.py', 'wb') as fh:
+        with open(MODULE_NAME, 'wb') as fh:
             fh.write(data.read())
-        with open('_data.etag', 'w') as fh:
+        with open(MODULE_ETAG, 'w') as fh:
             fh.write(data.headers['etag'])
             
 # Load in everything from the module

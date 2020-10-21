@@ -13,7 +13,7 @@ import ephem
 import numpy
 
 from astropy.constants import c as vLight
-vLight = vLight.to('m/s').value
+from astropy.coordinates import AltAz as AstroAltAz
 
 from lsl.common import dp as dp_common
 from lsl.correlator import _core
@@ -21,6 +21,9 @@ from lsl.correlator.fx import pol_to_pols, null_window
 
 __version__ = '0.2'
 __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine']
+
+
+vLight = vLight.to('m/s').value
 
 
 def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=None, central_freq=0.0, Pol='XX', phase_center='z'):
@@ -56,6 +59,9 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
         if isinstance(phase_center, ephem.Body):
             azPC = phase_center.az * 1.0
             elPC = phase_center.alt * 1.0
+        elif isinstance(phase_center, AstroAltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
         else:
             azPC = phase_center[0]*numpy.pi/180.0
             elPC = phase_center[1]*numpy.pi/180.0
@@ -125,6 +131,9 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
         if isinstance(phase_center, ephem.Body):
             azPC = phase_center.az * 1.0
             elPC = phase_center.alt * 1.0
+        elif isinstance(phase_center, AstroAltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
         else:
             azPC = phase_center[0]*numpy.pi/180.0
             elPC = phase_center[1]*numpy.pi/180.0
@@ -200,6 +209,9 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose
         if isinstance(phase_center, ephem.Body):
             azPC = phase_center.az * 1.0
             elPC = phase_center.alt * 1.0
+        elif isinstance(phase_center, AstroAltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
         else:
             azPC = phase_center[0]*numpy.pi/180.0
             elPC = phase_center[1]*numpy.pi/180.0
