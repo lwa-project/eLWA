@@ -24,6 +24,7 @@ try:
 except ImportError:
     from queue import Queue
 from getpass import getuser
+from collections import OrderedDict
 
 from lsl.misc import parser as aph
 
@@ -212,10 +213,13 @@ def main(args):
     configfiles = args.filename
     configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
     ## Threads - processes by nodes so that small jobs are spread across jobs
-    threads = {}
+    threads = OrderedDict()
     for p in xrange(args.processes_per_node):
         for node in args.nodes:
-            threads['%s-%02i' % (node, p)] = None
+            n = p + 0
+            while '%s-%02i' % (node, n) in threads:
+                n += 1
+            threads['%s-%02i' % (node, n)] = None
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
