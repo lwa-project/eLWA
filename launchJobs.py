@@ -325,10 +325,10 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--results-dir', type=str, default="./results",
                         help='directory to put the results in')
     args = parser.parse_args()
-    if not os.path.isdir(args.results_dir):
-        raise RuntimeError('%s is not a directory' % args.results_dir)
-    else:
+    if not os.path.exists(args.results_dir):
         print("Warning: %s does not exist, creating" % args.results_dir)
         os.mkdir(args.results_dir)
+    elif not os.path.isdir(args.results_dir):
+        raise RuntimeError('%s is not a directory' % args.results_dir)
     main(args)
     
