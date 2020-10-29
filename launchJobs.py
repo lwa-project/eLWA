@@ -70,12 +70,12 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
     elif cwd is None:
         pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "']
         if socket is not None:
-            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i --' % (socket, socket)
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
         pcmd[-1] += '%s"' % cmd
     else:
         pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && ' % cwd]
         if socket is not None:
-            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i --' % (socket, socket)
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
         pcmd[-1] += '%s"' % cmd
         
     OUT, ERR = None, None
