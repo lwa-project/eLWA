@@ -53,7 +53,7 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 
 def get_numa_node_count():
     # Query lscpu
-    lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE)
+    lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = lscpu.communicate()
     try:
         output = output.decode()
@@ -75,7 +75,9 @@ def get_numa_support():
     nn = get_numa_node_count()
             
     # Check for the numactl utility
-    numactl = subprocess.call(['which', 'numactl'])
+    devnull = open('/dev/null',  'wb')
+    numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
+    devnull.close()
     
     # If we have more than one NUMA node and numactl we are good to go
     status = False

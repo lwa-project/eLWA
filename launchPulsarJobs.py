@@ -162,7 +162,12 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         return False
         
     # Query the NUMA status
-    _, numa_status = run_command("%s -c 'from __future__ import print_function; import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'" % (sys.executable,), node=node, cwd=cwd)
+    scode, numa_status = run_command("%s -c 'from __future__ import print_function; import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
+    code += scode
+    if code != 0:
+        print("WARNING: failed to determine NUMA status on %s - %s" % (node, os.path.basename(configfile)))
+        returnQueue.put(False)
+        return False
     numa_support, numa_node_count = numa_status.split(None, 1)
     if numa_support == 'False':
         ## Nope, drop the socket number
