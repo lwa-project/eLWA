@@ -52,7 +52,10 @@ def main(args):
                     filename = lines[i-0].rsplit(None, 1)[1]
                     
                     start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
-                    stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S")
+                    try:
+                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S.%f")
                     filename = os.path.basename(filename)
                     filename = filename.split('.')[-5]  ### We only want the scan number
                     
