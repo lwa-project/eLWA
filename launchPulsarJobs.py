@@ -24,6 +24,7 @@ try:
 except ImportError:
     from queue import Queue
 from getpass import getuser
+from collections import OrderedDict
 
 from lsl.misc import parser as aph
 
@@ -74,29 +75,47 @@ def configfile_is_lwa_only(configfile, quiet=True):
     return False if status == 0 else True
 
 
-def run_command(cmd, node=None, cwd=None, quiet=False):
+def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quiet=False):
     if node is None:
         if type(cmd) is list:
             pcmd = cmd
         else:
             pcmd = shlex.split(cmd)
     elif cwd is None:
-        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "%s"' % cmd]
+        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "']
+        if socket is not None:
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
+        pcmd[-1] += '%s"' % cmd
     else:
-        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && %s"' % (cwd, cmd)]
+        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && ' % cwd]
+        if socket is not None:
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
+        pcmd[-1] += '%s"' % cmd
         
-    DEVNULL = None
+    OUT, ERR = None, None
     if quiet:
         DEVNULL = open(os.devnull, 'wb')
-    p = subprocess.Popen(pcmd, stdout=DEVNULL, stderr=DEVNULL)
-    status = p.wait()
+        OUT = DEVNULL
+        ERR = DEVNULL
+    if return_output:
+        OUT = subprocess.PIPE
+    p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
+    output, err = p.communicate()
+    try:
+        output = output.decode()
+        err = err.decode()
+    except AttributeError:
+        pass
+    status = p.returncode
     if quiet:
         DEVNULL.close()
         
+    if return_output:
+        status = (status, output)
     return status
 
 
-def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
+def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
     code = 0
     
     # Create a temporary directory to use
@@ -142,6 +161,21 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         returnQueue.put(False)
         return False
         
+    # Query the NUMA status
+    scode, numa_status = run_command("%s -c 'from __future__ import print_function; import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
+    code += scode
+    if code != 0:
+        print("WARNING: failed to determine NUMA status on %s - %s" % (node, os.path.basename(configfile)))
+        returnQueue.put(False)
+        return False
+    numa_support, numa_node_count = numa_status.split(None, 1)
+    if numa_support == 'False':
+        ## Nope, drop the socket number
+        socket = None
+    else:
+        ## Yep, make sure the socket number is in range
+        socket = socket % int(numa_node_count, 10)
+        
     # Run the correlator
     configfile = os.path.basename(configfile)
     outname, count = os.path.splitext(configfile)
@@ -160,7 +194,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     pythonPathVariable = os.environ.get('PYTHONPATH')
     if pythonPathVariable is not None:
         pythonPath = 'PYTHONPATH=%s' % pythonPathVariable
-    code += run_command('%s %s ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (pythonPath, sys.executable, options, outname, configfile, logfile), node=node, cwd=cwd)
+    code += run_command('%s %s ./superPulsarCorrelator.py %s -g %s %s > %s 2>&1' % (pythonPath, sys.executable, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
     if code != 0:
         print("WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
@@ -221,6 +255,7 @@ def get_idle_slot(threads):
 
 
 def create_lock_file(node):
+    node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         fh = open('/home/%s/correlator%s' % (getuser(), node[6:]), 'w')
         fh.close()
@@ -228,6 +263,7 @@ def create_lock_file(node):
 
 
 def remove_lock_file(node):
+    node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         try:
             os.unlink('/home/%s/correlator%s' % (getuser(), node[6:]))
@@ -244,10 +280,13 @@ def main(args):
     configfiles = args.filename
     configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
     ## Threads - processes by nodes so that small jobs are spread across jobs
-    threads = {}
+    threads = OrderedDict()
     for p in xrange(args.processes_per_node):
         for node in args.nodes:
-            threads['%s-%02i' % (node, p)] = None
+            n = p + 0
+            while '%s-%02i' % (node, n) in threads:
+                n += 1
+            threads['%s-%02i' % (node, n)] = None
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
@@ -266,11 +305,12 @@ def main(args):
     
     # Start
     for slot in sorted(threads.keys()):
-        node, _ = slot.split('-', 1)
+        node, socket = slot.split('-', 1)
+        socket = int(socket, 10)
         
         try:
             configfile, coptions, resultsdir = jobs.pop(0)
-            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
             threads[slot].daemon = True
             threads[slot].start()
             create_lock_file(node)
@@ -290,11 +330,12 @@ def main(args):
         ## Schedule new jobs
         slot = get_idle_slot(threads)
         if slot is not None:
-            node, _ = slot.split('-', 1)
+            node, socket = slot.split('-', 1)
+            socket = int(socket, 10)
             
             try:
                 configfile, coptions, resultsdir = jobs.pop(0)
-                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
                 threads[slot].daemon = True
                 threads[slot].start()
                 print("%s - %s started" % (slot, threads[slot].name))
@@ -359,10 +400,10 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--results-dir', type=str, default="./results",
                         help='directory to put the results in')
     args = parser.parse_args()
-    if not os.path.isdir(args.results_dir):
-        raise RuntimeError('%s is not a directory' % args.results_dir)
-    else:
+    if not os.path.exists(args.results_dir):
         print("Warning: %s does not exist, creating" % args.results_dir)
         os.mkdir(args.results_dir)
+    elif not os.path.isdir(args.results_dir):
+        raise RuntimeError('%s is not a directory' % args.results_dir)
     main(args)
     

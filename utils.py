@@ -15,6 +15,7 @@ import fcntl
 import numpy
 import shutil
 import tempfile
+import subprocess
 from datetime import datetime
 
 from lsl import astro
@@ -28,9 +29,10 @@ from lsl.misc.beamformer import calc_delay
 
 
 __version__ = '0.9'
-__all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
-           'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
-           'nsround', 'read_correlator_configuration', 'get_better_time', 
+__all__ = ['get_numa_node_count', 'get_numa_support', 'InterProcessLock', 
+           'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
+           'multi_column_print', 'parse_time_string', 'nsround', 
+           'read_correlator_configuration', 'get_better_time', 
            'parse_lwa_metadata', 'PolyCos']
 
 
@@ -45,6 +47,42 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "3C196,f|J,08:13:36.06,+48:13:02.6,1",
          "3C286,f|J,13:31:08.29,+30:30:33.0,1",
          "3C295,f|J,14:11:20.47,+52:12:09.5,1", ]
+
+
+def get_numa_node_count():
+    # Query lscpu
+    lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = lscpu.communicate()
+    try:
+        output = output.decode()
+        error = error.decode()
+    except AttributeError:
+        pass
+    output = output.split('\n')
+    
+    # Look for the number of NUMA nodes
+    nn = 1
+    for line in output:
+        if line.find('NUMA node(s)') != -1:
+            nn = int(line.rsplit(':', 1)[1], 10)
+    return nn
+
+
+def get_numa_support():
+    # Check the number of NUMA nodes
+    nn = get_numa_node_count()
+            
+    # Check for the numactl utility
+    devnull = open('/dev/null',  'wb')
+    numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
+    devnull.close()
+    
+    # If we have more than one NUMA node and numactl we are good to go
+    status = False
+    if numactl == 0 and nn > 1:
+        status = True
+        
+    return status
 
 
 class InterProcessLock(object):

@@ -445,99 +445,100 @@ def main(args):
         drxRef  = [0 for j in xrange(nDRXInputs*2) ]
         
         # Read in the data
-        try:
-            dataV *= 0.0
-            dataD *= 0.0
-        except NameError:
-            dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
-            dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
-        for j,f in enumerate(fh):
-            if readers[j] is vdif:
-                ## VDIF
-                k = 0
-                while k < beampols[j]*nFramesV:
-                    try:
-                        cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
-                        buffers[j].append( cFrame )
-                    except errors.SyncError:
-                        print("Error - VDIF @ %i, %i" % (i, j))
-                        f.seek(readers[j].FRAME_SIZE, 1)
-                        continue
-                    except errors.EOFError:
-                        done = True
-                        break
-                        
-                    frames = buffers[j].get()
-                    if frames is None:
-                        continue
-                        
-                    for cFrame in frames:
-                        std,pol = cFrame.id
-                        sid = 2*j + pol
-                        
-                        if k == 0:
-                            tStart.append( cFrame.time )
-                            tStart[-1] = tStart[-1] + grossOffsets[j]
-                            tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                            
-                            for p in (0,1):
-                                psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
-                                
-                        count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
-                        count -= vdifRef[sid]
-                        dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                        k += 1
-                        
-            elif readers[j] is drx:
-                ## DRX
-                k = 0
-                while k < beampols[j]*nFramesD:
-                    try:
-                        cFrame = readers[j].read_frame(f)
-                        buffers[j].append( cFrame )
-                    except errors.SyncError:
-                        print("Error - DRX @ %i, %i" % (i, j))
-                        continue
-                    except errors.EOFError:
-                        done = True
-                        break
-                        
-                    frames = buffers[j].get()
-                    if frames is None:
-                        continue
-                        
-                    for cFrame in frames:
-                        beam,tune,pol = cFrame.id
-                        if tune != vdifPivot:
-                            continue
-                        bid = 2*(j-nVDIFInputs) + pol
-                        
-                        if k == 0:
-                            tStart.append( cFrame.time )
-                            tStart[-1] = tStart[-1] + grossOffsets[j]
-                            tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                            
-                            for p in (0,1):
-                                pbid = 2*(j-nVDIFInputs) + p
-                                drxRef[pbid] = cFrame.payload.timetag
-                                
-                        count = cFrame.payload.timetag
-                        count -= drxRef[bid]
-                        count //= (4096*int(196e6/srate[-1]))
-                        ### Fix from some LWA-SV files that seem to cause the current LSL
-                        ### ring buffer problems
-                        if count < 0:
-                            continue
+        with InterProcessLock('/dev/shm/sc-reader') as lock:
+            try:
+                dataV *= 0.0
+                dataD *= 0.0
+            except NameError:
+                dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
+                dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
+            for j,f in enumerate(fh):
+                if readers[j] is vdif:
+                    ## VDIF
+                    k = 0
+                    while k < beampols[j]*nFramesV:
                         try:
-                            dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                            k += beampols[j]//2
-                        except ValueError:
-                            k = beampols[j]*nFramesD
+                            cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+                            buffers[j].append( cFrame )
+                        except errors.SyncError:
+                            print("Error - VDIF @ %i, %i" % (i, j))
+                            f.seek(readers[j].FRAME_SIZE, 1)
+                            continue
+                        except errors.EOFError:
+                            done = True
                             break
                             
+                        frames = buffers[j].get()
+                        if frames is None:
+                            continue
+                            
+                        for cFrame in frames:
+                            std,pol = cFrame.id
+                            sid = 2*j + pol
+                            
+                            if k == 0:
+                                tStart.append( cFrame.time )
+                                tStart[-1] = tStart[-1] + grossOffsets[j]
+                                tStartB.append( get_better_time(cFrame) )
+                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
+                                
+                                for p in (0,1):
+                                    psid = 2*j + p
+                                    vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
+                                    
+                            count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
+                            count -= vdifRef[sid]
+                            dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                            k += 1
+                            
+                elif readers[j] is drx:
+                    ## DRX
+                    k = 0
+                    while k < beampols[j]*nFramesD:
+                        try:
+                            cFrame = readers[j].read_frame(f)
+                            buffers[j].append( cFrame )
+                        except errors.SyncError:
+                            print("Error - DRX @ %i, %i" % (i, j))
+                            continue
+                        except errors.EOFError:
+                            done = True
+                            break
+                            
+                        frames = buffers[j].get()
+                        if frames is None:
+                            continue
+                            
+                        for cFrame in frames:
+                            beam,tune,pol = cFrame.id
+                            if tune != vdifPivot:
+                                continue
+                            bid = 2*(j-nVDIFInputs) + pol
+                            
+                            if k == 0:
+                                tStart.append( cFrame.time )
+                                tStart[-1] = tStart[-1] + grossOffsets[j]
+                                tStartB.append( get_better_time(cFrame) )
+                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
+                                
+                                for p in (0,1):
+                                    pbid = 2*(j-nVDIFInputs) + p
+                                    drxRef[pbid] = cFrame.payload.timetag
+                                    
+                            count = cFrame.payload.timetag
+                            count -= drxRef[bid]
+                            count //= (4096*int(196e6/srate[-1]))
+                            ### Fix from some LWA-SV files that seem to cause the current LSL
+                            ### ring buffer problems
+                            if count < 0:
+                                continue
+                            try:
+                                dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                                k += beampols[j]//2
+                            except ValueError:
+                                k = beampols[j]*nFramesD
+                                break
+                                
         print('RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead))
         
         # Figure out which DRX tuning corresponds to the VDIF data
