@@ -23,6 +23,7 @@ import ephem
 import numpy
 import argparse
 import tempfile
+import warnings
 from datetime import datetime, timedelta, tzinfo
 
 from astropy.constants import c as vLight
@@ -258,6 +259,7 @@ def main(args):
     # Fill in the data
     for i,filename in enumerate(filenames):
         ## Load in the integration
+        group = os.path.basename(filename).split('-vis2-', 1)[0]
         dataDict = numpy.load(filename)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
@@ -270,6 +272,23 @@ def main(args):
             pass
         blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
         
+        ## Make sure the frequencies are compatible
+        cFreq = dataDict['freq1']
+        if cFreq.size != freq.size:
+            error_msg = "Incompatible frequencies at %s: %i != %i" % (group, cFreq.size, freq.size)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+        elif cFreq[0] != freq[0]:
+            error_msg = "Incompatible frequencies at %s: %.3f MHz != %.3f MHz" % (group, cFreq[0]/1e6, freq[0]/1e6)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+                
         tStart = dataDict['tStart'].item()
         tInt = dataDict['tInt'].item()
         visXX = dataDict['vis1XX'].astype(numpy.complex64)
@@ -426,6 +445,8 @@ if __name__ == "__main__":
                         help='convert to circular polarization')
     pgroup.add_argument('-k', '--stokes', action='store_true', 
                         help='convert to Stokes parameters')
+    parser.add_argument('-i', '--ignore-incompatible', action='store_true',
+                        help='skip over files with incompatible frequency setups')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     parser.add_argument('-l', '--limit', type=int, default=-1, 
