@@ -553,11 +553,11 @@ def read_correlator_configuration(filename_or_npz):
         # Configuration file - oh, and check for a 'Polyco' definition
         cConfig = dataDict['config']
         tempConfig = os.path.join(tempdir, 'config.txt')
-        fh = open(tempConfig, 'w')
+        fh = open(tempConfig, 'wb')
         polycos = None
         for line in cConfig:
-            fh.write('%s' % line)
-            if line.find('Polyco') != -1:
+            fh.write(line)
+            if line.find(b'Polyco') != -1:
                 polycos = line.strip().rstrip()
         fh.close()
         
@@ -567,9 +567,9 @@ def read_correlator_configuration(filename_or_npz):
             tempPolycos = os.path.join(tempdir, tempPolycos)
             try:
                 cPolycos = dataDict['polycos']
-                fh = open(tempPolycos, 'w')
+                fh = open(tempPolycos, 'wb')
                 for line in cPolycos:
-                    fh.write('%s' % line)
+                    fh.write(line)
                 fh.close()
             except KeyError:
                 pass
