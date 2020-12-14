@@ -553,11 +553,15 @@ def read_correlator_configuration(filename_or_npz):
         # Configuration file - oh, and check for a 'Polyco' definition
         cConfig = dataDict['config']
         tempConfig = os.path.join(tempdir, 'config.txt')
-        fh = open(tempConfig, 'wb')
+        fh = open(tempConfig, 'w')
         polycos = None
         for line in cConfig:
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
             fh.write(line)
-            if line.find(b'Polyco') != -1:
+            if line.find('Polyco') != -1:
                 polycos = line.strip().rstrip()
         fh.close()
         
