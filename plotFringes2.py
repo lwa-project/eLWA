@@ -165,7 +165,7 @@ def main(args):
     delay = numpy.linspace(-350e-6, 350e-6, 301)		# s
     drate = numpy.linspace(-150e-3, 150e-3, 301)		# Hz
     
-    good = numpy.arange(freq.size/8, freq.size*7/8)		# Inner 75% of the band
+    good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
     
     fig1 = plt.figure()
     fig2 = plt.figure()
