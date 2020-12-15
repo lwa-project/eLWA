@@ -305,19 +305,13 @@ def main(args):
                 doConj = True
                 
             ## Figure out which polarizations to process
-            if i not in (51, 52) and j not in (51, 52):
-                ### Standard VLA-VLA baseline
-                polToUse = ('XX', 'XY', 'YX', 'YY')
-                visToUse = (0, 2, 3, 1)
+            if args.cross_hands:
+                polToUse = ('XX', 'XY', 'YY')
+                visToUse = (0, 2, 1)
             else:
-                ### LWA-LWA or LWA-VLA baseline
-                if args.y_only:
-                    polToUse = ('YX', 'YY')
-                    visToUse = (3, 1)
-                else:
-                    polToUse = ('XX', 'XY', 'YX', 'YY')
-                    visToUse = (0, 2, 3, 1)
-                    
+                polToUse = ('XX', 'YY')
+                visToUse = (0, 1)
+                
             blName = (i, j)
             if doConj:
                 blName = (j, i)
@@ -428,8 +422,8 @@ if __name__ == "__main__":
                         help='frequency decimation factor')
     parser.add_argument('-l', '--limit', type=int, default=-1, 
                         help='limit the data loaded to the first N files, -1 = load all')
-    parser.add_argument('-y', '--y-only', action='store_true', 
-                        help='limit the search on VLA-LWA baselines to the VLA Y pol. only')
+    parser.add_argument('-c', '--cross-hands', action='store_true', 
+                        help='include XY/YX in the plots')
     parser.add_argument('-e', '--delay-window', type=str, default='-inf,inf', 
                         help='delay search window in us; defaults to maximum allowed')
     parser.add_argument('-a', '--rate-window', type=str, default='-inf,inf', 
