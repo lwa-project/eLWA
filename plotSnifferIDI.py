@@ -374,7 +374,7 @@ def main(args):
         
         # Legend and reference marks
         handles, labels = axA.get_legend_handles_labels()
-        axA.legend(handles[::iCount], labels[::iCount], loc=0)
+        axA.legend(handles[:(3 if args.cross_hands else 2)], labels[:(3 if args.cross_hands else 2)], loc=0)
         oldLim = axR.get_xlim()
         for ax in (axR, axD, axP):
             ax.hlines(0, oldLim[0], oldLim[1], linestyle=':', alpha=0.5)
