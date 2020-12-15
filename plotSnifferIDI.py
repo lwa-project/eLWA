@@ -375,6 +375,9 @@ def main(args):
                         
         first = False
         
+    for blName in figs:
+        fig, axR, axD, axP, axA = figs[blName]
+        
         # Legend and reference marks
         handles, labels = axA.get_legend_handles_labels()
         axA.legend(handles[::iCount], labels[::iCount], loc=0)
@@ -401,6 +404,8 @@ def main(args):
         axD.set_ylim((-max([abs(v) for v in axD.get_ylim()]), max([abs(v) for v in axD.get_ylim()])))
         ax.set_ylim((-180,180))
         axA.set_ylim((0,axA.get_ylim()[1]))
+        
+        fig.tight_layout()
         plt.draw()
         
     plt.show()
