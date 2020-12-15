@@ -156,20 +156,21 @@ def main(args):
                     mask[btmask,b,cStart-1:cStop,:] |= pol
                     
         # Make sure the reference antenna is in there
-        if args.ref_ant is None:
-            bl = bls[0]
-            i,j = (bl>>8)&0xFF, bl&0xFF
-            args.ref_ant = i
-        else:
-            found = False
-            for bl in bls:
+        if first:
+            if args.ref_ant is None:
+                bl = bls[0]
                 i,j = (bl>>8)&0xFF, bl&0xFF
-                if i == args.ref_ant:
-                    found = True
-                    break
-            if not found:
-                raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
-                
+                args.ref_ant = i
+            else:
+                found = False
+                for bl in bls:
+                    i,j = (bl>>8)&0xFF, bl&0xFF
+                    if i == args.ref_ant:
+                        found = True
+                        break
+                if not found:
+                    raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
+                    
         plot_bls = []
         cross = []
         for i in xrange(len(ubls)):
@@ -267,7 +268,6 @@ def main(args):
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
-        print(flux.shape, spec.shape)
         for i in xrange(smth.size):
             mn = max([0, i-winSize//2])
             mx = min([i+winSize, smth.size])
@@ -324,7 +324,7 @@ def main(args):
             blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
                                 'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
                             
-            if first:
+            if first or blName not in figs:
                 fig = plt.figure()
                 fig.suptitle('%s' % blName)
                 fig.subplots_adjust(hspace=0.001)
