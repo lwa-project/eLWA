@@ -40,6 +40,7 @@ def main(args):
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
     
+    figs = {}
     first = True
     for filename in args.filename:
         print("Working on '%s'" % os.path.basename(filename))
@@ -282,7 +283,6 @@ def main(args):
         freq2.shape += (1,)
         
         dirName = os.path.basename( filename )
-        figs = {}
         for b in xrange(len(plot_bls)):
             bl = plot_bls[b]
             valid = numpy.where( bls == bl )[0]
