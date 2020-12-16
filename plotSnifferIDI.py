@@ -402,7 +402,11 @@ def main(args):
         fig.tight_layout()
         plt.draw()
         
-    plt.show()
+        if args.save_images:
+            fig.savefig('sniffer-%s.png' % blName)
+            
+    if not args.save_images:
+        plt.show()
 
 
 if __name__ == "__main__":
@@ -430,6 +434,8 @@ if __name__ == "__main__":
                         help='rate search window in mHz; defaults to maximum allowed')
     parser.add_argument('-i', '--interval', type=float, default=30.0, 
                         help='fringe search interveral in seconds')
+    parser.add_argument('-s', '--save-images', action='store_true',
+                        help='save the output images as PNGs rather than displaying them')
     args = parser.parse_args()
     main(args)
     
