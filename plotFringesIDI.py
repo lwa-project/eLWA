@@ -288,7 +288,7 @@ def main(args):
             f.subplots_adjust(wspace=0.0)
             
         if args.save_images:
-            fig.savefig('fringes-%i.png' % i)
+            f.savefig('fringes-%i.png' % i)
         i += 1
         
     if not args.save_images:
