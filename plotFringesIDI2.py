@@ -1,0 +1,315 @@
+#!/usr/bin/env python
+
+"""
+A FITS-IDI compatible version of plotFringes2.py.
+"""
+
+# Python3 compatibility
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    
+import os
+import sys
+import numpy
+from astropy.io import fits as astrofits
+import argparse
+from datetime import datetime
+
+from scipy.stats import scoreatpercentile as percentile
+
+from lsl.astro import utcjd_to_unix
+from lsl.writer.fitsidi import NUMERIC_STOKES
+from lsl.misc import parser as aph
+
+from matplotlib import pyplot as plt
+
+
+def main(args):
+    # Parse the command line
+    ## Baseline list
+    if args.baseline is not None:
+        ## Fill the baseline list with the conjugates, if needed
+        newBaselines = []
+        for pair in args.baseline:
+            newBaselines.append( (pair[1],pair[0]) )
+        args.baseline.extend(newBaselines)
+    ## Polarization
+    plot_pols = []
+    if args.xx:
+        plot_pols.append('XX')
+    elif args.xy:
+        plot_pols.append('XY')
+    elif args.yx:
+        plot_pols.append('YX')
+    elif args.yy:
+        plot_pols.append('YY')
+    filename = args.filename
+    
+    figs = {}
+    first = True
+    for filename in args.filename:
+        print("Working on '%s'" % os.path.basename(filename))
+        # Open the FITS IDI file and access the UV_DATA extension
+        hdulist = astrofits.open(filename, mode='readonly')
+        andata = hdulist['ANTENNA']
+        fqdata = hdulist['FREQUENCY']
+        fgdata = None
+        for hdu in hdulist[1:]:
+                if hdu.header['EXTNAME'] == 'FLAG':
+                    fgdata = hdu
+        uvdata = hdulist['UV_DATA']
+        
+        # Pull out various bits of information we need to flag the file
+        ## Antenna look-up table
+        antLookup = {}
+        for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
+            antLookup[an] = ai
+        ## Frequency and polarization setup
+        nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
+        stk0 = uvdata.header['STK_1']
+        ## Baseline list
+        bls = uvdata.data['BASELINE']
+        ## Time of each integration
+        obsdates = uvdata.data['DATE']
+        obstimes = uvdata.data['TIME']
+        inttimes = uvdata.data['INTTIM']
+        ## Source list
+        srcs = uvdata.data['SOURCE']
+        ## Band information
+        fqoffsets = fqdata.data['BANDFREQ'].ravel()
+        ## Frequency channels
+        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq += uvdata.header['CRVAL3']
+        ## UVW coordinates
+        u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
+        uvw = numpy.array([u, v, w]).T
+        ## The actual visibility data
+        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        
+        # Convert the visibilities to something that we can easily work with
+        nComp = flux.shape[1] // nBand // nFreq // nStk
+        if nComp == 2:
+            ## Case 1) - Just real and imaginary data
+            flux = flux.view(numpy.complex64)
+        else:
+            ## Case 2) - Real, imaginary data + weights (drop the weights)
+            flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
+        flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+        
+        # Find unique baselines, times, and sources to work with
+        ubls = numpy.unique(bls)
+        utimes = numpy.unique(obstimes)
+        usrc = numpy.unique(srcs)
+        
+        # Convert times to real times
+        times = utcjd_to_unix(obsdates + obstimes)
+        times = numpy.unique(times)
+        
+        # Build a mask
+        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        if fgdata is not None and not args.drop:
+            reltimes = obsdates - obsdates[0] + obstimes
+            maxtimes = reltimes + inttimes / 2.0 / 86400.0
+            mintimes = reltimes - inttimes / 2.0 / 86400.0
+            
+            bls_ant1 = bls//256
+            bls_ant2 = bls%256
+            
+            for row in fgdata.data:
+                ant1, ant2 = row['ANTS']
+                
+                ## Only deal with flags that we need for the plots
+                process_flag = False
+                if args.include_auto or ant1 != ant2 or ant1 == 0 or ant2 == 0:
+                    if ant1 == 0 and ant2 == 0:
+                        process_flag = True
+                    elif args.baseline is not None:
+                        if ant2 == 0 and ant1 in [a0 for a0,a1 in args.baseline]:
+                            process_flag = True
+                        elif (ant1,ant2) in args.baseline:
+                            process_flag = True
+                    elif args.ref_ant is not None:
+                        if ant1 == args.ref_ant or ant2 == args.ref_ant:
+                            process_flag = True
+                    else:
+                        process_flag = True
+                if not process_flag:
+                    continue
+                    
+                tStart, tStop = row['TIMERANG']
+                band = row['BANDS']
+                try:
+                    len(band)
+                except TypeError:
+                    band = [band,]
+                cStart, cStop = row['CHANS']
+                if cStop == 0:
+                    cStop = -1
+                pol = row['PFLAGS'].astype(numpy.bool)
+                
+                if ant1 == 0 and ant2 == 0:
+                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                elif ant1 == 0 or ant2 == 0:
+                    ant1 = max([ant1, ant2])
+                    btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                else:
+                    btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                for b,v in enumerate(band):
+                    if not v:
+                        continue
+                    mask[btmask,b,cStart-1:cStop,:] |= pol
+                    
+        plot_bls = []
+        cross = []
+        for i in xrange(len(ubls)):
+            bl = ubls[i]
+            ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
+            if args.include_auto or ant1 != ant2:
+                if args.baseline is not None:
+                    if (ant1,ant2) in args.baseline:
+                        plot_bls.append( bl )
+                        cross.append( i )
+                elif args.ref_ant is not None:
+                    if ant1 == args.ref_ant or ant2 == args.ref_ant:
+                        plot_bls.append( bl )
+                        cross.append( i )
+                else:
+                    plot_bls.append( bl )
+                    cross.append( i )
+        nBL = len(cross)
+        
+        # Decimation, if needed
+        if args.decimate > 1:
+            if nFreq % args.decimate != 0:
+                raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+
+            nFreq //= args.decimate
+            freq.shape = (freq.size//args.decimate, args.decimate)
+            freq = freq.mean(axis=1)
+            
+            flux.shape = (flux.shape[0], flux.shape[1], flux.shape[2]//args.decimate, args.decimate, flux.shape[3])
+            flux = flux.mean(axis=3)
+            
+            mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
+            mask = mask.mean(axis=3)
+            
+        good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
+        
+        # NOTE: Assumes that the Stokes parameters increment by -1
+        namMapper = {}
+        for i in xrange(nStk):
+            stk = stk0 - i
+            namMapper[i] = NUMERIC_STOKES[stk]
+        polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
+        
+        for b in xrange(len(plot_bls)):
+            bl = plot_bls[b]
+            valid = numpy.where( bls == bl )[0]
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            dTimes = obsdates[valid] + obstimes[valid]
+            dTimes -= dTimes[0]
+            dTimes *= 86400.0
+            
+            for p in plot_pols:
+                blName = (i, j)
+                blName = '%s-%s - %s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
+                                         'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50),
+                                         namMapper[polMapper[p]])
+                
+                if first or blName not in figs:
+                    fig = plt.figure()
+                    fig.suptitle('%s' % blName)
+                    fig.subplots_adjust(hspace=0.001)
+                    ax1 = fig.add_subplot(3, 2, 1)
+                    ax2 = fig.add_subplot(3, 2, 2)
+                    ax3 = fig.add_subplot(3, 2, 3)
+                    ax4 = fig.add_subplot(3, 2, 4)
+                    ax5 = fig.add_subplot(3, 2, 5)
+                    figs[blName] = (fig, ax1, ax2, ax3, ax4, ax5)
+                fig, ax1, ax2, ax3, ax4, ax5 = figs[blName]
+                
+                for band,offset in enumerate(fqoffsets):
+                    frq = freq + offset
+                    vis = numpy.ma.array(flux[valid,band,:,polMapper[p]], mask=mask[valid,band,:,polMapper[p]])
+                    
+                    ax1.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+                    
+                    amp = numpy.ma.abs(vis)
+                    vmin, vmax = percentile(amp, 1), percentile(amp, 99)
+                    ax2.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
+                    
+                    ax3.plot(frq/1e6, numpy.ma.abs(vis.mean(axis=0)))
+                    
+                    ax4.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+                    ax4.set_xlim((-180, 180))
+                    
+                    ax5.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+                    
+    for blName in figs:
+        fig, ax1, ax2, ax3, ax4, ax5 = figs[blName]
+        
+        fig.suptitle("%s to %s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"),
+                                                datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M"),
+                                                blName))
+        
+        ax1.axis('auto')
+        ax1.set_xlabel('Frequency [MHz]')
+        ax1.set_ylabel('Elapsed Time [s]')
+        
+        ax2.axis('auto')
+        ax2.set_xlabel('Frequency [MHz]')
+        ax2.set_ylabel('Elapsed Time [s]')
+        
+        ax3.set_xlabel('Frequency [MHz]')
+        ax3.set_ylabel('Mean Vis. Amp. [lin.]')
+        
+        ax4.set_xlabel('Mean Vis. Phase [deg]')
+        ax4.set_ylabel('Elapsed Time [s]')
+        
+        ax5.set_xlabel('Mean Vis. Amp. [lin.]')
+        ax5.set_ylabel('Elapsed Time [s]')
+        
+        fig.tight_layout()
+        if args.save_images:
+            fig.savefig('fringes-%s.png' % (blName.replace(' ', ''),))
+            
+    if not args.save_images:
+        plt.show()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='given a FITS-IDI file, create plots of the visibilities', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+',
+                        help='filename to process')
+    parser.add_argument('-r', '--ref-ant', type=int, 
+                        help='limit plots to baselines containing the reference antenna')
+    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+                        help="limit plots to the specified baseline in 'ANT-ANT' format")
+    parser.add_argument('-o', '--drop', action='store_true', 
+                        help='drop FLAG table when displaying')
+    parser.add_argument('-a', '--include-auto', action='store_true', 
+                         help='display the auto-correlations along with the cross-correlations')
+    parser.add_argument('-x', '--xx', action='store_true', 
+                        help='plot XX or RR data')
+    parser.add_argument('-z', '--xy', action='store_true', 
+                        help='plot XY or RL data')
+    parser.add_argument('-w', '--yx', action='store_true', 
+                        help='plot YX or LR data')
+    parser.add_argument('-y', '--yy', action='store_true', 
+                        help='plot YY or LL data')
+    parser.add_argument('-d', '--decimate', type=int, default=1, 
+                        help='frequency decimation factor')
+    parser.add_argument('-s', '--save-images', action='store_true',
+                        help='save the output images as PNGs rather than displaying them')
+    args = parser.parse_args()
+    if not args.xx and not args.xy and not args.yx and not args.yy:
+        raise RuntimeError("Must specify at least one polarization to plot")
+    main(args)
+    

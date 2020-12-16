@@ -281,18 +281,12 @@ def main(args):
                     
         k += 1
         
-    i = 0
     for f in (fig1, fig2, fig3, fig4, fig5):
         f.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
         if nBand > 1:
             f.subplots_adjust(wspace=0.0)
             
-        if args.save_images:
-            f.savefig('fringes-%i.png' % i)
-        i += 1
-        
-    if not args.save_images:
-        plt.show()
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -321,8 +315,6 @@ if __name__ == "__main__":
                         help='plot YY or LL data')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
-    parser.add_argument('-s', '--save-images', action='store_true',
-                        help='save the output images as PNGs rather than displaying them')
     args = parser.parse_args()
     main(args)
     
