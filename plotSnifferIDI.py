@@ -292,7 +292,7 @@ def main(args):
             
             ## Skip over baselines that are not in the baseline list (if provided)
             if args.baseline is not None:
-                if bl not in args.baseline:
+                if (i,j) not in args.baseline:
                     continue
             ## Skip over baselines that don't include the reference antenna
             elif i != args.ref_ant and j != args.ref_ant:
