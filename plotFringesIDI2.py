@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 """
-A FITS-IDI compatible version of plotFringes2.py.
+A FITS-IDI compatible version of plotFringes2.py geared towards diagnostic
+plots.
 """
 
 # Python3 compatibility
@@ -227,58 +228,42 @@ def main(args):
                     fig = plt.figure()
                     fig.suptitle('%s' % blName)
                     fig.subplots_adjust(hspace=0.001)
-                    ax1 = fig.add_subplot(3, 2, 1)
-                    ax2 = fig.add_subplot(3, 2, 2)
-                    ax3 = fig.add_subplot(3, 2, 3)
-                    ax4 = fig.add_subplot(3, 2, 4)
-                    ax5 = fig.add_subplot(3, 2, 5)
-                    figs[blName] = (fig, ax1, ax2, ax3, ax4, ax5)
-                fig, ax1, ax2, ax3, ax4, ax5 = figs[blName]
+                    axA = fig.add_subplot(1, 2, 1)
+                    axP = fig.add_subplot(1, 2, 2)
+                    figs[blName] = (fig, axA, axP)
+                fig, axA, axP = figs[blName]
                 
                 for band,offset in enumerate(fqoffsets):
                     frq = freq + offset
                     vis = numpy.ma.array(flux[valid,band,:,polMapper[p]], mask=mask[valid,band,:,polMapper[p]])
                     
-                    ax1.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
-                    
                     amp = numpy.ma.abs(vis)
                     vmin, vmax = percentile(amp, 1), percentile(amp, 99)
-                    ax2.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
+                    axA.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
                     
-                    ax3.plot(frq/1e6, numpy.ma.abs(vis.mean(axis=0)))
-                    
-                    ax4.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
-                    ax4.set_xlim((-180, 180))
-                    
-                    ax5.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+                    axP.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
                     
         first = False
 
     for blName in figs:
-        fig, ax1, ax2, ax3, ax4, ax5 = figs[blName]
+        fig, axA, axP = figs[blName]
         
         fig.suptitle("%s to %s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"),
                                                 datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M"),
                                                 blName))
         
-        ax1.axis('auto')
-        ax1.set_xlabel('Frequency [MHz]')
-        ax1.set_ylabel('Elapsed Time [s]')
+        axA.axis('auto')
+        axA.set_title('Amp.')
+        axA.set_xlabel('Frequency [MHz]')
+        axA.set_ylabel('Elapsed Time [s]')
         
-        ax2.axis('auto')
-        ax2.set_xlabel('Frequency [MHz]')
-        ax2.set_ylabel('Elapsed Time [s]')
-        
-        ax3.set_xlabel('Frequency [MHz]')
-        ax3.set_ylabel('Mean Vis. Amp. [lin.]')
-        
-        ax4.set_xlabel('Mean Vis. Phase [deg]')
-        ax4.set_ylabel('Elapsed Time [s]')
-        
-        ax5.set_xlabel('Mean Vis. Amp. [lin.]')
-        ax5.set_ylabel('Elapsed Time [s]')
+        axP.axis('auto')
+        axP.set_title('Phase')
+        axP.set_xlabel('Frequency [MHz]')
+        axP.set_ylabel('Elapsed Time [s]')
         
         fig.tight_layout()
+        
         if args.save_images:
             fig.savefig('fringes-%s.png' % (blName.replace(' ', ''),))
             
