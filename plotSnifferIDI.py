@@ -25,6 +25,8 @@ from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle as Box
 
 
 def main(args):
@@ -361,9 +363,9 @@ def main(args):
                         brat = drate[best[1][0]]*1e3
                         
                         c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
-                                        cmap='gist_yarg', vmin=5, vmax=40)
+                                        cmap='gist_yarg', vmin=3, vmax=40)
                         c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
-                                        cmap='gist_yarg', vmin=5, vmax=40, label=pol)
+                                        cmap='gist_yarg', vmin=3, vmax=40)
                         
         first = False
         
@@ -374,27 +376,30 @@ def main(args):
         cb = fig.colorbar(c, ax=axR, orientation='horizontal')
         cb.set_label('SNR')
         # Legend and reference marks
-        handles, labels = axD.get_legend_handles_labels()
-        axD.legend(handles[::iCount], labels[::iCount], loc=0)
+        handles = []
+        for pol in polToUse:
+            handles.append(Line2D([0,], [0,], linestyle='', marker=markers[pol], color='k', label=pol))
+        axR.legend(handles=handles, loc=0)
         oldLim = axR.get_xlim()
         for ax in (axR, axD):
             ax.hlines(0, oldLim[0], oldLim[1], linestyle=':', alpha=0.5)
         axR.set_xlim(oldLim)
-        # Turn off redundant x-axis tick labels
-        xticklabels = axR.get_xticklabels() + axD.get_xticklabels()
-        plt.setp(xticklabels, visible=False)
-        for ax in (axR, axD):
-            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
-        # Flip the y axis tick labels on every other plot
-        for ax in (axR,):
-            ax.yaxis.set_label_position('right')
-            ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
-        # Get the labels
+        # Set the labels
         axR.set_ylabel('Rate [mHz]')
         axD.set_ylabel('Delay [$\\mu$s]')
+        for ax in (axR, axD):
+            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
         # Set the y ranges
         axR.set_ylim((-max([100, max([abs(v) for v in axR.get_ylim()])]), max([100, max([abs(v) for v in axR.get_ylim()])])))
-        axD.set_ylim((-max([1,   max([abs(v) for v in axD.get_ylim()])]), max([1,   max([abs(v) for v in axD.get_ylim()])])))
+        axD.set_ylim((-max([0.5, max([abs(v) for v in axD.get_ylim()])]), max([0.5, max([abs(v) for v in axD.get_ylim()])])))
+        # No-go regions for the delays
+        xlim, ylim = axD.get_xlim(), axD.get_ylim()
+        axD.add_patch(Box(xy=(xlim[0],ylim[0]), width=xlim[1]-xlim[0], height=-0.5001-ylim[0],
+                          fill=True, color='red', alpha=0.2))
+        axD.add_patch(Box(xy=(xlim[0],0.5001), width=xlim[1]-xlim[0], height=ylim[1]-0.5001,
+                          fill=True, color='red', alpha=0.2))
+        axD.set_xlim(xlim)
+        axD.set_ylim(ylim)
         
         fig.tight_layout()
         plt.draw()
