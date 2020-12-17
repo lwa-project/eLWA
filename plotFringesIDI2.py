@@ -251,14 +251,13 @@ def main(args):
         fig.suptitle("%s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), blName))
         
         axA.axis('auto')
+        axA.set_title('Amp.')
         axA.set_xlabel('Frequency [MHz]')
         axA.set_ylabel('Amp. - Elapsed Time [s]')
         
         axP.axis('auto')
+        axP.set_title('Phase')
         axP.set_xlabel('Frequency [MHz]')
-        axP.set_ylabel('Phase - Elapsed Time [s]')
-        
-        fig.tight_layout()
         
         if args.save_images:
             fig.savefig('fringes-%s.png' % (blName.replace(' ', ''),))
