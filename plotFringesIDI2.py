@@ -248,19 +248,15 @@ def main(args):
     for blName in figs:
         fig, axA, axP = figs[blName]
         
-        fig.suptitle("%s to %s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"),
-                                                datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M"),
-                                                blName))
+        fig.suptitle("%s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), blName))
         
         axA.axis('auto')
-        axA.set_title('Amp.')
         axA.set_xlabel('Frequency [MHz]')
-        axA.set_ylabel('Elapsed Time [s]')
+        axA.set_ylabel('Amp. - Elapsed Time [s]')
         
         axP.axis('auto')
-        axP.set_title('Phase')
         axP.set_xlabel('Frequency [MHz]')
-        axP.set_ylabel('Elapsed Time [s]')
+        axP.set_ylabel('Phase - Elapsed Time [s]')
         
         fig.tight_layout()
         
