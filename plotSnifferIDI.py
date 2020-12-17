@@ -322,12 +322,10 @@ def main(args):
                 fig = plt.figure()
                 fig.suptitle('%s' % blName)
                 fig.subplots_adjust(hspace=0.001)
-                axR = fig.add_subplot(4, 1, 1)
-                axD = fig.add_subplot(4, 1, 2, sharex=axR)
-                axP = fig.add_subplot(4, 1, 3, sharex=axR)
-                axA = fig.add_subplot(4, 1, 4, sharex=axR)
-                figs[blName] = (fig, axR, axD, axP, axA)
-            fig, axR, axD, axP, axA = figs[blName]
+                axR = fig.add_subplot(2, 1, 1)
+                axD = fig.add_subplot(2, 1, 2, sharex=axR)
+                figs[blName] = (fig, axR, axD)
+            fig, axR, axD = figs[blName]
             
             markers = {'XX':'s', 'YY':'o', 'XY':'v', 'YX':'^'}
             
@@ -362,42 +360,41 @@ def main(args):
                         bdly = delay[best[0][0]]*1e6
                         brat = drate[best[1][0]]*1e3
                         
-                        axR.plot(subTime-ref_time, brat, linestyle='', marker=markers[pol], color='k')
-                        axD.plot(subTime-ref_time, bdly, linestyle='', marker=markers[pol], color='k')
-                        axP.plot(subTime-ref_time, subPhase, linestyle='', marker=markers[pol], color='k')
-                        axA.plot(subTime-ref_time, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
+                        c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
+                                        cmap='gist_yarg', vmin=5, vmax=40)
+                        c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
+                                        cmap='gist_yarg', vmin=5, vmax=40, label=pol)
                         
         first = False
         
     for blName in figs:
-        fig, axR, axD, axP, axA = figs[blName]
+        fig, axR, axD = figs[blName]
         
+        # Colorbar
+        cb = fig.colorbar(c, ax=axR, orientation='horizontal')
+        cb.set_label('SNR')
         # Legend and reference marks
-        handles, labels = axA.get_legend_handles_labels()
-        axA.legend(handles[:(3 if args.cross_hands else 2)], labels[:(3 if args.cross_hands else 2)], loc=0)
+        handles, labels = axD.get_legend_handles_labels()
+        axD.legend(handles[::iCount], labels[::iCount], loc=0)
         oldLim = axR.get_xlim()
-        for ax in (axR, axD, axP):
+        for ax in (axR, axD):
             ax.hlines(0, oldLim[0], oldLim[1], linestyle=':', alpha=0.5)
         axR.set_xlim(oldLim)
         # Turn off redundant x-axis tick labels
-        xticklabels = axR.get_xticklabels() + axD.get_xticklabels() + axP.get_xticklabels()
+        xticklabels = axR.get_xticklabels() + axD.get_xticklabels()
         plt.setp(xticklabels, visible=False)
-        for ax in (axR, axD, axP, axA):
+        for ax in (axR, axD):
             ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
         # Flip the y axis tick labels on every other plot
-        for ax in (axR, axP):
+        for ax in (axR,):
             ax.yaxis.set_label_position('right')
             ax.tick_params(axis='y', which='both', labelleft='off', labelright='on')
         # Get the labels
         axR.set_ylabel('Rate [mHz]')
         axD.set_ylabel('Delay [$\\mu$s]')
-        axP.set_ylabel('Phase [$^\\circ$]')
-        axA.set_ylabel('Amp.$\\times10^3$')
         # Set the y ranges
-        axR.set_ylim((-max([abs(v) for v in axR.get_ylim()]), max([abs(v) for v in axR.get_ylim()])))
-        axD.set_ylim((-max([abs(v) for v in axD.get_ylim()]), max([abs(v) for v in axD.get_ylim()])))
-        ax.set_ylim((-180,180))
-        axA.set_ylim((0,axA.get_ylim()[1]))
+        axR.set_ylim((-max([100, max([abs(v) for v in axR.get_ylim()])]), max([100, max([abs(v) for v in axR.get_ylim()])])))
+        axD.set_ylim((-max([1,   max([abs(v) for v in axD.get_ylim()])]), max([1,   max([abs(v) for v in axD.get_ylim()])])))
         
         fig.tight_layout()
         plt.draw()
