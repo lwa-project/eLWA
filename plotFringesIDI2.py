@@ -39,11 +39,11 @@ def main(args):
     plot_pols = []
     if args.xx:
         plot_pols.append('XX')
-    elif args.xy:
+    if args.xy:
         plot_pols.append('XY')
-    elif args.yx:
+    if args.yx:
         plot_pols.append('YX')
-    elif args.yy:
+    if args.yy:
         plot_pols.append('YY')
     filename = args.filename
     
@@ -198,7 +198,10 @@ def main(args):
             mask = mask.mean(axis=3)
             
         good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
-        
+
+        if first:
+            ref_time = obsdates[0] + obstimes[0]
+            
         # NOTE: Assumes that the Stokes parameters increment by -1
         namMapper = {}
         for i in xrange(nStk):
@@ -211,7 +214,7 @@ def main(args):
             valid = numpy.where( bls == bl )[0]
             i,j = (bl>>8)&0xFF, bl&0xFF
             dTimes = obsdates[valid] + obstimes[valid]
-            dTimes -= dTimes[0]
+            dTimes -= ref_time
             dTimes *= 86400.0
             
             for p in plot_pols:
@@ -249,6 +252,8 @@ def main(args):
                     
                     ax5.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
                     
+        first = False
+
     for blName in figs:
         fig, ax1, ax2, ax3, ax4, ax5 = figs[blName]
         
