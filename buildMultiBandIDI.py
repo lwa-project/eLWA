@@ -292,14 +292,17 @@ def main(args):
         ## Make sure the frequencies are compatible - lower band
         cFreq = dataDict['freq1']
         if cFreq.size != freqL.size:
-            error_msg = "Incompatible frequencies at %s, lower band: %i != %i" % (group, cFreq.size, freqL.size)
+            error_msg = "Incompatible frequencies at %s, lower band: %i != %i" % (group,
+                                                                                  cFreq.size, freqL.size)
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
             else:
                 raise RuntimeError(error_msg)
-        elif cFreq[0] != freqL[0]:
-            error_msg = "Incompatible frequencies at %s, lower band: %.3f MHz != %.3f MHz" % (group, cFreq[0]/1e6, freqL[0]/1e6)
+        elif cFreq[0] != freqL[0] or cFreq[-1] != freqL[-1]:
+            error_msg = "Incompatible frequencies at %s, lower band: %.3f MHz != %.3f MHz or %.3f != %.3f MHz" % (group,
+                                                                                                                  cFreq[ 0]/1e6, freqL[ 0]/1e6,
+                                                                                                                  cFreq[-1]/1e6, freqL[-1]/1e6)
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
@@ -336,8 +339,10 @@ def main(args):
                 continue
             else:
                 raise RuntimeError(error_msg)
-        elif cFreq[0] != freqH[0]:
-            error_msg = "Incompatible frequencies at %s, upper band: %.3f MHz != %.3f MHz" % (group, cFreq[0]/1e6, freqH[0]/1e6)
+        elif cFreq[0] != freqH[0] or cFreq[-1] != freqH[-1]:
+            error_msg = "Incompatible frequencies at %s, upper band: %.3f MHz != %.3f MHz or %.3f MHz != %.3f MHz" % (group,
+                                                                                                                      cFreq[ 0]/1e6, freqH[ 0]/1e6,
+                                                                                                                      cFreq[-1]/1e6, freqH[-1]/1e6)
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue

@@ -275,14 +275,17 @@ def main(args):
         ## Make sure the frequencies are compatible
         cFreq = dataDict['freq1']
         if cFreq.size != freq.size:
-            error_msg = "Incompatible frequencies at %s: %i != %i" % (group, cFreq.size, freq.size)
+            error_msg = "Incompatible frequencies at %s: %i != %i" % (group,
+                                                                      cFreq.size, freq.size)
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
             else:
                 raise RuntimeError(error_msg)
-        elif cFreq[0] != freq[0]:
-            error_msg = "Incompatible frequencies at %s: %.3f MHz != %.3f MHz" % (group, cFreq[0]/1e6, freq[0]/1e6)
+        elif cFreq[0] != freq[0] or cFreq[-1] != freq[-1]:
+            error_msg = "Incompatible frequencies at %s: %.3f MHz != %.3f MHz or %.3f MHz != %.3f MHz" % (group,
+                                                                                                          cFreq[ 0]/1e6, freq[ 0]/1e6,
+                                                                                                          cFreq[-1]/1e6, freq[-1]/1e6)
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
