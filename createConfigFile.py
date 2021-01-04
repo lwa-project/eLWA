@@ -567,6 +567,10 @@ def main(args):
         if lwasvFound and s == 0:
             startOffset += 10.0
             dur -= 10.0
+
+        ## Skip over scans that are too short
+        if dur < args.minimum_scan_length:
+            continue
             
         ## Setup
         if args.output is None:
@@ -705,6 +709,8 @@ if __name__ == "__main__":
                         help='LWA-SV clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
+    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-numpy.inf,
+                        help='minimum scan length in seconds to write a configuration file for')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
     args = parser.parse_args()
