@@ -620,7 +620,7 @@ def main(args):
                 # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2[1)) / (sg1p0*sg2p1.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p1)) / (sg1p0*sg2p1.conj())
                     vis[j,:,k] *= cgain
                     
                 # YX
