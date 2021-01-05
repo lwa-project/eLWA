@@ -229,27 +229,28 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    rgains1, igains1, rgains2, igains2 = {}, {}, {}, {}
+    gains1, gains2 = {}, {}
     for a in names:
         try:
             v = _select(gains, a, 'g1')
             vt, va = numpy.array(v[0]), numpy.array(v[1])
-            rgains1[a]  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
-            igains1[a]  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
+            rgains  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
+            igains  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
+            gains1[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
             v = _select(gains, a, 'g2')
             vt, va = numpy.array(v[0]), numpy.array(v[1])
-            rgains2[a]  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
-            igains2[a]  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
+            rgains  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
+            igains  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
+            gains2[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
         except KeyError:
             print("CalTab: %s not found, setting bandpass to 1" % a)
-            rgains1[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            igains1[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            rgains2[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            igains2[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
+            rgains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
+            igains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
+            gains1[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
+            rgains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
+            igains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
+            gains2[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
             
-    gains1 = lambda x, y: (rgains1(x,y) + 1j*igains1(x,y)).ravel()
-    gains2 = lambda x, y: (rgains2(x,y) + 1j*igains2(x,y)).ravel()
-    
     return gains1, gains2
 
 
