@@ -599,7 +599,7 @@ def main(args):
                         
                 # XX
                 k = 0
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0*g2p0.conj()) / (b1p0b2p0.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0*g2p0.conj()) / (b1p0*b2p0.conj())
                 # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
@@ -617,7 +617,7 @@ def main(args):
                     
                 # XY
                 k = 2
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p10g2p1.conj()) / (b1p0*b2p1.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p0*g2p1.conj()) / (b1p0*b2p1.conj())
                 # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
