@@ -100,8 +100,7 @@ def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
                 flags['ants'].append([a1,a2])
                 flags['times'].append([t[0],t[1]])
                 flags['chans'].append([c1,c2])
-                flags['pflags'].append([p2,p1,p4,p3])
-                #flags['pflags'].append([p1,p2,p3,p4])                
+                flags['pflags'].append([p1,p2,p3,p4])                
                 flags['reason'].append(r)
                 
     return flags
@@ -174,8 +173,7 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
             gains1[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             gains2[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             
-    return delays2, delays1, gains2, gains1
-    #return delays1, delays2, gains1, gains2
+    return delays1, delays2, gains1, gains2
 
 
 def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
@@ -210,10 +208,6 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
                 r2, i2 = row['REAL 2'], row['IMAG 2']
                 g1 = r1 + 1j*i1
                 g2 = r2 + 1j*i2
-                # import pylab
-                # pylab.plot(numpy.angle(g1))
-                # pylab.plot(numpy.angle(g2))
-                # pylab.show()
                 g1 = numpy.where(numpy.isfinite(g1.real), g1, 1+0j)
                 g2 = numpy.where(numpy.isfinite(g2.real), g2, 1+0j)
                 
@@ -253,7 +247,10 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
             rgains2[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
             igains2[a]  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
             
-    return rgains2, igains2, rgains1, igains1
+    gains1 = lambda x, y: (rgains1(x,y) + 1j*igains1(x,y)).ravel()
+    gains2 = lambda x, y: (rgains2(x,y) + 1j*igains2(x,y)).ravel()
+    
+    return gains1, gains2
 
 
 def load_uvout_uv(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
@@ -301,7 +298,7 @@ def load_uvout_uv(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
         try:
             u[bl] = interp1d(*(_select(coords, bl, 'u')), bounds_error=False, fill_value=0.0, kind='quadratic')
             v[bl] = interp1d(*(_select(coords, bl, 'v')), bounds_error=False, fill_value=0.0, kind='quadratic')
-            w[bl]  = interp1d(*(_select(coords, bl, 'w')), bounds_error=False, fill_value=-1.0, kind='quadratic')
+            w[bl] = interp1d(*(_select(coords, bl, 'w')), bounds_error=False, fill_value=0.0, kind='quadratic')
         except KeyError:
             pass
             
@@ -372,8 +369,7 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
             gains1[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             gains2[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             
-    return delays2, delays1, gains2, gains1
-    #return delays1, delays2, gains1, gains2
+    return delays1, delays2, gains1, gains2
 
 
 def get_source_blocks(hdulist):
@@ -430,12 +426,16 @@ def main(args):
     # Load in the VLITE-Slow calibration information
     flags = {'ants':[]}
     #flags = load_caltab_fg(args.caltab)
-    delays1, delays2, gains1, gains2 = load_caltab_cl(args.caltab)
-    rpass1, ipass1, rpass2, ipass2 = load_caltab_bp(args.caltab)
+    delays_cl_p0, delays_cl_p1, gains_cl_p0, gains_cl_p1 = load_caltab_cl(args.caltab)
+    delays_cl = {0: delays_cl_p0, 1: delays_cl_p1}
+    gains_cl = {0: gains_cl_p0, 1: gains_cl_p1}
+    gains_bp_p0, gains_bp_p1 = load_caltab_bp(args.caltab)
+    gains_bp = {0: gains_bp_p0, 1: gains_bp_p1}
     if args.apply_uvout:
-        #amps = load_uvout_uv(args.uvout)
-        uvw = load_uvout_uv(args.uvout)
-        delays3, delays4, gains3, gains4 = load_uvout_sn(args.uvout)
+        #uvw = load_uvout_uv(args.uvout)
+        delays_sn_p0, delays_sn_p1, gains_sn_p0, gains_sn_p1 = load_uvout_sn(args.uvout)
+        delays_sn = {0: delays_sn_p0, 1: delays_sn_p1}
+        gains_sn = {0: gains_sn_p0, 1: gains_sn_p1}
     print("Loaded metadata and calibration information in %.3f s" % (time.time()-t0,))
     print("")
     
@@ -533,12 +533,11 @@ def main(args):
                 a1, a2 = (bls[match[j]] >> 8), (bls[match[j]]) & 0xFF
                 bl2 = (mapper[a1]+1)*256 + (mapper[a2] + 1)
                 bl3 = mapper[a2]*256 + mapper[a1]
-                #print(a1, a2, '->', mapper[a1], mapper[a2])
-                try:
-                    dw = ww[match[j]] - uvw[2][bl2](t)
-                    print(a1, a2, '@', dw, '&', delays1[mapper[a1]](t), delays2[mapper[a1]](t))
-                except KeyError:
-                    dw = 0.0
+                #try:
+                #    dw = ww[match[j]] - uvw[2][bl2](t)
+                #    print(a1, a2, '@', dw, '&', delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t))
+                #except KeyError:
+                #    dw = 0.0
                     
                 try:
                     uu[match[j]] = uvw[0][bl2](t)
@@ -550,79 +549,87 @@ def main(args):
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
                 try:
-                    d10, d11 = delays1[mapper[a1]](t), delays2[mapper[a1]](t)
-                    g10, g11 = gains1[mapper[a1]](t),  gains2[mapper[a1]](t)
+                    # Antenna 1 - delays and gains
+                    d1p0, d1p1 = delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t)
+                    g1p0, g1p1 = gains_cl[0][mapper[a1]](t),  gains_cl[1][mapper[a1]](t)
                 except KeyError:
-                    print('skip', 'd1/g1', a1)
-                    d10, d11 = 0.0, 0.0
-                    g10, g11 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    print('skip', 'd1p*/g1p*', a2)
+                    d1p0, d1p1 = 0.0, 0.0
+                    g1p0, g1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                 try:
-                    d20, d21 = delays1[mapper[a2]](t), delays2[mapper[a2]](t)
-                    g20, g21 = gains1[mapper[a2]](t),  gains2[mapper[a2]](t)
+                    # Antenna 2 - delays and gains
+                    d2p0, d2p1 = delays_cl[0][mapper[a2]](t), delays_cl[1][mapper[a2]](t)
+                    g2p0, g2p1 = gains_cl[0][mapper[a2]](t),  gains_cl[1][mapper[a2]](t)
                 except KeyError:
-                    print('skip', 'd2/g2', a2)
-                    d20, d21 = 0.0, 0.0
-                    g20, g21 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    print('skip', 'd2p*/g2p*', a2)
+                    d2p0, d2p1 = 0.0, 0.0
+                    g2p0, g2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                 try:
-                    r10, r11 = rpass1[mapper[a1]](t, freq_comb),  rpass2[mapper[a1]](t, freq_comb)
-                    i10, i11 = ipass1[mapper[a1]](t, freq_comb),  ipass2[mapper[a1]](t, freq_comb)
-                    b10, b11 = r10 + 1j*i10, r11 + 1j*i11
-                    b10, b11 = b10.ravel(), b11.ravel()
+                    # Antenna 1 - bandpass
+                    b1p0, b1p1 = gains_bp[0][mapper[a1]](t, freq_comb),  gains_bp[1][mapper[a1]](t, freq_comb)
                 except KeyError:
-                    print('skip', 'b1', a1)
-                    b10, b11 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    print('skip', 'b1p*', a1)
+                    b1p0, b1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                 try:
-                    r20, r21 = rpass1[mapper[a2]](t, freq_comb),  rpass2[mapper[a2]](t, freq_comb)
-                    i20, i21 = ipass1[mapper[a2]](t, freq_comb),  ipass2[mapper[a2]](t, freq_comb)
-                    b20, b21 = r20 + 1j*i20, r21 + 1j*i21
-                    b20, b21 = b20.ravel(), b21.ravel()
+                    # Antenna 2 - bandpass
+                    b2p0, b2p1 = gains_bp[0][mapper[a2]](t, freq_comb),  gains_bp[1][mapper[a2]](t, freq_comb)
                 except KeyError:
-                    print('skip', 'b2', a2)
-                    b20, b21 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    print('skip', 'b2p*', a2)
+                    b2p0, b2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                     
                 ## uvout
                 if args.apply_uvout:
                     try:
-                        d30, d31 = delays3[mapper[a1]](t), delays4[mapper[a1]](t)
-                        g30, g31 = gains3[mapper[a1]](t),  gains4[mapper[a1]](t)  
+                        # Antenna 1 - supplemental delays and gains
+                        sd1p0, sd1p1 = delays_sn[0][mapper[a1]](t), delays_sn[1][mapper[a1]](t)
+                        sg1p0, sg1p1 = gains_sn[0][mapper[a1]](t),  gains_sn[1][mapper[a1]](t)  
                     except KeyError:
-                        print('skip', 'd3/g3', a1)
-                        d30, d31 = 0.0, 0.0
-                        g30, g31 = numpy.complex64(1.0), numpy.complex64(1.0)
+                        print('skip', 'sd1p*/sg1p*', a1)
+                        sd1p0, sd1p1 = 0.0, 0.0
+                        sg1p0, sg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                     try:
-                        d40, d41 = delays3[mapper[a2]](t), delays4[mapper[a2]](t)            
-                        g40, g41 = gains3[mapper[a2]](t),  gains4[mapper[a2]](t)
+                        # Antenna 2 - supplemental delays and gains
+                        sd2p0, sd2p1 = delays_sn[0][mapper[a2]](t), delays_sn[1][mapper[a2]](t)            
+                        sg2p0, sg2p1 = gains_sn[0][mapper[a2]](t),  gains_sn[1][mapper[a2]](t)
                     except KeyError:
-                        print('skip', 'd4/g4', a2)
-                        d40, d41 = 0.0, 0.0
-                        g40, g41 = numpy.complex64(1.0), numpy.complex64(1.0)
+                        print('skip', 'sd2p*/sg2p*', a2)
+                        sd2p0, sd2p1 = 0.0, 0.0
+                        sg2p0, sg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                         
+                # XX
                 k = 0
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d11-d21)) / (g11*g21.conj()) / (b11*b21.conj()) * numpy.exp(2j*numpy.pi*freq_comb*dw)
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0*g2p0.conj()) / (b1p0b2p0.conj())
+                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(d31-d41)) / (g31*g41.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p0)) / (sg1p0*sg2p0.conj())
                     vis[j,:,k] *= cgain
                     
+                # YY
                 k = 1
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d10-d20)) / (g10*g20.conj()) / (b10*b20.conj()) #* numpy.exp(2j*numpy.pi*freq_comb*-dw)
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p1)) / (g1p1*g2p1.conj()) / (b1p1*b2p1.conj())
+                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(d30-d40)) / (g30*g40.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p1)) / (sg1p1*sg2p1.conj())
                     vis[j,:,k] *= cgain
                     
+                # XY
                 k = 2
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d10-d21)) / (g10.conj()*g21) / (b10.conj()*b21)
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p10g2p1.conj()) / (b1p0*b2p1.conj())
+                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(d30-d41)) / (g30.conj()*g41)
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2[1)) / (sg1p0*sg2p1.conj())
                     vis[j,:,k] *= cgain
                     
+                # YX
                 k = 3
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d11-d20)) / (g11.conj()*g20) / (b11.conj()*b20)
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p0)) / (g1p1*g2p0.conj()) / (b1p1*b2p0.conj())
+                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(d31-d40)) / (g31.conj()*g40)
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p0)) / (sg1p1*sg2p0.conj())
                     vis[j,:,k] *= cgain
                     
             vis.shape = (vis.shape[0], len(fqoffsets), vis.shape[1]//len(fqoffsets), vis.shape[2])
@@ -771,7 +778,7 @@ def main(args):
         ## Copy the extensions over to the new file
         for hdu in hdulist[1:]:
             if hdu.header['EXTNAME'] == 'UV_DATA':
-                ### Updated the UV_DATA table with the dedispersed data
+                ### Updated the UV_DATA table with the calibrated data
                 #hdu.data['UU'][...] = uu
                 #hdu.data['VV'][...] = vv
                 #hdu.data['WW'][...] = ww
