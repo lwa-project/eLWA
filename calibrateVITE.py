@@ -538,13 +538,13 @@ def main(args):
                 #    print(a1, a2, '@', dw, '&', delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t))
                 #except KeyError:
                 #    dw = 0.0
-                    
-                try:
-                    uu[match[j]] = uvw[0][bl2](t)
-                    vv[match[j]] = uvw[1][bl2](t)
-                    ww[match[j]] = uvw[2][bl2](t)
-                except KeyError:
-                    uu[match[j]] = vv[match[j]] = ww[match[j]] = 0.0
+                #    
+                #try:
+                #    uu[match[j]] = uvw[0][bl2](t)
+                #    vv[match[j]] = uvw[1][bl2](t)
+                #    ww[match[j]] = uvw[2][bl2](t)
+                #except KeyError:
+                #    uu[match[j]] = vv[match[j]] = ww[match[j]] = 0.0
                 
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
