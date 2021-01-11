@@ -62,7 +62,7 @@ def configfile_is_pulsar(configfile, quiet=True):
 
 
 def configfile_is_lwa_only(configfile, quiet=True):
-    gcmd = ['grep', '-e VDIF', '-e GUPPI', configfile]
+    gcmd = ['grep', '-e VDIF', configfile]
     
     DEVNULL = None
     if quiet:
@@ -145,7 +145,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     # Copy the software over
     if softwareDir is None:
         softwareDir = os.path.dirname(__file__)
-    for filename in ['buffer.py', 'guppi.py', 'jones.py', 'multirate.py', 'superPulsarCorrelator.py', 'utils.py', 'jit']:
+    for filename in ['jones.py', 'multirate.py', 'superPulsarCorrelator.py', 'utils.py', 'jit']:
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:

@@ -24,7 +24,6 @@ from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
 from lsl.common.mcs import mjdmpm_to_datetime
 
-import guppi
 from utils import *
 from get_vla_ant_pos import database
 
@@ -381,71 +380,6 @@ def main(args):
                 sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
                 sys.stderr.flush()
                 
-        elif ext == '.raw':
-            ## GUPPI Raw
-            try:
-                ## Read in the GUPPI header
-                header = vdif.read_guppi_header(fh)
-                
-                ## Read in the first frame
-                guppi.FRAME_SIZE = guppi.get_frame_size(fh)
-                frame = guppi.read_frame(fh)
-                antID = frame.id[0] - 12300
-                tStart =  frame.time.datetime
-                nThread = guppi.get_thread_count(fh)
-                
-                ## Read in the last frame
-                nJump = int(os.path.getsize(filename)/guppi.FRAME_SIZE)
-                nJump -= 4
-                fh.seek(nJump*guppi.FRAME_SIZE, 1)
-                mark = fh.tell()
-                frame = guppi.read_frame(fh)
-                tStop = frame.time.datetime
-            
-                ## Find the antenna location
-                pad, edate = db.get_pad('EA%02i' % antID, tStart)
-                x,y,z = db.get_xyz(pad, tStart)
-                #print("  Pad: %s" % pad)
-                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
-                
-                ## Move into the LWA1 coordinate system
-                ### relative to ECEF
-                xyz = numpy.array([x,y,z])
-                xyz += VLA_ECEF
-                ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
-                enz[1] *= -1
-                ### z offset from pad height to elevation bearing
-                enz[2] += 11.0
-                
-                ## VLA time offset
-                off = args.vla_offset
-                
-                ## Save
-                corrConfig['context']['observer'] = header['OBSERVER']
-                try:
-                    corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                    corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
-                except IndexError:
-                    corrConfig['context']['project'] = header['BASENAME'].split('.')[0]
-                    corrConfig['context']['session'] = header['BASENAME'].split('.')[1].replace('sb', '')
-                corrConfig['context']['valref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
-                corrConfig['source']['name'] = header['SRC_NAME']
-                corrConfig['source']['intent'] = 'target'
-                corrConfig['source']['ra2000'] = header['RA_STR']
-                corrConfig['source']['dec2000'] = header['DEC_STR']
-                corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
-                                              'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-                                              'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (off, off), 'fileoffset': 0, 
-                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
-                                        
-            except Exception as e:
-                sys.stderr.write("ERROR reading GUPPI file: %s\n" % str(e))
-                sys.stderr.flush()
-                
         elif ext == '.tgz':
             ## LWA Metadata
             try:
@@ -472,7 +406,7 @@ def main(args):
     vdifRefFile = None
     isDRX = False
     for cinp in corrConfig['inputs']:
-        if cinp['type'] in ('VDIF', 'GUPPI'):
+        if cinp['type'] == 'VDIF':
             if vdifRefFile is None:
                 vdifRefFile = cinp
         elif cinp['type'] == 'DRX':

@@ -34,12 +34,10 @@ from lsl.correlator.uvutils import compute_uvw
 from lsl.reader import drx, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 
-import guppi
 from lsl.misc.dedispersion import delay as dispDelay
 
 import jones
 from utils import *
-from buffer import GUPPIFrameBuffer
 
 
 def bestFreqUnits(freq):
@@ -147,17 +145,13 @@ def main(args):
             print("Correcting time tags for gross offset of %i s" % grossOffsets[i])
             print("  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6))
         
-        if readers[i] in (vdif, guppi):
+        if readers[i] is vdif:
             header = vdif.read_guppi_header(fh[i])
             readers[i].FRAME_SIZE = readers[i].get_frame_size(fh[i])
             
         nFramesFile.append( os.path.getsize(filename) // readers[i].FRAME_SIZE )
         if readers[i] is vdif:
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
-            readers[i].DATA_LENGTH = junkFrame.payload.data.size
-            beam, pol = junkFrame.id
-        elif readers[i] is guppi:
-            junkFrame = readers[i].read_frame(fh[i])
             readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
         elif readers[i] is drx:
@@ -171,7 +165,7 @@ def main(args):
         beams.append( beam )
         srate.append( junkFrame.sample_rate )
         
-        if readers[i] in (vdif, guppi):
+        if readers[i] is vdif:
             tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
         elif readers[i] is drx:
@@ -205,13 +199,6 @@ def main(args):
                     cFreq1 = junkFrame.central_freq
                 else:
                     pass
-            elif readers[i] is guppi:
-                junkFrame = readers[i].read_frame(fh[i])
-                s,p = junkFrame.id
-                if p == 0:
-                    cFreq1 = junkFrame.central_freq
-                else:
-                    pass
             elif readers[i] is drx:
                 junkFrame = readers[i].read_frame(fh[i])
                 b,t,p = junkFrame.id
@@ -238,8 +225,6 @@ def main(args):
         # Setup the frame buffers
         if readers[i] is vdif:
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
-        elif readers[i] is guppi:
-            buffers.append( GUPPIFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
             buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
     for i in xrange(len(filenames)):
@@ -257,9 +242,6 @@ def main(args):
                 fh[i].seek(readers[i].FRAME_SIZE, 1)
             
             nFramesFile[i] -= j
-            
-        elif readers[i] is guppi:
-            pass
             
         elif readers[i] is drx:
             pass
@@ -353,7 +335,7 @@ def main(args):
     print("  Data Reads in File: %i" % int(tFile/tRead))
     print(" ")
     
-    nVDIFInputs = sum([1 for reader in readers if reader is vdif]) + sum([1 for reader in readers if reader is guppi])
+    nVDIFInputs = sum([1 for reader in readers if reader is vdif])
     nDRXInputs = sum([1 for reader in readers if reader is drx])
     print("Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs))
     print(" ")
@@ -505,43 +487,6 @@ def main(args):
                                     vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
                                     
                             count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
-                            count -= vdifRef[sid]
-                            dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                            k += 1
-                            
-                elif readers[j] is guppi:
-                    ## GUPPI
-                    k = 0
-                    while k < beampols[j]*nFramesV:
-                        try:
-                            cFrame = readers[j].read_frame(f)
-                            buffers[j].append( cFrame )
-                        except errors.SyncError:
-                            print("Error - GUPPI @ %i, %i" % (i, j))
-                            continue
-                        except errors.EOFError:
-                            done = True
-                            break
-                            
-                        frames = buffers[j].get()
-                        if frames is None:
-                            continue
-                            
-                        for cFrame in frames:
-                            std,pol = cFrame.id
-                            sid = 2*j + pol
-                            
-                            if k == 0:
-                                tStart.append( cFrame.time )
-                                tStart[-1] = tStart[-1] + grossOffsets[j]
-                                tStartB.append( get_better_time(cFrame) )
-                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                                
-                                for p in (0,1):
-                                    psid = 2*j + p
-                                    vdifRef[psid] = cFrame.header.offset // readers[j].DATA_LENGTH
-                                    
-                            count = cFrame.header.offset // readers[j].DATA_LENGTH
                             count -= vdifRef[sid]
                             dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                             k += 1
