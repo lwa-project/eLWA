@@ -492,7 +492,11 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             i = ij / {{nChan}};
             j = ij % {{nChan}};
             *(rot + {{nChan}}*i + j)  = cexp(2*NPY_PI*_Complex_I * *(c + j) * *(frac + {{nChan}}*i + j));
-            *(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + 0) / SampleRate * *(fifo + i));
+            {% if LSB != 0 %}
+                *(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + {{nChan}} - 1) / SampleRate * *(fifo + i));
+            {% else %}
+                *(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + 0) / SampleRate * *(fifo + i));
+            {% endif %}
             *(rot + {{nChan}}*i + j) /= sqrt(2*{{nChan}});
         }
     }
