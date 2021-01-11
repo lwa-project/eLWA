@@ -314,9 +314,10 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
     count = 0
     for hdu in hdulist[1:]:
         if hdu.header['EXTNAME'] == 'AIPS SN':
-            ## The actual calibration information - only keep the last one
+            ### The actual calibration information - only keep the last one
             count += 1
-            gains = {}
+            if count != 2:
+                continue
 
             for row in hdu.data:
                 ### Make sure it is from a relevant time
