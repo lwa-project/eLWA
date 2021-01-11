@@ -3,6 +3,7 @@
 import os
 import sys
 import ubjson
+from datetime import datetime
 
 
 def main(args):
@@ -12,7 +13,7 @@ def main(args):
             
         print("Filename: %s" % os.path.basename(filename))
         print("  %s" % (meta['meta'].decode(),))
-        print("  Peak time: %.3f s" % meta['peak_time'])
+        print("  Peak time: %s" % (datetime.utcfromtimestamp(meta['t0']),))
         print("  Width: %.1f ms" % (meta['width']*1000,))
         print("  DM: %.3f pc/cm^3" % meta['dm'])
         print("  S/N: %.1f" % meta['sn'])
