@@ -110,6 +110,12 @@ def main(args):
     except ValueError:
         jobid = 1
         
+    # Find the DiFX version
+    difx_version = os.getenv('DIFX_VERSION', None)
+    if difx_version is None:
+        difx_version = 'DiFX-2.6.2'
+        print("WARNING: DIFX_VERSION enviroment variable not found, assuming 'DiFX-2.6.2'")
+        
     # .machines file
     difxname = "%s.machines" % (basename,)
     fh = open(difxname, 'w')
@@ -269,8 +275,8 @@ JOB START TIME:     {(mjd+mjdf):.6f}
 JOB STOP TIME:      {(mjd+mjdf+3600/86400.):.6f}
 DUTY CYCLE:         1.000000
 OBSCODE:            {basename.upper()}
-DIFX VERSION:       DIFX-2.6.2
-DIFX LABEL:         DIFX-2.6.2
+DIFX VERSION:       {difx_version}
+DIFX LABEL:         {difx_version}
 SUBJOB ID:          0
 SUBARRAY ID:        0
 START MJD:          {(mjd+mjdf):.6f}
@@ -281,8 +287,7 @@ START HOUR:         {dt.hour}
 START MINUTE:       {dt.minute}
 START SECOND:       {dt.second}
 SPECTRAL AVG:       1
-TAPER FUNCTION:     UNIFORM
-INCREMENT (SECS):   1""")
+TAPER FUNCTION:     UNIFORM""")
     
     fh.write(f"""
 NUM TELESCOPES:     {nAnt}""")
