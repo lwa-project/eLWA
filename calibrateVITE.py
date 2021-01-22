@@ -70,7 +70,7 @@ def load_antenna_unmapper(filename):
     return unmapper
 
 
-def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
+def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=2):
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     nFreq = hdulist[1].header['TDIM13']
@@ -81,9 +81,9 @@ def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     count = 0
     for hdu in hdulist[1:]:
         if hdu.header['EXTNAME'] == 'AIPS FG':
-            ## The actual flag table - only keep the second one
+            ## The actual flag table - only keep the specified one
             count += 1
-            if count != 2:
+            if count != version:
                 continue
                 
             for row in hdu.data:
@@ -106,7 +106,7 @@ def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     return flags
 
 
-def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
+def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=3):
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     
@@ -114,9 +114,9 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     count = 0
     for hdu in hdulist[1:]:
         if hdu.header['EXTNAME'] == 'AIPS CL':
-            ## The actual calibration information - only keep the third (last) one
+            ## The actual calibration information - only keep the specified one
             count += 1
-            if count != 3:
+            if count != version:
                 continue
                 
             for row in hdu.data:
@@ -176,7 +176,7 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     return delays1, delays2, gains1, gains2
 
 
-def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
+def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=1):
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     ref_freq = hdulist[1].header['3CRVL13']
@@ -190,9 +190,9 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     count = 0
     for hdu in hdulist[1:]:
         if hdu.header['EXTNAME'] == 'AIPS BP':
-            ## The actual calibration information - only keep the first one
+            ## The actual calibration information - only keep the specified one
             count += 1
-            if count != 1:
+            if count != version:
                 continue
                 
             for row in hdu.data:
@@ -254,59 +254,14 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0):
     return gains1, gains2
 
 
-def load_uvout_uv(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
-    hdulist = astrofits.open(filename)
-    ref_date = hdulist[0].header['PZERO4']
-
-    coords = {}
-    hdu = hdulist[0]
-    for row in hdu.data:
-        ### Make sure it is from a relevant time
-        t, tint = row['DATE'] + row['_DATE'], row['INTTIM']/86400.0
-        #t += ref_date
-        if (t - tint/2) < (start - margin/86400.0) or (t + tint/2) > (stop + margin/86400.0):
-            continue
-
-        ### Baselines and coordinates
-        bl = int(row['BASELINE'])
-        u, v, w = row['UU---SIN'], row['VV---SIN'], row['WW---SIN']
-
-        for t in (t,):
-            ### Save the timestamp
-            try:
-                coords[t]
-            except KeyError:
-                coords[t] = {}
-                
-            ### Save the delays/complex gains
-            try:
-                coords[t][bl]['u'] = u
-                coords[t][bl]['v'] = v
-                coords[t][bl]['w'] = w
-            except KeyError:
-                coords[t][bl] = {'u': u, 'v': v, 'w': w}
-    hdulist.close()
-    
-    # Build up the delay and gain interpolators
-    times = numpy.array(list(coords.keys()))
-    names = []
-    for t in times:
-        for name in coords[t].keys():
-            if name not in names:
-                names.append(name)
-    u, v, w = {}, {}, {}
-    for bl in names:
-        try:
-            u[bl] = interp1d(*(_select(coords, bl, 'u')), bounds_error=False, fill_value=0.0, kind='quadratic')
-            v[bl] = interp1d(*(_select(coords, bl, 'v')), bounds_error=False, fill_value=0.0, kind='quadratic')
-            w[bl] = interp1d(*(_select(coords, bl, 'w')), bounds_error=False, fill_value=0.0, kind='quadratic')
-        except KeyError:
-            pass
-            
-    return u, v, w
+def load_cal_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=3):)
+    return load_caltab_cl(filename, start=start, stop=stop, margin=margin, version=version)
 
 
-def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
+def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, version=2):
+    if not isinstance(version, (list, tuple)):
+        version = [version,]
+        
     hdulist = astrofits.open(filename)
     ref_date = hdulist[0].header['PZERO4']
     
@@ -314,10 +269,11 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0):
     count = 0
     for hdu in hdulist[1:]:
         if hdu.header['EXTNAME'] == 'AIPS SN':
-            ## The actual calibration information - only keep the last one
+            ## The actual calibration information - only keep the specified one
             count += 1
-            gains = {}
-
+            if count not in version:
+                continue
+                
             for row in hdu.data:
                 ### Make sure it is from a relevant time
                 t, tint = row['TIME'], row['TIME INTERVAL']
@@ -432,9 +388,12 @@ def main(args):
     gains_cl = {0: gains_cl_p0, 1: gains_cl_p1}
     gains_bp_p0, gains_bp_p1 = load_caltab_bp(args.caltab)
     gains_bp = {0: gains_bp_p0, 1: gains_bp_p1}
+    delays_sm_p0, dleays_sm_p1, gains_sm_p0, gains_sm_p1 = load_cal_cl(args.caltab)
+    delays_sm = {0: delays_sm_p0, 1: delays_sm_p1}
+    gains_sm = {0: gains_sm_p0, 1: gains_sm_p1}
     if args.apply_uvout:
-        #uvw = load_uvout_uv(args.uvout)
-        delays_sn_p0, delays_sn_p1, gains_sn_p0, gains_sn_p1 = load_uvout_sn(args.uvout)
+        ## Version three is optional but could be useful
+        delays_sn_p0, delays_sn_p1, gains_sn_p0, gains_sn_p1 = load_uvout_sn(args.uvout, version=[2,3])
         delays_sn = {0: delays_sn_p0, 1: delays_sn_p1}
         gains_sn = {0: gains_sn_p0, 1: gains_sn_p1}
     print("Loaded metadata and calibration information in %.3f s" % (time.time()-t0,))
@@ -532,20 +491,6 @@ def main(args):
             vis.shape = (vis.shape[0]*nBL, vis.shape[2], vis.shape[3])
             for j in xrange(vis.shape[0]):
                 a1, a2 = (bls[match[j]] >> 8), (bls[match[j]]) & 0xFF
-                bl2 = (mapper[a1]+1)*256 + (mapper[a2] + 1)
-                bl3 = mapper[a2]*256 + mapper[a1]
-                #try:
-                #    dw = ww[match[j]] - uvw[2][bl2](t)
-                #    print(a1, a2, '@', dw, '&', delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t))
-                #except KeyError:
-                #    dw = 0.0
-                #    
-                #try:
-                #    uu[match[j]] = uvw[0][bl2](t)
-                #    vv[match[j]] = uvw[1][bl2](t)
-                #    ww[match[j]] = uvw[2][bl2](t)
-                #except KeyError:
-                #    uu[match[j]] = vv[match[j]] = ww[match[j]] = 0.0
                 
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
@@ -578,6 +523,24 @@ def main(args):
                     print('skip', 'b2p*', a2)
                     b2p0, b2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                     
+                ## Cal
+                try:
+                    # Antenna 1 - delays and gains
+                    cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
+                    cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
+                except KeyError:
+                    print('skip', 'd1p*/g1p*', a2)
+                    cd1p0, cd1p1 = 0.0, 0.0
+                    cg1p0, cg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                try:
+                    # Antenna 2 - delays and gains
+                    cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
+                    cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
+                except KeyError:
+                    print('skip', 'd2p*/g2p*', a2)
+                    cd2p0, cd2p1 = 0.0, 0.0
+                    cg2p0, cg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    
                 ## uvout
                 if args.apply_uvout:
                     try:
@@ -600,7 +563,7 @@ def main(args):
                 # XX
                 k = 0
                 cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0*g2p0.conj()) / (b1p0*b2p0.conj())
-                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p0)) / (cg1p0*cg2p0.conj())
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
                     cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p0)) / (sg1p0*sg2p0.conj())
@@ -609,7 +572,7 @@ def main(args):
                 # YY
                 k = 1
                 cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p1)) / (g1p1*g2p1.conj()) / (b1p1*b2p1.conj())
-                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p1)) / (cg1p1*cg2p1.conj())
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
                     cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p1)) / (sg1p1*sg2p1.conj())
@@ -618,7 +581,7 @@ def main(args):
                 # XY
                 k = 2
                 cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p0*g2p1.conj()) / (b1p0*b2p1.conj())
-                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p1)) / (cg1p0*cg2p1.conj())
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
                     cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p1)) / (sg1p0*sg2p1.conj())
@@ -627,7 +590,7 @@ def main(args):
                 # YX
                 k = 3
                 cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p0)) / (g1p1*g2p0.conj()) / (b1p1*b2p0.conj())
-                # cgain *= numpy.exp(2j*numpy.pi*freq_comb*-dw)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p0)) / (cg1p1*cg2p0.conj())
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
                     cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p0)) / (sg1p1*sg2p0.conj())
@@ -772,6 +735,7 @@ def main(args):
         primary.header['HISTORY'] = 'Calibrated with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         primary.header['HISTORY'] = 'Metadata file: %s' % args.metadata
         primary.header['HISTORY'] = 'CalTab file: %s' % args.caltab
+        primary.header['HISTORY'] = 'Cal file: %s' % args.cal
         if args.apply_uvout:
             primary.header['HISTORY'] = 'uvout file: %s' % args.uvout
         hdulist2.append(primary)
@@ -780,9 +744,6 @@ def main(args):
         for hdu in hdulist[1:]:
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the calibrated data
-                #hdu.data['UU'][...] = uu
-                #hdu.data['VV'][...] = vv
-                #hdu.data['WW'][...] = ww
                 flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
                 flux = flux.view(numpy.float32)
                 flux = flux.astype(hdu.data['FLUX'].dtype)
@@ -806,6 +767,8 @@ if __name__ == "__main__":
                         help='VLITE-Fast ubjson metadata file')
     parser.add_argument('caltab', type=str,
                         help='VLITE-Slow CalTab UVFITS file')
+    parser.add_argument('cal', type=str,
+                        help='VLITE-Slow Cal UVFITS file')
     parser.add_argument('uvout', type=str,
                         help='VLITE-Slow uvout UVFITS file')
     parser.add_argument('filename', type=str, nargs='+',
