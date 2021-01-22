@@ -150,7 +150,10 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
     flux = None
     
     nextname, ext = filename.rsplit('_', 1)
-    ext = int(ext, 10)
+    try:
+        ext = int(ext, 10)
+    except ValueError:
+        ext = -100
     ext += 1
     nextname = "%s_%i" % (nextname, ext)
     
@@ -427,8 +430,12 @@ def main(args):
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
         flags.header['TABREV'] = (2, 'table format revision number')
-        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
-            flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ',
+                    'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
+            try:
+                flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+            except KeyError:
+                pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
         

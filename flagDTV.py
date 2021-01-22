@@ -248,8 +248,12 @@ def main(args):
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
         flags.header['TABREV'] = (2, 'table format revision number')
-        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
-            flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ',
+                    'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
+            try:
+                flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+            except KeyError:
+                pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         
         # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
