@@ -16,7 +16,7 @@ def main(args):
     # our path
     if os.getenv('DIFX_VERSION', None) is None:
         pritn("WARNING: DIFX_VERSION is not set")
-    for cmd in ('mpirun', 'mpifxcorr', 'difxcalc'):
+    for cmd in ('mpirun', 'mpifxcorr', 'difxcalc', 'difx2fits'):
         status = subprocess.check_call(['which', cmd])
         if status != 0:
             raise RuntimeError("Cannot find '%s' in the current $PATH" % cmd)
@@ -64,10 +64,18 @@ def main(args):
         cmd.extend(['-hostfile', machinesfile])
     cmd.extend(['mpifxcorr', inputfile])
     
-    # Go!
+    # Correlate!
     t0 = time.time()
     subprocess.check_call(cmd)
-    print("Finished in %.3f s" % ((time.time()-t0),)
+    print("Finished correlation in %.3f s" % ((time.time()-t0),)
+    
+    # Build the 'difx2fits' command to run.
+    cmd = ['difx2fix', os.path.splitexit(outname)[0]]
+    
+    # Convert!
+    t0 = time.time()
+    subprocess.check_call(cmd)
+    print("Finished data conversion in %.3f s" % ((time.time()-t0),)
 
 
 if __name__ == "__main__":
