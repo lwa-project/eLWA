@@ -114,7 +114,7 @@ def main(args):
     difx_version = os.getenv('DIFX_VERSION', None)
     if difx_version is None:
         difx_version = 'DiFX-2.6.2'
-        print("WARNING: DIFX_VERSION enviroment variable not found, assuming 'DiFX-2.6.2'")
+        print("WARNING: DIFX_VERSION is not set, assuming 'DiFX-2.6.2'")
         
     # .machines file
     difxname = "%s.machines" % (basename,)
