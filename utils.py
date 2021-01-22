@@ -15,6 +15,7 @@ import fcntl
 import numpy
 import shutil
 import tempfile
+import subprocess
 from datetime import datetime
 
 from lsl import astro
@@ -26,13 +27,12 @@ from lsl.common.metabundle import get_command_script
 from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
-import guppi
 
-
-__version__ = '0.8'
-__all__ = ['InterProcessLock', 'EnhancedFixedBody', 'EnhancedSun', 
-           'EnhancedJupiter', 'multi_column_print', 'parse_time_string', 
-           'nsround', 'read_correlator_configuration', 'get_better_time', 
+__version__ = '0.9'
+__all__ = ['get_numa_node_count', 'get_numa_support', 'InterProcessLock', 
+           'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
+           'multi_column_print', 'parse_time_string', 'nsround', 
+           'read_correlator_configuration', 'get_better_time', 
            'parse_lwa_metadata', 'is_vlite_vdif', 'PolyCos']
 
 
@@ -47,6 +47,42 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
          "3C196,f|J,08:13:36.06,+48:13:02.6,1",
          "3C286,f|J,13:31:08.29,+30:30:33.0,1",
          "3C295,f|J,14:11:20.47,+52:12:09.5,1", ]
+
+
+def get_numa_node_count():
+    # Query lscpu
+    lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = lscpu.communicate()
+    try:
+        output = output.decode()
+        error = error.decode()
+    except AttributeError:
+        pass
+    output = output.split('\n')
+    
+    # Look for the number of NUMA nodes
+    nn = 1
+    for line in output:
+        if line.find('NUMA node(s)') != -1:
+            nn = int(line.rsplit(':', 1)[1], 10)
+    return nn
+
+
+def get_numa_support():
+    # Check the number of NUMA nodes
+    nn = get_numa_node_count()
+            
+    # Check for the numactl utility
+    devnull = open('/dev/null',  'wb')
+    numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
+    devnull.close()
+    
+    # If we have more than one NUMA node and numactl we are good to go
+    status = False
+    if numactl == 0 and nn > 1:
+        status = True
+        
+    return status
 
 
 class InterProcessLock(object):
@@ -427,8 +463,6 @@ def _read_correlator_configuration(filename):
     for block in blocks:
         if block['type'] == 'vdif':
             readers.append( vdif )
-        elif block['type'] == 'guppi':
-            readers.append( guppi )
         elif block['type'] == 'drx':
             readers.append( drx )
         else:
@@ -518,7 +552,11 @@ def read_correlator_configuration(filename_or_npz):
         fh = open(tempConfig, 'w')
         polycos = None
         for line in cConfig:
-            fh.write('%s' % line)
+            try:
+                line = line.decode()
+            except AttributeError:
+                pass
+            fh.write(line)
             if line.find('Polyco') != -1:
                 polycos = line.strip().rstrip()
         fh.close()
@@ -529,9 +567,9 @@ def read_correlator_configuration(filename_or_npz):
             tempPolycos = os.path.join(tempdir, tempPolycos)
             try:
                 cPolycos = dataDict['polycos']
-                fh = open(tempPolycos, 'w')
+                fh = open(tempPolycos, 'wb')
                 for line in cPolycos:
-                    fh.write('%s' % line)
+                    fh.write(line)
                 fh.close()
             except KeyError:
                 pass
@@ -551,9 +589,9 @@ def read_correlator_configuration(filename_or_npz):
 
 def get_better_time(frame):
     """
-    Given a lsl.reader.vdif.Frame, guppi.Frame, or lsl.reader.drx.Frame 
-    instance, return a more accurate time for the frame.  Unlike the 
-    Frame.get_time() functions, this function returns a two-element tuple of:
+    Given a lsl.reader.vdif.Frame or lsl.reader.drx.Frame instance, return a
+    more accurate time for the frame.  Unlike the Frame.get_time() functions,
+    this function returns a two-element tuple of:
       * integer seconds since the UNIX epoch and
       * fractional second
     """

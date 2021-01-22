@@ -132,7 +132,7 @@ def main(args):
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max()))
     iSize = int(round(args.interval/robust.mean(iTimes)))
     print(" -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes)))
-    iCount = times.size/iSize
+    iCount = times.size//iSize
     print(" -> Working with %i chunks of data" % iCount)
     
     print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
@@ -191,7 +191,7 @@ def main(args):
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in xrange(smth.size):
-        mn = max([0, i-winSize/2])
+        mn = max([0, i-winSize//2])
         mx = min([i+winSize, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
     smth /= robust.mean(smth)
