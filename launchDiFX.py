@@ -3,13 +3,14 @@
 import os
 import sys
 import time
+import shutil
 import argparse
 import subprocess
 
 
 def main(args):
     # Parse the command line arguments
-    inputfile = args[0]
+    inputfile = args.filename
     machinesfile = inputfile.replace('.input', '.machines')
     
     # Check that DIFX_VERSION is set and that we have everything we need in
@@ -45,21 +46,41 @@ def main(args):
     if not os.path.exists(corefile):
         raise RuntimeError("Cannot find core file: '%s'" % corefile)
     if os.path.exists(outname):
-        raise RuntimeError("Output file already exists: '%s'" % outname)
-        
+        if args.force:
+            if os.path.isdir(outname):
+                shutil.rmtree(outname)
+            else:
+                os.unlink(outname)
+        else:
+            if os.path.isdir(outname):
+                raise RuntimeError("Output directory already exists: '%s'" % outname)
+            else:
+                raise RuntimeError("Output file already exists: '%s'" % outname)
+                
     # Look for the existance of the .im file.  If it doesn't exist, try to
     # create it by running 'difxcalc'.
+    obscode = None
     imfile = None
     with open(calcfile, 'r') as fh:
         for line in fh:
-            if line.find('IM FILENAME:') != -1:
+            if line.find('OBSCODE:') != -1:
+                obscode = line.split(':', 1)[1]
+                obscode = obscode.strip().rstrip()
+            elif line.find('IM FILENAME:') != -1:
                 imfile = line.split(':', 1)[1]
                 imfile = imfile.strip().rstrip()
-    if not os.path.exists(imfile):
+    if not os.path.exists(imfile) or args.force:
         subprocess.check_call(['difxcalc', calcfile], cwd=os.path.dirname(imfile))
     if not os.path.exists(imfile):
         raise RuntimeError("Cannot find im file: '%s'" % imfile)
-        
+    for ext in ('.FITS', '.log', '_setup1.jobmatrix'):
+        outname = f"{obscode}.0.bin0000.source0000{ext}"
+        if os.path.exists(outname):
+            if args.force:
+                os.unlink(outname)
+            else:
+                raise RuntimeError("Output file already exists: '%s'" % outname)
+                
     # Build up the 'mpifxcorr' command to run.
     cmd = ['mpirun',]
     if os.path.exists(machinesfile):
@@ -81,5 +102,14 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="run DiFX on the specified configuration file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='DiFX .input configuration file')
+    parser.add_argument('-f', '--force', action='store_true',
+                        help='overwrite output files as needed')
+    args = parser.parse_args()
+    main(args)
     
