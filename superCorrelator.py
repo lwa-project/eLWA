@@ -17,6 +17,7 @@ import math
 import time
 import ephem
 import numpy
+import getpass
 import argparse
 from datetime import datetime
 
@@ -398,6 +399,7 @@ def main(args):
     done = False
     oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
     delayStepApplied = [False for step in delaySteps]
+    username = getpass.getuser()
     for i in xrange(nChunks):
         wallTime = time.time()
         
@@ -408,7 +410,7 @@ def main(args):
         drxRef  = [0 for j in xrange(nDRXInputs*2) ]
         
         # Read in the data
-        with InterProcessLock('/dev/shm/sc-reader') as lock:
+        with InterProcessLock('/dev/shm/sc-reader-%s' % username) as lock:
             try:
                 dataV *= 0.0
                 dataD *= 0.0
