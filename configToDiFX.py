@@ -340,13 +340,6 @@ NUM SPACECRAFT:     0
 IM FILENAME:        {dirname}/{basename}.im
 """)
     fh.close()
-    
-    if os.path.exists(f"{dirname}/{basename}.im"):
-        os.unlink(f"{dirname}/{basename}.im")
-    try:
-        subprocess.check_call(['difxcalc', difxname])
-    except (OSError, subprocess.CalledProcessError):
-        print("WARNING: could not run 'difxcalc' to generate the corresponding .im file")
 
 
 if __name__ == "__main__":
