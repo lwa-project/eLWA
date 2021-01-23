@@ -74,7 +74,13 @@ def main(args):
             os.unlink(imfile)
         except OSError:
             pass
-        subprocess.check_call(['difxcalc', calcfile], cwd=os.path.dirname(imfile))
+        logname = os.path.splitext(os.path.basename(inputfile))[0]+'.difxcalc_log'
+        errname = logname.replace('_log', '_err')
+        with open(logname, 'wb') as lf:
+            with open(errname, 'wb') as ef:
+                subprocess.check_call(['difxcalc', calcfile],
+                                      stdout=lf, stderr=ef,
+                                      cwd=os.path.dirname(imfile))
     if not os.path.exists(imfile):
         raise RuntimeError("Cannot find im file: '%s'" % imfile)
     for ext in ('.FITS', '.log', '_setup1.jobmatrix'):
