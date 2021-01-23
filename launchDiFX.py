@@ -78,12 +78,12 @@ def main(args):
     if not os.path.exists(imfile):
         raise RuntimeError("Cannot find im file: '%s'" % imfile)
     for ext in ('.FITS', '.log', '_setup1.jobmatrix'):
-        outname = f"{obscode}.0.bin0000.source0000{ext}"
-        if os.path.exists(outname):
+        _outname = f"{obscode}.0.bin0000.source0000{ext}"
+        if os.path.exists(_outname):
             if args.force:
-                os.unlink(outname)
+                os.unlink(_outname)
             else:
-                raise RuntimeError("Output file already exists: '%s'" % outname)
+                raise RuntimeError("Output file already exists: '%s'" % _outname)
                 
     # Build up the 'mpifxcorr' command to run.
     cmd = ['mpirun',]
