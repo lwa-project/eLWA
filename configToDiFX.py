@@ -37,6 +37,23 @@ def smart_int(s):
     return v
 
 
+def clean_lines(filename):
+    cleaned = ''
+    with open(filename, 'r') as fh:
+        for line in fh:
+            if line.find(':') == -1:
+                cleaned += line
+            else:
+                key, value = line.rsplit(None, 1)
+                if key.find(':') != -1:
+                    cleaned += f"{key:20s}{value}\n"
+                else:
+                    cleaned += f"{key} {value}\n"
+                    
+    with open(filename, 'w') as fh:
+        fh.write(cleaned)
+
+
 def main(args):
     # Parse the command line
     configname = args.filename
@@ -67,7 +84,7 @@ def main(args):
     pads = []
     ecef_xyz = []
     for reader,filename in zip(readers, filenames):
-        with open(filenames[0], 'rb') as fh:
+        with open(filename, 'rb') as fh:
             if reader is vdif:
                 is_vlite = is_vlite_vdif(fh)
             else:
@@ -266,6 +283,7 @@ D/STREAM B BAND 3:  0""")
             fh.write(f"FILE {i}/{j}:           {filename}\n")
     fh.write("\n")
     fh.close()
+    clean_lines(difxname)
     
     # .calc file
     difxname = "%s.calc" % (basename,)
@@ -340,6 +358,7 @@ NUM SPACECRAFT:     0
 IM FILENAME:        {dirname}/{basename}.im
 """)
     fh.close()
+    clean_lines(difxname)
 
 
 if __name__ == "__main__":
