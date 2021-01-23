@@ -254,7 +254,7 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
     return gains1, gains2
 
 
-def load_cal_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=3):)
+def load_cal_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=2):
     return load_caltab_cl(filename, start=start, stop=stop, margin=margin, version=version)
 
 
@@ -388,7 +388,7 @@ def main(args):
     gains_cl = {0: gains_cl_p0, 1: gains_cl_p1}
     gains_bp_p0, gains_bp_p1 = load_caltab_bp(args.caltab)
     gains_bp = {0: gains_bp_p0, 1: gains_bp_p1}
-    delays_sm_p0, dleays_sm_p1, gains_sm_p0, gains_sm_p1 = load_cal_cl(args.caltab)
+    delays_sm_p0, dleays_sm_p1, gains_sm_p0, gains_sm_p1 = load_cal_cl(args.cal)
     delays_sm = {0: delays_sm_p0, 1: delays_sm_p1}
     gains_sm = {0: gains_sm_p0, 1: gains_sm_p1}
     if args.apply_uvout:
