@@ -70,6 +70,10 @@ def main(args):
                 imfile = line.split(':', 1)[1]
                 imfile = imfile.strip().rstrip()
     if not os.path.exists(imfile) or args.force:
+        try:
+            os.unlink(imfile)
+        except OSError:
+            pass
         subprocess.check_call(['difxcalc', calcfile], cwd=os.path.dirname(imfile))
     if not os.path.exists(imfile):
         raise RuntimeError("Cannot find im file: '%s'" % imfile)
