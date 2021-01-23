@@ -104,7 +104,7 @@ def main(args):
     cmd = ['difx2fits', os.path.splitext(outname)[0]]
     
     # Convert!
-    ogname = os.path.splitext(os.path.basename(inputfile))[0]+'.difx2fits_log'
+    logname = os.path.splitext(os.path.basename(inputfile))[0]+'.difx2fits_log'
     errname = logname.replace('_log', '_err')
     t0 = time.time()
     with open(logname, 'wb') as lf:
