@@ -92,16 +92,24 @@ def main(args):
     cmd.extend(['mpifxcorr', inputfile])
     
     # Correlate!
+    logname = os.path.splitext(os.path.basename(inputfile))[0]+'.mpifxcorr_log'
+    errname = logname.replace('_log', '_err')
     t0 = time.time()
-    subprocess.check_call(cmd)
+    with open(logname, 'wb') as lf:
+        with open(errname, 'wb') as ef:
+                subprocess.check_call(cmd, stdout=lf, stderr=ef)
     print("Finished correlation in %.3f s" % ((time.time()-t0),))
     
     # Build the 'difx2fits' command to run.
     cmd = ['difx2fits', os.path.splitext(outname)[0]]
     
     # Convert!
+    ogname = os.path.splitext(os.path.basename(inputfile))[0]+'.difx2fits_log'
+    errname = logname.replace('_log', '_err')
     t0 = time.time()
-    subprocess.check_call(cmd)
+    with open(logname, 'wb') as lf:
+        with open(errname, 'wb') as ef:
+            subprocess.check_call(cmd, stdout=lf, stderr=ef)
     print("Finished data conversion in %.3f s" % ((time.time()-t0),))
 
 
