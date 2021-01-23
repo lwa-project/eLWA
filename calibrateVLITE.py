@@ -24,6 +24,21 @@ from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc.dedispersion import delay as ddelay
 
 
+def smart_int(s):
+    i = 0
+    v = None
+    while i < len(s):
+        try:
+            v = int(s[i:], 10)
+            break
+        except ValueError:
+            pass
+        i += 1
+    if v is None:
+        raise ValueError("Cannot convert '%s' to int" % s)
+    return v
+
+
 def _select(data, key2, key3):
     x, y = [], []
     for key1 in data.keys():
@@ -71,6 +86,9 @@ def load_antenna_unmapper(filename):
 
 
 def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=2):
+    if not isinstance(version, (list, tuple)):
+        version = [version,]
+        
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     nFreq = hdulist[1].header['TDIM13']
@@ -83,7 +101,7 @@ def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         if hdu.header['EXTNAME'] == 'AIPS FG':
             ## The actual flag table - only keep the specified one
             count += 1
-            if count != version:
+            if count not in version:
                 continue
                 
             for row in hdu.data:
@@ -107,6 +125,9 @@ def load_caltab_fg(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
 
 
 def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=3):
+    if not isinstance(version, (list, tuple)):
+        version = [version,]
+        
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     
@@ -116,7 +137,7 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         if hdu.header['EXTNAME'] == 'AIPS CL':
             ## The actual calibration information - only keep the specified one
             count += 1
-            if count != version:
+            if count not in version:
                 continue
                 
             for row in hdu.data:
@@ -177,6 +198,9 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
 
 
 def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, version=1):
+    if not isinstance(version, (list, tuple)):
+        version = [version,]
+        
     hdulist = astrofits.open(filename)
     ref_date = hdulist[1].header['TZERO4']
     ref_freq = hdulist[1].header['3CRVL13']
@@ -192,7 +216,7 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         if hdu.header['EXTNAME'] == 'AIPS BP':
             ## The actual calibration information - only keep the specified one
             count += 1
-            if count != version:
+            if count not in version:
                 continue
                 
             for row in hdu.data:
@@ -429,14 +453,11 @@ def main(args):
         ## Antenna look-up table
         antLookup = {}
         for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
-            antLookup[an] = ai
+            antLookup[ai] = smart_int(an)
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
         ## Baseline list
         bls = uvdata.data['BASELINE']
-        uu = uvdata.data['UU']
-        vv = uvdata.data['VV']
-        ww = uvdata.data['WW']
         ## Time of each integration
         obsdates = uvdata.data['DATE']
         obstimes = uvdata.data['TIME']
@@ -491,6 +512,7 @@ def main(args):
             vis.shape = (vis.shape[0]*nBL, vis.shape[2], vis.shape[3])
             for j in xrange(vis.shape[0]):
                 a1, a2 = (bls[match[j]] >> 8), (bls[match[j]]) & 0xFF
+                a1, a2 = antLookup[a1], antLookup[a2]
                 
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
@@ -529,7 +551,7 @@ def main(args):
                     cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
                     cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
                 except KeyError:
-                    print('skip', 'd1p*/g1p*', a2)
+                    print('skip', 'cd1p*/cg1p*', a2)
                     cd1p0, cd1p1 = 0.0, 0.0
                     cg1p0, cg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                 try:
@@ -537,7 +559,7 @@ def main(args):
                     cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
                     cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
                 except KeyError:
-                    print('skip', 'd2p*/g2p*', a2)
+                    print('skip', 'cd2p*/cg2p*', a2)
                     cd2p0, cd2p1 = 0.0, 0.0
                     cg2p0, cg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
                     
@@ -677,8 +699,12 @@ def main(args):
         flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
         flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
         flags.header['TABREV'] = (2, 'table format revision number')
-        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ', 'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
-            flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ',
+                    'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
+            try:
+                flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+            except KeyError:
+                pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         flags.header['HISTORY'] = 'Flag source: %s' % args.caltab
         
