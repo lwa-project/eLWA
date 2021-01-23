@@ -272,7 +272,7 @@ D/STREAM B BAND 3:  0""")
     fh = open(difxname, 'w')
     fh.write(f"""JOB ID:             {jobid}
 JOB START TIME:     {(mjd+mjdf):.6f}
-JOB STOP TIME:      {(mjd+mjdf+3600/86400.):.6f}
+JOB STOP TIME:      {(mjd+mjdf+1.0*len(subnames)/86400.):.6f}
 DUTY CYCLE:         1.000000
 OBSCODE:            {basename.upper()}
 DIFX VERSION:       {difx_version}
@@ -291,7 +291,7 @@ TAPER FUNCTION:     UNIFORM""")
     
     fh.write(f"""
 NUM TELESCOPES:     {nAnt}""")
-    for i,ant,pad,xyz in zip(range(nAnt), antennas, pads, ecef_xyz):
+    for i,ant,pad,xyz in zip(range(nAnt), antennas[::2], pads, ecef_xyz):
         fh.write(f"""
 TELESCOPE {i} NAME:   EA{ant.stand.id:02d}
 TELESCOPE {i} MOUNT:  AZEL
@@ -313,7 +313,8 @@ SOURCE 0 QUAL:      0""")
 NUM SCANS:          1
 SCAN 0 IDENTIFIER:  No{jobid:04d}
 SCAN 0 START (S):   0
-SCAN 0 DUR (S):     3600
+SCAN 0 DUR (S):     {(1.0*len(subnames)):.0f}
+SCAN 0 OBS MODE NAME:pband
 SCAN 0 UVSHIFT INTERVAL (NS):{(0.01*1e9):.0f}
 SCAN 0 AC AVG INTERVAL (NS):{(0.01*1e9):.0f}
 SCAN 0 POINTING SRC:0
@@ -340,6 +341,8 @@ IM FILENAME:        {dirname}/{basename}.im
 """)
     fh.close()
     
+    if os.path.exists(f"{dirname}/{basename}.im"):
+        os.unlink(f"{dirname}/{basename}.im")
     try:
         subprocess.check_call(['difxcalc', difxname])
     except (OSError, subprocess.CalledProcessError):
