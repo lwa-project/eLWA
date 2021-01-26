@@ -355,7 +355,7 @@ if __name__ == "__main__":
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
     parser.add_argument('-r', '--freq-range', type=str, 
-                        help='range of frequencies in MHz to flag')
+                        help='range of frequencies in MHz to flag, multiple ranges can be specified using a comma')
     parser.add_argument('-s', '--sdm', type=str, 
                         help='read in the provided VLA SDM for additional flags')
     parser.add_argument('-p', '--scf-passes', type=int, default=0, 
@@ -366,6 +366,10 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     if args.freq_range is not None:
-        args.freq_range = [float(v)*1e6 for v in args.freq_range.split('-')]
+        sections = args.freq_range.split(',')
+        
+        args.freq_range = []
+        for section in sections:
+            args.freq_range.append([float(v)*1e6 for v in section.split('-')])
     main(args)
     
