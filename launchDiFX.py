@@ -16,7 +16,7 @@ def main(args):
     # Check that DIFX_VERSION is set and that we have everything we need in
     # our path
     if os.getenv('DIFX_VERSION', None) is None:
-        pritn("WARNING: DIFX_VERSION is not set")
+        print("WARNING: DIFX_VERSION is not set")
     for cmd in ('mpirun', 'mpifxcorr', 'difxcalc', 'difx2fits'):
         status = subprocess.check_call(['which', cmd],
                                        stdout=subprocess.DEVNULL,
