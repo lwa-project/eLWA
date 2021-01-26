@@ -2,11 +2,14 @@
 
 """
 Integration extractor for FITS-IDI files containing eLWA data.
-
-$Rev$
-$LastChangedBy$
-$LastChangedDate$
 """
+
+# Python3 compatiblity
+from __future__ import print_function, division, absolute_import
+import sys
+if sys.version_info > (3,):
+    xrange = range
+    raw_input = input
 
 import os
 import sys
@@ -16,8 +19,11 @@ import pyfits
 import argparse
 from datetime import datetime
 
+import ubjson
+
 from lsl.astro import utcjd_to_unix
-from lsl.writer.fitsidi import NumericStokes
+from lsl.writer.fitsidi import NUMERIC_STOKES
+from lsl.misc.dedispersion import delay as disp_delay
 
 
 def main(args):
@@ -25,7 +31,7 @@ def main(args):
     filename = args.filename
     
     t0 = time.time()
-    print "Working on '%s'" % os.path.basename(filename)
+    print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
     hdulist = pyfits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
@@ -90,11 +96,31 @@ def main(args):
     usrc = numpy.unique(srcs)
 
     # Downselect
-    to_keep = range(args.start_int*len(ubls), (args.stop_int+1)*len(ubls))
-    print "UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1])
+    try:
+        start_int, stop_int = args.start_stop_or_meta.split('-', 1)
+        start_int = int(start_int, 10)
+        stop_int = int(stop_int, 10)
+    except ValueError:
+        print("Loading metadata from '%s'" % os.path.basename(args.start_stop_or_meta))
+        with open(args.start_stop_or_meta, 'rb') as fh:
+            meta = ubjson.load(fh)
+        event_time = meta['t0'] + meta['peak_time']
+        event_dm = meta['dm']
+        event_width = meta['width']
+        print("  t0: %f" % event_time)
+        print("  width: %.3f ms" % (event_width*1e3,))
+        print("  DM: %.3f pm/cm^3" % event_dm)
+        
+        data_time = utcjd_to_unix(obsdates[0] + obstimes[0])
+        data_tint = inttimes[0]
+        event_time -= disp_delay([361.941e6, freq.max()], event_dm)[0]
+        start_int = int((event_time - data_time) / data_tint) - 1
+        stop_int = start_int + max([1, int(event_width / data_tint)]) + 1
+    to_keep = range(start_int*len(ubls), (stop_int+1)*len(ubls))
+    print("UV_DATA entry selection is %i through %i" % (to_keep[0], to_keep[-1]))
     
     # Save
-    print "  Saving to disk"
+    print("  Saving to disk")
     ## What to call it
     outname = os.path.basename(filename)
     outname, outext = os.path.splitext(outname)
@@ -133,7 +159,7 @@ def main(args):
                 ## Drop this flag table
                 fgcount -= 1
                 ver = hdu.header['EXTVER'] 
-                print "  WARNING: removing old FLAG table - version %i" % ver
+                print("  WARNING: removing old FLAG table - version %i" % ver)
                 continue
             else:
                 ## Reset the EXTVER on the last FLAG table
@@ -165,8 +191,8 @@ def main(args):
         hdulist2.flush()
     hdulist2.close()
     hdulist.close()
-    print "  -> Extracted FITS IDI file is '%s'" % outname
-    print "  Finished in %.3f s" % (time.time()-t0,)
+    print("  -> Extracted FITS IDI file is '%s'" % outname)
+    print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
@@ -175,10 +201,8 @@ if __name__ == "__main__":
         description='Integration extractor for FITS-IDI files', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument('start_int', type=int, 
-                        help='first integration number to keep')
-    parser.add_argument('stop_int', type=int, 
-                        help='last integration number to keep')
+    parser.add_argument('start_stop_or_meta', type=str, 
+                        help='start and stop integrations writen as "start-stop" or a .meta filename')
     parser.add_argument('filename', type=str, 
                         help='filename to process')
     parser.add_argument('-d', '--drop', action='store_true', 
