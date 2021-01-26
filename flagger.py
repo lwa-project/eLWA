@@ -64,8 +64,14 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     except ValueError:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) \
-                       | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
+    fmask = numpy.zeros(freq.size, dtype=numpy.bool)
+    fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
+    if isinstance(freq_range[0], (tuple, list)):
+        for section in freq_range:
+            fmask[numpy.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+    else:
+        fmask[numpy.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
+    bad = numpy.where(fmask == True)[0]
     
     # Make sure we have flagged appropriately and revert the flags as needed.  We
     # specifically need this when we have flagged everything because the bandpass 
@@ -73,8 +79,14 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     if len(bad) == bp.size and ds < 1e-6 and spec.mean() > 1e-6:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-        bad = numpy.where( ((numpy.abs(bp-dm) > clip*ds) | (smth < 0.1)) \
-                           | ((freq >= freq_range[0]) & (freq <= freq_range[1])) )[0]
+        fmask = numpy.zeros(freq.size, dtype=numpy.bool)
+        fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
+        if isinstance(freq_range[0], (tuple, list)):
+            for section in freq_range:
+                fmask[numpy.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+        else:
+            fmask[numpy.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
+        bad = numpy.where(fmask == True)[0]
         
     if grow:
         try:
