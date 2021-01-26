@@ -75,7 +75,10 @@ def main(args):
     freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
     freq += uvdata.header['CRVAL3']
     ## UVW coordinates
-    u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
+    try:
+        u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
+    except KeyError:
+        u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
     uvw = numpy.array([u, v, w]).T
     ## The actual visibility data
     flux = uvdata.data['FLUX'].astype(numpy.float32)
