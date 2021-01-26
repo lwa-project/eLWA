@@ -13,71 +13,19 @@ if sys.version_info > (3,):
 import os
 import sys
 import numpy
-import getopt
+import argparse
 from datetime import datetime
 
 from lsl import astro
 from lsl.reader import vdif, errors
+from lsl.misc import parser as aph
 
 from utils import *
 
 
-def usage(exitCode=None):
-    print("""vdifFileCheck.py - Run through a VDIF file and determine if it is bad or not.
-
-Usage: vdifFileCheck.py [OPTIONS] filename
-
-Options:
--h, --help         Display this help information
--l, --length       Length of time in seconds to analyze (default 1 s)
--s, --skip         Skip period in seconds between chunks (default 900 s)
--t, --trim-level   Trim level for power analysis with clipping (default is 
-                set by bit depth)
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return None
-
-
-def parseConfig(args):
-    config = {}
-    config['length'] = 1.0
-    config['skip'] = 900.0
-    config['trim'] = None
-    
-    try:
-        opts, args = getopt.getopt(args, "hl:s:t:", ["help", "length=", "skip=", "trim-level="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-l', '--length'):
-            config['length'] = float(value)
-        elif opt in ('-s', '--skip'):
-            config['skip'] = float(value)
-        elif opt in ('-t', '--trim-level'):
-            config['trim'] = float(value)
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Return
-    return config
-
-
 def main(args):
     # Parse the command line
-    config = parseConfig(args)
-    filename = config['args'][0]
+    filename = args.filename
     
     fh = open(filename, 'rb')
     is_vlite = is_vlite_vdif(fh)
@@ -120,26 +68,26 @@ def main(args):
     print(" ")
     
     # Determine the clip level
-    if config['trim'] is None:
+    if args.trim_level is None:
         if junkFrame.header.bits_per_sample == 1:
-            config['trim'] = abs(1.0)**2
+            args.trim_level = abs(1.0)**2
         elif junkFrame.header.bits_per_sample == 2:
-            config['trim'] = abs(3.3359)**2
+            args.trim_level = abs(3.3359)**2
         elif junkFrame.header.bits_per_sample == 4:
-            config['trim'] = abs(7/2.95)**2
+            args.trim_level = abs(7/2.95)**2
         elif junkFrame.header.bits_per_sample == 8:
-            config['trim'] = abs(255/256.)**2
+            args.trim_level = abs(255/256.)**2
         else:
-            config['trim'] = 1.0
-        print("Setting clip level to %.3f" % config['trim'])
+            args.trim_level = 1.0
+        print("Setting clip level to %.3f" % args.trim_level)
         print(" ")
         
     # Convert chunk length to total frame count
-    chunkLength = int(config['length'] * srate / vdif.DATA_LENGTH * tunepols)
+    chunkLength = int(args.length * srate / vdif.DATA_LENGTH * tunepols)
     chunkLength = int(1.0 * chunkLength / tunepols) * tunepols
     
     # Convert chunk skip to total frame count
-    chunkSkip = int(config['skip'] * srate / vdif.DATA_LENGTH * tunepols)
+    chunkSkip = int(args.skip * srate / vdif.DATA_LENGTH * tunepols)
     chunkSkip = int(1.0 * chunkSkip / tunepols) * tunepols
     
     # Output arrays
@@ -189,7 +137,7 @@ def main(args):
             meanPower.append( data.mean(axis=1) )
             meanRMS.append( rms )
             for j in xrange(2):
-                bad = numpy.nonzero(data[j,:] > config['trim'])[0]
+                bad = numpy.nonzero(data[j,:] > args.trim_level)[0]
                 clipFraction[-1][j] = 1.0*len(bad) / data.shape[1]
                 
             clip = clipFraction[-1]
@@ -212,5 +160,18 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description='run through a VDIF file and determine if it is bad or not', 
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, 
+                        help='filename to check')
+    parser.add_argument('-l', '--length', type=aph.positive_float, default=1.0, 
+                        help='length of time in seconds to analyze')
+    parser.add_argument('-s', '--skip', type=aph.positive_float, default=900.0, 
+                        help='skip period in seconds between chunks')
+    parser.add_argument('-t', '--trim-level', type=aph.positive_float, 
+                        help='trim level for power analysis with clipping')
+    args = parser.parse_args()
+    main(args)
     

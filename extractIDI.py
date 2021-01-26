@@ -4,18 +4,18 @@
 Integration extractor for FITS-IDI files containing eLWA data.
 """
 
-# Python3 compatiblity
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-
+# Python2 compatibility
+from __future__ import print_function
+try:
+    input = raw_input
+except NameError:
+    pass
+    
 import os
 import sys
 import time
 import numpy
-import pyfits
+from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
@@ -33,7 +33,7 @@ def main(args):
     t0 = time.time()
     print("Working on '%s'" % os.path.basename(filename))
     # Open the FITS IDI file and access the UV_DATA extension
-    hdulist = pyfits.open(filename, mode='readonly')
+    hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
     fqdata = hdulist['FREQUENCY']
     fgcount = 0
@@ -50,9 +50,9 @@ def main(args):
         
     # NOTE: Assumes that the Stokes parameters increment by -1
     polMapper = {}
-    for i in xrange(uvdata.header['NO_STKD']):
+    for i in range(uvdata.header['NO_STKD']):
         stk = uvdata.header['STK_1'] - i
-        polMapper[i] = NumericStokes[stk]
+        polMapper[i] = NUMERIC_STOKES[stk]
         
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
@@ -128,7 +128,7 @@ def main(args):
     ## Does it already exist or not
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             
@@ -137,8 +137,8 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
     ## Open and create a new primary HDU
-    hdulist2 = pyfits.open(outname, mode='append')
-    primary =	pyfits.PrimaryHDU()
+    hdulist2 = astrofits.open(outname, mode='append')
+    primary =	astrofits.PrimaryHDU()
     processed = []
     for key in hdulist[0].header:
         if key in ('COMMENT', 'HISTORY'):
@@ -171,10 +171,10 @@ def main(args):
             for col in hdu.data.columns:
                 temp = hdu.data[col.name]
                 temp = temp[to_keep]
-                columns.append( pyfits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
-            colDefs = pyfits.ColDefs(columns)
+                columns.append( astrofits.Column(name=col.name, unit=col.unit, format=col.format, array=temp) )
+            colDefs = astrofits.ColDefs(columns)
             
-            hduprime = pyfits.new_table(colDefs)
+            hduprime = astrofits.BinTableHDU.from_columns(colDefs)
             processed = ['NAXIS1', 'NAXIS2']
             for key in hdu.header:
                 if key in ('COMMENT', 'HISTORY'):

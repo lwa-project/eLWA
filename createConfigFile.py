@@ -26,7 +26,6 @@ from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
 from lsl.common.mcs import mjdmpm_to_datetime, datetime_to_mjdmpm
 
-import guppi
 from utils import *
 from get_vla_ant_pos import database
 
@@ -87,41 +86,6 @@ def main(args):
         sys.stderr.write("WARNING: %s" % str(e))
         sys.stderr.flush()
         db = None
-        
-    # Load the base VLITE correlator delays
-    corr_delays = OrderedDict()
-    for filename in sorted(glob.glob('META_*[0-9]')):
-        filedate = filename.rsplit('_', 1)[1]
-        filedate = int(filedate, 10)
-        
-        try:
-            curr_delays = {}
-            with open(filename, 'r') as fh:
-                for line in fh:
-                    if len(line) < 3:
-                        continue
-                    elif line[0] == '#':
-                        continue
-                    fields = line.split()
-                    vid, aid = int(fields[0]), int(fields[1])
-                    aid = 'EA%02i' % aid
-                    vid = 'V%02i' % (vid+1)
-                    valid = int(fields[-1])
-                    curr_delays[aid] = {'vlite':vid, 'delayX':float(fields[4]), 'delayY':float(fields[4]), 'valid':bool(valid)}
-            corr_delays[filedate] = curr_delays
-        except IOError as e:
-            sys.stderr.write("WARNING: could not load VLITE correlator delays: %s\n" % str(e))
-            sys.stderr.flush()
-            
-    # Load in the array of VLITE pipeline delays
-    pipe_delays = {}
-    try:
-        with open('vlite_delays.repickle', 'rb') as fh:
-            import pickle
-            pipe_delays = pickle.load(fh)
-    except IOError as e:
-        sys.stderr.write("WARNING: could not load VLITE pipeline delays: %s\n" % str(e))
-        sys.stderr.flush()
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
     context = {'observer':'Unknown', 'project':'Unknown', 'session':None, 'vlaref':None}
@@ -257,6 +221,7 @@ def main(args):
                   'inputs': []}
     
     metadata = {}
+    vlite_timestamps_done = []
     for filename in filenames:
         #print("%s:" % os.path.basename(filename))
         
@@ -364,6 +329,27 @@ def main(args):
                               'DEC_STR':  args.vlite_dec,
                               'OBSFREQ':  352e6,
                               'OBSBW':    64e6}
+                    
+                    ## Load in the metadata
+                    try:
+                        vlite_meta
+                    except NameError:
+                        import ubjson
+                        vlite_metaname = glob.glob(os.path.join(os.path.dirname(filename), '*.meta'))[0]
+                        with open(vlite_metaname, 'rb') as mh:
+                            vlite_meta = ubjson.load(mh)
+                    header['BASENAME'] = vlite_meta['antprops']['datasetId']
+                    
+                    ## Check the timestamp so that we can weed out sequential files in the set
+                    timestamp = os.path.basename(filename)
+                    timestamp = timestamp.rsplit('.', 1)[0]
+                    timestamp = timestamp.rsplit('_', 1)[1]
+                    timestamp = int(timestamp, 10)
+                    if timestamp not in vlite_timestamps_done:
+                        vlite_timestamps_done.append(timestamp)
+                    if timestamp > min(vlite_timestamps_done):
+                        continue
+                        
                 else:
                     ## Read in the GUPPI header
                     header = vdif.read_guppi_header(fh)
@@ -404,45 +390,36 @@ def main(args):
                 enz[1] *= -1
                 
                 if is_vlite:
-                    ## VLITE delays
-                    aid = 'EA%02i' % antID
-                    idx = numpy.where(numpy.array(list(corr_delays.keys())) <= int(tStart.strftime("%s"), 10))[0][-1]
-                    curr_delays = corr_delays[list(corr_delays.keys())[idx]]
-                    vid = curr_delays[aid]['vlite']
-                    dX = curr_delays[aid]['delayX']
-                    dY = curr_delays[aid]['delayY']
-                    if not curr_delays[aid]['valid']:
+                    ## VLITE status
+                    idx = vlite_meta['delays']['vlant'].index(antID)
+                    vid = vlite_meta['delays']['va_id'][idx]
+                    if vlite_meta['delays']['enable'][idx] == 0:
+                        sys.stderr.write("WARNING: EA%02i (V%i) is disabled according to the VLITE metadata\n" % (antID, vid))
+                        sys.stderr.flush()
                         continue
                         
-                    try:
-
-                        pds = pipe_delays[curr_delays[aid]['vlite']]
-                        try:
-                            idx = numpy.where(pds['edges_mjd'] >= datetime_to_mjdmpm(tStart)[0])[0][0]
-                        except IndexError:
-                            idx = pds['polx_delays'].size
-                        if idx == pds['polx_delays'].size:
-                            idx = -1
-                        dX += pds['polx_delays'][idx]
-                        dY += pds['poly_delays'][idx]
-                    except KeyError as e:
-                        sys.stderr.write("ERROR setting VLITE delays: %s\n" % str(e))
-                        pass
-                        
+                    ## Delays
+                    dX = vlite_meta['delays']['clkoffset'][idx]
+                    dY = vlite_meta['delays']['clkoffset'][idx]
+                    
                     dX = '%.1fns' % (-dX)
                     dY = '%.1fns' % (-dY)                   
                     off = (dX, dY)
                     
                     ## Update the pad name with the VLITE antenna ID
-                    pad = '%s (VLITE antenna %s)' % (pad, vid)
+                    pad = '%s (VLITE antenna V%i)' % (pad, vid)
                 else:
                     ## VLA time offset
                     off = (args.vla_offset, args.vla_offset)
                     
                 ## Save
                 corrConfig['context']['observer'] = header['OBSERVER']
-                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                try:
+                    corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
+                    corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
+                except IndexError:
+                    corrConfig['context']['project'] = header['BASENAME'].split('.')[0]
+                    corrConfig['context']['session'] = header['BASENAME'].split('.')[1].replace('sb', '')
                 corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
@@ -456,67 +433,6 @@ def main(args):
                 
             except Exception as e:
                 sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
-                sys.stderr.flush()
-                
-        elif ext == '.raw':
-            ## GUPPI Raw
-            try:
-                ## Read in the GUPPI header
-                header = vdif.read_guppi_header(fh)
-                
-                ## Read in the first frame
-                guppi.FRAME_SIZE = guppi.get_frame_size(fh)
-                frame = guppi.read_frame(fh)
-                antID = frame.id[0] - 12300
-                tStart =  frame.time.datetime
-                nThread = guppi.get_thread_count(fh)
-                
-                ## Read in the last frame
-                nJump = int(os.path.getsize(filename)/guppi.FRAME_SIZE)
-                nJump -= 4
-                fh.seek(nJump*guppi.FRAME_SIZE, 1)
-                mark = fh.tell()
-                frame = guppi.read_frame(fh)
-                tStop = frame.time.datetime
-            
-                ## Find the antenna location
-                pad, edate = db.get_pad('EA%02i' % antID, tStart)
-                x,y,z = db.get_xyz(pad, tStart)
-                #print("  Pad: %s" % pad)
-                #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
-                
-                ## Move into the LWA1 coordinate system
-                ### relative to ECEF
-                xyz = numpy.array([x,y,z])
-                xyz += VLA_ECEF
-                ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
-                enz[1] *= -1
-                ### z offset from pad height to elevation bearing
-                enz[2] += 11.0
-                
-                ## VLA time offset
-                off = args.vla_offset
-                
-                ## Save
-                corrConfig['context']['observer'] = header['OBSERVER']
-                corrConfig['context']['project'] = header['BASENAME'].split('_')[0]
-                corrConfig['context']['session'] = header['BASENAME'].split('_')[1].replace('sb', '')
-                corrConfig['context']['valref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
-                corrConfig['source']['name'] = header['SRC_NAME']
-                corrConfig['source']['intent'] = 'target'
-                corrConfig['source']['ra2000'] = header['RA_STR']
-                corrConfig['source']['dec2000'] = header['DEC_STR']
-                corrConfig['inputs'].append( {'file': filename, 'type': 'GUPPI', 
-                                              'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
-                                              'location': (enz[0], enz[1], enz[2]),
-                                              'clockoffset': (off, off), 'fileoffset': 0, 
-                                              'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
-                                        
-            except Exception as e:
-                sys.stderr.write("ERROR reading GUPPI file: %s\n" % str(e))
                 sys.stderr.flush()
                 
         elif ext == '.tgz':
@@ -545,7 +461,7 @@ def main(args):
     vdifRefFile = None
     isDRX = False
     for cinp in corrConfig['inputs']:
-        if cinp['type'] in ('VDIF', 'GUPPI'):
+        if cinp['type'] == 'VDIF':
             if vdifRefFile is None:
                 vdifRefFile = cinp
         elif cinp['type'] == 'DRX':
@@ -628,7 +544,9 @@ def main(args):
         
         dur = source['stop'] - source['start']
         dur = dur.total_seconds()
-        
+        if len(vlite_timestamps_done) > 0:
+            dur = len(vlite_timestamps_done)*1.0
+            
         ## Skip over dummy scans and scans that start after the files end
         if source['intent'] in (None, 'dummy'):
             continue
@@ -640,6 +558,10 @@ def main(args):
         if lwasvFound and s == 0:
             startOffset += 10.0
             dur -= 10.0
+
+        ## Skip over scans that are too short
+        if dur < args.minimum_scan_length:
+            continue
             
         ## Setup
         if args.output is None:
@@ -778,6 +700,8 @@ if __name__ == "__main__":
                         help='LWA-SV clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
+    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-numpy.inf,
+                        help='minimum scan length in seconds to write a configuration file for')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
     parser.add_argument('-t', '--vlite-target', type=str, default='Unknown',

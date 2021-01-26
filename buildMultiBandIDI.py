@@ -23,6 +23,7 @@ import ephem
 import numpy
 import argparse
 import tempfile
+import warnings
 from datetime import datetime, timedelta, tzinfo
 
 from astropy.constants import c as vLight
@@ -275,6 +276,7 @@ def main(args):
     # Fill in the data
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
+        group = os.path.basename(filename).split('-vis2-', 1)[0]
         dataDict = numpy.load(lowname)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
@@ -287,6 +289,26 @@ def main(args):
             pass
         blList = uvutils.get_baselines([ant for ant in antennas if ant.pol == 0], include_auto=True)
         
+        ## Make sure the frequencies are compatible - lower band
+        cFreq = dataDict['freq1']
+        if cFreq.size != freqL.size:
+            error_msg = "Incompatible frequencies at %s, lower band: %i != %i" % (group,
+                                                                                  cFreq.size, freqL.size)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+        elif cFreq[0] != freqL[0] or cFreq[-1] != freqL[-1]:
+            error_msg = "Incompatible frequencies at %s, lower band: %.3f MHz != %.3f MHz or %.3f != %.3f MHz" % (group,
+                                                                                                                  cFreq[ 0]/1e6, freqL[ 0]/1e6,
+                                                                                                                  cFreq[-1]/1e6, freqL[-1]/1e6)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+                
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()
         visXXL = dataDict['vis1XX'].astype(numpy.complex64)
@@ -305,8 +327,28 @@ def main(args):
         dataDict.close()
         
         ## Load in the integration - upper band
+        group = os.path.basename(filename).split('-vis2-', 1)[0]
         dataDict = numpy.load(highname)
         
+        ## Make sure the frequencies are compatible - upper band
+        cFreq = dataDict['freq1']
+        if cFreq.size != freqH.size:
+            error_msg = "Incompatible frequencies at %s, upper band: %i != %i" % (group, cFreq.size, freqH.size)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+        elif cFreq[0] != freqH[0] or cFreq[-1] != freqH[-1]:
+            error_msg = "Incompatible frequencies at %s, upper band: %.3f MHz != %.3f MHz or %.3f MHz != %.3f MHz" % (group,
+                                                                                                                      cFreq[ 0]/1e6, freqH[ 0]/1e6,
+                                                                                                                      cFreq[-1]/1e6, freqH[-1]/1e6)
+            if args.ignore_incompatible:
+                warnings.warn(error_msg, RuntimeWarning)
+                continue
+            else:
+                raise RuntimeError(error_msg)
+                
         tStartH = dataDict['tStart'].item()
         tIntH = dataDict['tInt'].item()
         visXXH = dataDict['vis1XX'].astype(numpy.complex64)
@@ -474,6 +516,8 @@ if __name__ == "__main__":
                         help='convert to circular polarization')
     pgroup.add_argument('-k', '--stokes', action='store_true', 
                         help='convert to Stokes parameters')
+    parser.add_argument('-i', '--ignore-incompatible', action='store_true',
+                        help='skip over files with incompatible frequency setups')
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     parser.add_argument('-l', '--limit', type=int, default=-1, 

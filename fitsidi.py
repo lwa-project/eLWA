@@ -1071,7 +1071,8 @@ class Idi(WriterBase):
                 
             # Sort the data by packed baseline
             try:
-                order
+                if len(dataSet.visibilities) != len(order):
+                    raise NameError
             except NameError:
                 order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
                 
@@ -1148,6 +1149,8 @@ class Idi(WriterBase):
                 try:
                     matrix[...] = 0.0
                     weights[...] = 1.0
+                    if matrix.shape[0] != len(order):
+                        raise NameError
                 except NameError:
                     matrix = numpy.zeros((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.complex64)
                     weights = numpy.ones((len(order), self.nStokes*self.nChan*nBand), dtype=numpy.float32)

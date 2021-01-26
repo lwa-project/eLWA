@@ -15,7 +15,7 @@ import re
 import sys
 import time
 import shlex
-import getopt
+import argparse
 import tempfile
 import threading
 import subprocess
@@ -24,110 +24,12 @@ try:
 except ImportError:
     from queue import Queue
 from getpass import getuser
+from collections import OrderedDict
+
+from lsl.misc import parser as aph
 
 
 FAILED_QUEUE = Queue()
-
-
-def usage(exitCode=None):
-    print("""launchJobs.py - Given a collection of superCorrelator.py configuration files, 
-process the runs and aggregate the results.
-
-Usage:
-launchJobs.py [OPTIONS] config [config [...]]
-
-Options:
--h, --help                Display this help information
--p, --processes-per-node  Number of processes to run per node (Default = 1)
--n, --nodes               Comma seperated lists of nodes to use 
-                        (Default = current)
--o, --options             Correlator options to use
-                        (Default = -l 256 -t 1 -j)
--b, --both-tunings        For LWA-only configuration files, process both
-                        tunings (Default = No)
--r, --results-dir         Directory to put the results in 
-                        (Default = ./results')
-
-NOTE:  The -n/--nodes option also supports numerical node ranges using the 
-    '~' character to indicate a decimal range.  For example, 'lwaucf1~2'
-    is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also
-    be combined with other comma separated entries to specify more complex
-    node lists.
-""")
-    
-    if exitCode is not None:
-        sys.exit(exitCode)
-    else:
-        return True
-
-
-def parseConfig(args):
-    config = {}
-    # Command line flags - default values
-    config['processes'] = 1
-    config['nodes'] = ['localhost',]
-    config['options'] = '-l 256 -t 1 -j'
-    config['both'] = False
-    config['results'] = './results'
-    config['args'] = []
-    
-    # Read in and process the command line flags
-    try:
-        opts, args = getopt.getopt(args, "hp:n:o:br:", ["help", "processes-per-node=", "nodes=", "options=", "both-tunings", "results-dir="])
-    except getopt.GetoptError as err:
-        # Print help information and exit:
-        print(str(err)) # will print something like "option -a not recognized"
-        usage(exitCode=2)
-        
-    # Setup the node range parser
-    _rangeRE=re.compile('^(?P<hostbase>[a-zA-Z\-]*?)(?P<start>[0-9]+)~(?P<stop>[0-9]+)')
-    
-    # Work through opts
-    for opt, value in opts:
-        if opt in ('-h', '--help'):
-            usage(exitCode=0)
-        elif opt in ('-p', '--processes-per-node'):
-            config['processes'] = int(value, 10)
-        elif opt in ('-n', '--nodes'):
-            ## First pass - break into sets using commas
-            temp = [v.strip().rstrip() for v in value.split(',')]
-            ## Second pass - look for the range character, ~, and expand
-            config['nodes'] = []
-            for t in temp:
-                mtch = _rangeRE.search(t)
-                if mtch is None:
-                    config['nodes'].append( t )
-                else:
-                    hostbase = mtch.group('hostbase')
-                    start = int(mtch.group('start'), 10)
-                    stop = int(mtch.group('stop'), 10)
-                    config['nodes'].extend( ['%s%i' % (hostbase, i) for i in xrange(start, stop+1)] )
-        elif opt in ('-o', '--options'):
-            config['options'] = value
-        elif opt in ('-b', '--both-tunings'):
-            config['both'] = True
-        elif opt in ('-r', '--results-dir'):
-            config['results'] = value
-        else:
-            assert False
-            
-    # Add in arguments
-    config['args'] = args
-    
-    # Validate
-    if config['processes'] <= 0:
-        raise RuntimeError('Invalid number of processes per node')
-    if len(config['nodes']) < 1:
-        raise RuntimeError('Invalid list of nodes')
-    if os.path.exists(config['results']):
-        if not os.path.isdir(config['results']):
-            raise RuntimeError('%s is not a directory' % config['results'])
-    else:
-        print("Warning: %s does not exist, creating" % config['results'])
-        os.mkdir(config['results'])
-        
-    # Return configuration
-    return config
 
 
 def check_for_other_instances(quiet=True):
@@ -146,7 +48,7 @@ def check_for_other_instances(quiet=True):
 
 
 def configfile_is_lwa_only(configfile, quiet=True):
-    gcmd = ['grep', '-e VDIF', '-e GUPPI', configfile]
+    gcmd = ['grep', '-e VDIF', configfile]
     
     DEVNULL = None
     if quiet:
@@ -159,29 +61,47 @@ def configfile_is_lwa_only(configfile, quiet=True):
     return False if status == 0 else True
 
 
-def run_command(cmd, node=None, cwd=None, quiet=False):
+def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quiet=False):
     if node is None:
         if type(cmd) is list:
             pcmd = cmd
         else:
             pcmd = shlex.split(cmd)
     elif cwd is None:
-        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "%s"' % cmd]
+        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "']
+        if socket is not None:
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
+        pcmd[-1] += '%s"' % cmd
     else:
-        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && %s"' % (cwd, cmd)]
+        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && ' % cwd]
+        if socket is not None:
+            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
+        pcmd[-1] += '%s"' % cmd
         
-    DEVNULL = None
+    OUT, ERR = None, None
     if quiet:
         DEVNULL = open(os.devnull, 'wb')
-    p = subprocess.Popen(pcmd, stdout=DEVNULL, stderr=DEVNULL)
-    status = p.wait()
+        OUT = DEVNULL
+        ERR = DEVNULL
+    if return_output:
+        OUT = subprocess.PIPE
+    p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
+    output, err = p.communicate()
+    try:
+        output = output.decode()
+        err = err.decode()
+    except AttributeError:
+        pass
+    status = p.returncode
     if quiet:
         DEVNULL.close()
         
+    if return_output:
+        status = (status, output)
     return status
 
 
-def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
+def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
     code = 0
     
     # Create a temporary directory to use
@@ -196,7 +116,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     # Copy the software over
     if softwareDir is None:
         softwareDir = os.path.dirname(__file__)
-    for filename in ['buffer.py', 'guppi.py', 'jones.py', 'multirate.py', 'superCorrelator.py', 'utils.py', 'jit']:
+    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'utils.py', 'jit']:
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
@@ -212,6 +132,21 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
         returnQueue.put(False)
         return False
         
+    # Query the NUMA status
+    scode, numa_status = run_command("%s -c 'from __future__ import print_function; import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
+    code += scode
+    if code != 0:
+        print("WARNING: failed to determine NUMA status on %s - %s" % (node, os.path.basename(configfile)))
+        returnQueue.put(False)
+        return False
+    numa_support, numa_node_count = numa_status.split(None, 1)
+    if numa_support == 'False':
+        ## Nope, drop the socket number
+        socket = None
+    else:
+        ## Yep, make sure the socket number is in range
+        socket = socket % int(numa_node_count, 10)
+        
     # Run the correlator
     configfile = os.path.basename(configfile)
     outname, count = os.path.splitext(configfile)
@@ -225,7 +160,7 @@ def job(node, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    code += run_command('%s ./superCorrelator.py %s -g %s %s > %s 2>&1' % (sys.executable, options, outname, configfile, logfile), node=node, cwd=cwd)
+    code += run_command('%s ./superCorrelator.py %s -g %s %s > %s 2>&1' % (sys.executable, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
     if code != 0:
         print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
@@ -286,6 +221,7 @@ def get_idle_slot(threads):
 
 
 def create_lock_file(node):
+    node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         fh = open('/home/%s/correlator%s' % (getuser(), node[6:]), 'w')
         fh.close()
@@ -293,6 +229,7 @@ def create_lock_file(node):
 
 
 def remove_lock_file(node):
+    node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         try:
             os.unlink('/home/%s/correlator%s' % (getuser(), node[6:]))
@@ -302,41 +239,42 @@ def remove_lock_file(node):
 
 
 def main(args):
-    # Parse the command line
-    config = parseConfig(args)
-    
     # Setup
     ## Time mark
     tStart = time.time()
     ## Sort
-    configfiles = config['args']
+    configfiles = args.filename
     configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
     ## Threads - processes by nodes so that small jobs are spread across jobs
-    threads = {}
-    for p in xrange(config['processes']):
-        for node in config['nodes']:
-            threads['%s-%02i' % (node, p)] = None
+    threads = OrderedDict()
+    for p in xrange(args.processes_per_node):
+        for node in args.nodes:
+            n = p + 0
+            while '%s-%02i' % (node, n) in threads:
+                n += 1
+            threads['%s-%02i' % (node, n)] = None
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
-        if config['both'] and configfile_is_lwa_only(configfile):
-            coptions = config['options']
+        if args.both_tunings and configfile_is_lwa_only(configfile):
+            coptions = args.options
             coptions = coptions.replace('-w 1', '').replace('-w1', '')
             coptions = coptions.replace('-w 2', '').replace('-w2', '')
-            jobs.append( (configfile, coptions+' -w 1', config['results']) )
-            jobs.append( (configfile, coptions+' -w 2', config['results']) )
+            jobs.append( (configfile, coptions+' -w 1', args.results_dir) )
+            jobs.append( (configfile, coptions+' -w 2', args.results_dir) )
         else:
-            jobs.append( (configfile, config['options'], config['results']) )
+            jobs.append( (configfile, args.options, args.results_dir) )
     nJobs = len(jobs)
     
     # Start
     nfailed = 0
     for slot in sorted(threads.keys()):
-        node, _ = slot.split('-', 1)
+        node, socket = slot.split('-', 1)
+        socket = int(socket, 10)
         
         try:
             configfile, coptions, resultsdir = jobs.pop(0)
-            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
             threads[slot].daemon = True
             threads[slot].start()
             create_lock_file(node)
@@ -356,11 +294,12 @@ def main(args):
         ## Schedule new jobs
         slot = get_idle_slot(threads)
         if slot is not None:
-            node, _ = slot.split('-', 1)
+            node, socket = slot.split('-', 1)
+            socket = int(socket, 10)
             
             try:
                 configfile, coptions, resultsdir = jobs.pop(0)
-                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
                 threads[slot].daemon = True
                 threads[slot].start()
                 print("%s - %s started" % (slot, threads[slot].name))
@@ -370,7 +309,7 @@ def main(args):
                 
         ## Lock file maintenance
         if not check_for_other_instances():
-            for node in config['nodes']:
+            for node in args.nodes:
                 if not any_active(threads, node=node):
                     remove_lock_file(node)
                     
@@ -380,7 +319,7 @@ def main(args):
     # Teardown
     ## Lock files
     if not check_for_other_instances():
-        for node in config['nodes']:
+        for node in args.nodes:
             ## Lock file cleanup
             remove_lock_file(node)
     ## Stop time
@@ -407,5 +346,28 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    parser = argparse.ArgumentParser(
+        description="iven a collection of superCorrelator.py configuration files, process the runs and aggregate the results",
+        epilog="NOTE:  The -n/--nodes option also supports numerical node ranges using the '~' character to indicate a decimal range.  For example, 'lwaucf1~2' is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also be combined with other comma separated entries to specify more complex node lists.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        )
+    parser.add_argument('filename', type=str, nargs='+',
+                        help='correlator configuration file')
+    parser.add_argument('-p', '--processes-per-node', type=aph.positive_int, default=1,
+                        help='number of processes to run per node')
+    parser.add_argument('-n', '--nodes', type=aph.csv_hostname_list, default='localhost',
+                        help='comma seperated lists of nodes to use')
+    parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1 -j",
+                        help='correlator options to use')
+    parser.add_argument('-b', '--both-tunings', action='store_true',
+                        help='for LWA-only configuration files, process both tunings')
+    parser.add_argument('-r', '--results-dir', type=str, default="./results",
+                        help='directory to put the results in')
+    args = parser.parse_args()
+    if not os.path.exists(args.results_dir):
+        print("Warning: %s does not exist, creating" % args.results_dir)
+        os.mkdir(args.results_dir)
+    elif not os.path.isdir(args.results_dir):
+        raise RuntimeError('%s is not a directory' % args.results_dir)
+    main(args)
     

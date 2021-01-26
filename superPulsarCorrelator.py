@@ -17,6 +17,7 @@ import math
 import time
 import ephem
 import numpy
+import getpass
 import argparse
 from datetime import datetime
 
@@ -34,12 +35,10 @@ from lsl.correlator.uvutils import compute_uvw
 from lsl.reader import drx, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 
-import guppi
 from lsl.misc.dedispersion import delay as dispDelay
 
 import jones
 from utils import *
-from buffer import GUPPIFrameBuffer
 
 
 def bestFreqUnits(freq):
@@ -148,7 +147,7 @@ def main(args):
             print("Correcting time tags for gross offset of %i s" % grossOffsets[i])
             print("  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6))
         
-        if readers[i] in (vdif, guppi):
+        if readers[i] is vdif:
             is_vlite = is_vlite_vdif(fh[i])
             if is_vlite:
                 ## TODO:  Clean this up
@@ -163,10 +162,6 @@ def main(args):
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
-        elif readers[i] is guppi:
-            junkFrame = readers[i].read_frame(fh[i])
-            readers[i].DATA_LENGTH = junkFrame.payload.data.size
-            beam, pol = junkFrame.id
         elif readers[i] is drx:
             junkFrame = readers[i].read_frame(fh[i])
             while junkFrame.header.decimation == 0:
@@ -178,7 +173,7 @@ def main(args):
         beams.append( beam )
         srate.append( junkFrame.sample_rate )
         
-        if readers[i] in (vdif, guppi):
+        if readers[i] is vdif:
             tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
         elif readers[i] is drx:
@@ -204,16 +199,9 @@ def main(args):
         # Get the frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for j in xrange(32):
+        for j in xrange(64):
             if readers[i] is vdif:
                 junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
-                s,p = junkFrame.id
-                if p == 0:
-                    cFreq1 = junkFrame.central_freq
-                else:
-                    pass
-            elif readers[i] is guppi:
-                junkFrame = readers[i].read_frame(fh[i])
                 s,p = junkFrame.id
                 if p == 0:
                     cFreq1 = junkFrame.central_freq
@@ -229,7 +217,7 @@ def main(args):
                         cFreq2 = junkFrame.central_freq
                 else:
                     pass
-        fh[i].seek(-32*readers[i].FRAME_SIZE, 1)
+        fh[i].seek(-64*readers[i].FRAME_SIZE, 1)
         cFreqs.append( [cFreq1,cFreq2] )
         try:
             bitDepths.append( junkFrame.header.bits_per_sample )
@@ -245,8 +233,6 @@ def main(args):
         # Setup the frame buffers
         if readers[i] is vdif:
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
-        elif readers[i] is guppi:
-            buffers.append( GUPPIFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
             buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
     for i in xrange(len(filenames)):
@@ -264,9 +250,6 @@ def main(args):
                 fh[i].seek(readers[i].FRAME_SIZE, 1)
             
             nFramesFile[i] -= j
-            
-        elif readers[i] is guppi:
-            pass
             
         elif readers[i] is drx:
             pass
@@ -360,7 +343,7 @@ def main(args):
     print("  Data Reads in File: %i" % int(tFile/tRead))
     print(" ")
     
-    nVDIFInputs = sum([1 for reader in readers if reader is vdif]) + sum([1 for reader in readers if reader is guppi])
+    nVDIFInputs = sum([1 for reader in readers if reader is vdif])
     nDRXInputs = sum([1 for reader in readers if reader is drx])
     print("Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs))
     print(" ")
@@ -460,6 +443,7 @@ def main(args):
     oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
     delayStepApplied = [False for step in delaySteps]
     currentDM, currentDoppler = -1.0, -1.0
+    username = getpass.getuser()
     for i in xrange(nChunks):
         wallTime = time.time()
         
@@ -470,152 +454,116 @@ def main(args):
         drxRef  = [0 for j in xrange(nDRXInputs*2) ]
         
         # Read in the data
-        try:
-            dataV *= 0.0
-            dataD *= 0.0
-        except NameError:
-            dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
-            dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
-        for j,f in enumerate(fh):
-            if readers[j] is vdif:
-                ## VDIF
-                k = 0
-                while k < beampols[j]*nFramesV:
-                    try:
-                        cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
-                        buffers[j].append( cFrame )
-                    except errors.SyncError:
-                        print("Error - VDIF @ %i, %i" % (i, j))
-                        f.seek(readers[j].FRAME_SIZE, 1)
-                        continue
-                    except errors.EOFError:
+        with InterProcessLock('/dev/shm/sc-reader-%s' % username) as lock:
+            try:
+                dataV *= 0.0
+                dataD *= 0.0
+            except NameError:
+                dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
+                dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
+            for j,f in enumerate(fh):
+                if readers[j] is vdif:
+                    ## VDIF
+                    k = 0
+                    while k < beampols[j]*nFramesV:
                         try:
-                            ## VLITE files are limited to 1 s so there may be multiple files
-                            ## to read in.  Try to find the next one.
-                            if not is_vlite:
-                                assert(False)
-                            oldname = f.name
-                            nextname, ext = os.path.splitext(oldname)
-                            base, vfts = nextname.rsplit('_', 1)
-                            vfts = int(vfts, 10) + 1
-                            nextname = "%s_%s%s" % (base, vfts, ext)
-                            assert(os.path.exists(nextname))
-                            f.close()
-                            f = open(nextname, 'rb')
-                            fh[j] = f
-                            print("NF - switched from %s to %s" % (os.path.basename(oldname), vfts))
-                        except (ValueError, AssertionError) as e:
+                            cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+                            buffers[j].append( cFrame )
+                        except errors.SyncError:
+                            print("Error - VDIF @ %i, %i" % (i, j))
+                            f.seek(readers[j].FRAME_SIZE, 1)
+                            continue
+                        except errors.EOFError:
+                            try:
+                                ## VLITE files are limited to 1 s so there may be multiple files
+                                ## to read in.  Try to find the next one.
+                                if not is_vlite:
+                                    assert(False)
+                                oldname = f.name
+                                nextname, ext = os.path.splitext(oldname)
+                                base, vfts = nextname.rsplit('_', 1)
+                                vfts = int(vfts, 10) + 1
+                                nextname = "%s_%s%s" % (base, vfts, ext)
+                                assert(os.path.exists(nextname))
+                                f.close()
+                                f = open(nextname, 'rb')
+                                fh[j] = f
+                                print("NF - switched from %s to %s" % (os.path.basename(oldname), vfts))
+                            except (ValueError, AssertionError) as e:
+                                done = True
+                                break
+                                
+                        frames = buffers[j].get()
+                        if frames is None:
+                            continue
+                            
+                        for cFrame in frames:
+                            std,pol = cFrame.id
+                            sid = 2*j + pol
+                            
+                            if k == 0:
+                                tStart.append( cFrame.time )
+                                tStart[-1] = tStart[-1] + grossOffsets[j]
+                                tStartB.append( get_better_time(cFrame) )
+                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
+                                
+                                for p in (0,1):
+                                    psid = 2*j + p
+                                    vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
+                                    
+                            count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
+                            count -= vdifRef[sid]
+                            dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                            k += 1
+                            
+                elif readers[j] is drx:
+                    ## DRX
+                    k = 0
+                    while k < beampols[j]*nFramesD:
+                        try:
+                            cFrame = readers[j].read_frame(f)
+                            buffers[j].append( cFrame )
+                        except errors.SyncError:
+                            print("Error - DRX @ %i, %i" % (i, j))
+                            continue
+                        except errors.EOFError:
                             done = True
                             break
                             
-                    frames = buffers[j].get()
-                    if frames is None:
-                        continue
-                        
-                    for cFrame in frames:
-                        std,pol = cFrame.id
-                        sid = 2*j + pol
-                        
-                        if k == 0:
-                            tStart.append( cFrame.time )
-                            tStart[-1] = tStart[-1] + grossOffsets[j]
-                            tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                            
-                            for p in (0,1):
-                                psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
-                                
-                        count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
-                        count -= vdifRef[sid]
-                        dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                        k += 1
-                        
-            elif readers[j] is guppi:
-                ## GUPPI
-                k = 0
-                while k < beampols[j]*nFramesV:
-                    try:
-                        cFrame = readers[j].read_frame(f)
-                        buffers[j].append( cFrame )
-                    except errors.SyncError:
-                        print("Error - GUPPI @ %i, %i" % (i, j))
-                        continue
-                    except errors.EOFError:
-                        done = True
-                        break
-                        
-                    frames = buffers[j].get()
-                    if frames is None:
-                        continue
-                        
-                    for cFrame in frames:
-                        std,pol = cFrame.id
-                        sid = 2*j + pol
-                        
-                        if k == 0:
-                            tStart.append( cFrame.time )
-                            tStart[-1] = tStart[-1] + grossOffsets[j]
-                            tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                            
-                            for p in (0,1):
-                                psid = 2*j + p
-                                vdifRef[psid] = cFrame.header.offset // readers[j].DATA_LENGTH
-                                
-                        count = cFrame.header.offset // readers[j].DATA_LENGTH
-                        count -= vdifRef[sid]
-                        dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                        k += 1
-                        
-            elif readers[j] is drx:
-                ## DRX
-                k = 0
-                while k < beampols[j]*nFramesD:
-                    try:
-                        cFrame = readers[j].read_frame(f)
-                        buffers[j].append( cFrame )
-                    except errors.SyncError:
-                        print("Error - DRX @ %i, %i" % (i, j))
-                        continue
-                    except errors.EOFError:
-                        done = True
-                        break
-                        
-                    frames = buffers[j].get()
-                    if frames is None:
-                        continue
-                        
-                    for cFrame in frames:
-                        beam,tune,pol = cFrame.id
-                        if tune != vdifPivot:
+                        frames = buffers[j].get()
+                        if frames is None:
                             continue
-                        bid = 2*(j-nVDIFInputs) + pol
-                        
-                        if k == 0:
-                            tStart.append( cFrame.time )
-                            tStart[-1] = tStart[-1] + grossOffsets[j]
-                            tStartB.append( get_better_time(cFrame) )
-                            tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                             
-                            for p in (0,1):
-                                pbid = 2*(j-nVDIFInputs) + p
-                                drxRef[pbid] = cFrame.payload.timetag
+                        for cFrame in frames:
+                            beam,tune,pol = cFrame.id
+                            if tune != vdifPivot:
+                                continue
+                            bid = 2*(j-nVDIFInputs) + pol
+                            
+                            if k == 0:
+                                tStart.append( cFrame.time )
+                                tStart[-1] = tStart[-1] + grossOffsets[j]
+                                tStartB.append( get_better_time(cFrame) )
+                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                                 
-                        count = cFrame.payload.timetag
-                        count -= drxRef[bid]
-                        count //= (4096*int(196e6/srate[-1]))
-                        ### Fix from some LWA-SV files that seem to cause the current LSL
-                        ### ring buffer problems
-                        if count < 0:
-                            continue
-                        try:
-                            dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
-                            k += beampols[j]//2
-                        except ValueError:
-                            k = beampols[j]*nFramesD
-                            break
-                            
+                                for p in (0,1):
+                                    pbid = 2*(j-nVDIFInputs) + p
+                                    drxRef[pbid] = cFrame.payload.timetag
+                                    
+                            count = cFrame.payload.timetag
+                            count -= drxRef[bid]
+                            count //= (4096*int(196e6/srate[-1]))
+                            ### Fix from some LWA-SV files that seem to cause the current LSL
+                            ### ring buffer problems
+                            if count < 0:
+                                continue
+                            try:
+                                dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                                k += beampols[j]//2
+                            except ValueError:
+                                k = beampols[j]*nFramesD
+                                break
+                                
         print('RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead))
         
         # Figure out which DRX tuning corresponds to the VDIF data
