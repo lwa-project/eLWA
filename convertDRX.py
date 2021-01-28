@@ -15,6 +15,7 @@ fS = int(fS)
 from lsl.reader.ldp import DRXFile
 from lsl.reader import drx, errors, buffer
 from lsl.writer import vdif
+from lsl.common import progress
 
 
 class RawDRXFrame(object):
@@ -149,7 +150,7 @@ class RawDRXFrameBuffer(buffer.FrameBufferBase):
         fillFrame[4] = (beam & 7) | ((tune & 7) << 3) | ((pol & 1) << 7)
         
         # Zero the data for the fill packet
-        fillFrame[32:] = '\x00'*4096
+        fillFrame[32:] = b'\x00'*4096
         
         return fillFrame
 
@@ -165,52 +166,62 @@ class VDIFFrame(object):
         self.frame = int((self.timetag % fS) / fS * frames_per_second)
         self.frame %= self.frames_per_second
         
-        self.data = bytearray()
+        self._hdr = bytearray([b'\x00',]*32)
+        self._data = bytearray()
         if data is not None:
-            self.data.extend(data)
+            self.extend(data)
             
     def extend(self, data):
-        self.data.extend(data)
+        """
+        Append addition data stored in a bytearry instance to the frame.
+        """
+        
+        self._data.extend(data)
         
     @property
     def is_ready(self):
-        return len(self.data) >= self.frame_size
+        """
+        Whether or not there is enough data in frame's buffer to write the frame.
+        """
+        
+        return len(self._data) >= self.frame_size
         
     def write(self, fh):
-        raw = bytearray([b'\x00',]*(32 + self.frame_size))
+        """
+        Write the frame to the provided filehandle and return a bytearray
+        instance containing any data in the buffer not written.
+        """
         
         # Valid data, standard (not legacy) 32-bit header, and seconds since 
         # the 01/01/2000 epoch.
-        raw[3] = (0 << 7) | (0 << 6) | ((self.seconds >> 24) & 0x3F)
-        raw[2] = (self.seconds >> 16) & 0xFF
-        raw[1] = (self.seconds >> 8) & 0xFF
-        raw[0] = self.seconds & 0xFF
+        self._hdr[3] = (0 << 7) | (0 << 6) | ((self.seconds >> 24) & 0x3F)
+        self._hdr[2] = (self.seconds >> 16) & 0xFF
+        self._hdr[1] = (self.seconds >> 8) & 0xFF
+        self._hdr[0] = self.seconds & 0xFF
         
         # Reference epoch (0 == 01/01/2000) and frame count
-        raw[7] = 0 & 0x3F
-        raw[6] = (self.frame >> 16) & 0xFF
-        raw[5] = (self.frame >> 8) & 0xFF
-        raw[4] = self.frame & 0xFF
+        self._hdr[7] = 0 & 0x3F
+        self._hdr[6] = (self.frame >> 16) & 0xFF
+        self._hdr[5] = (self.frame >> 8) & 0xFF
+        self._hdr[4] = self.frame & 0xFF
 
         # VDIF version number, number of channels (just 1), and data frame 
         # length in units to 8-bytes (8 raw array elements)
-        raw[11] = (1 << 6) | (0 & 0x1F)
-        raw[10] = (((self.frame_size+32) // 8) >> 16) & 0xFF
-        raw[9] = (((self.frame_size+32) // 8) >> 8) & 0xFF
-        raw[8] = ((self.frame_size+32) // 8) & 0xFF
+        self._hdr[11] = (1 << 6) | (0 & 0x1F)
+        self._hdr[10] = (((self.frame_size+32) // 8) >> 16) & 0xFF
+        self._hdr[9] = (((self.frame_size+32) // 8) >> 8) & 0xFF
+        self._hdr[8] = ((self.frame_size+32) // 8) & 0xFF
 
         # Data type, bits per sample, thread ID, and station ID
-        raw[15] = (1 << 7) | (((4-1) & 0x1F) << 2) | ((0 >> 8) & 0x03)
-        raw[14] = (self.id % 10) & 0xFF
-        raw[13] = ((self.id//10) >> 8) & 0xFF
-        raw[12] = (self.id//10) & 0xFF
+        self._hdr[15] = (1 << 7) | (((4-1) & 0x1F) << 2) | ((0 >> 8) & 0x03)
+        self._hdr[14] = (self.id % 10) & 0xFF
+        self._hdr[13] = ((self.id//10) >> 8) & 0xFF
+        self._hdr[12] = (self.id//10) & 0xFF
         
-        # The data itself
-        raw[32:] = self.data[:self.frame_size]
+        fh.write(self._hdr)
+        fh.write(self._data[:self.frame_size])
         
-        fh.write(raw)
-        
-        return self.data[self.frame_size:]
+        return self._data[self.frame_size:]
 
 
 def main(args):
@@ -245,14 +256,14 @@ def main(args):
     print("Tunings: %.1f Hz, %.1f Hz" % (central_freq1, central_freq2))
     print("Sample Rate: %i Hz" % srate)
     print("Frames: %i (%.3f s)" % (nFramesFile, 4096.0*nFramesFile / srate / tunepol))
+    print("")
     
     # Output names
     vdifname1 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq1/1e6)
     vdifname2 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq2/1e6)
-    print(vdifname1, vdifname2)
     
     # Output formatting
-    vdif_bits = 8
+    vdif_bits = 4
     vdif_complex = True
     vdif_frame_size = 5000
     while int(srate) % vdif_frame_size != 0:
@@ -274,12 +285,12 @@ def main(args):
     for vdifname in (vdifname1, vdifname2):
         fhOut.append(open(vdifname, 'wb'))
         
+    pb = progress.ProgressBarPlus(max=nFramesFile)
+    
     # Setup the buffer
     buffer = RawDRXFrameBuffer(beams=[beam,], reorder=True)
     
     # Go!
-    c1X, c1Y = 0, 0
-    c2X, c2Y = 0, 0
     started = False
     eofFound = False
     while True:
@@ -292,6 +303,7 @@ def main(args):
             for i in range(tunepol):
                 try:
                     rFrames.append( RawDRXFrame(fh.read(drx.FRAME_SIZE)) )
+                    pb.inc(1)
                     #print rFrames[-1].id, rFrames[-1].timetag, c, i
                 except errors.EOFError:
                     eofFound = True
@@ -348,26 +360,23 @@ def main(args):
                 
                 sample_offset = (fS - timetag % fS) % fS
                 sample_offset = sample_offset // (fS // int(srate))
-                print(timetag, fS, sample_offset, timetag+sample_offset*(fS // int(srate)))
                 
                 if tuning == 1:
-                    f1X = VDIFFrame(10, timetag + sample_offset*(fS // int(srate)),
+                    f1X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
-                    f1Y = VDIFFrame(11, timetag + sample_offset*(fS // int(srate)),
+                    f1Y = VDIFFrame(beam*100+tuning*10+1, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
                     
                 else:
-                    f2X = VDIFFrame(20, timetag + sample_offset*(fS // int(srate)),
+                    f2X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
-                    f2Y = VDIFFrame(21, timetag + sample_offset*(fS // int(srate)),
+                    f2Y = VDIFFrame(beam*100+tuning*10+1, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
-                                    
-                #print(timetag, timetag/fS)
-                
+                    
             elif started:
                 if tuning == 1:
                     f1X.extend(pairX[32:])
@@ -375,42 +384,44 @@ def main(args):
                     
                     if f1X.is_ready:
                         remainder = f1X.write(fhOut[tuning-1])
-                        c1X += 1
-                        c1X %= vdif_frames_per_second
-                        f1X = VDIFFrame(10, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        f1X = VDIFFrame(beam*100+tuning*10+0, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
-                        #print('X', f1X.seconds, f1X.frame, c1X)
                         
                     if f1Y.is_ready:
                         remainder = f1Y.write(fhOut[tuning-1])
-                        c1Y += 1
-                        c1Y %= vdif_frames_per_second
-                        f1Y = VDIFFrame(11, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        f1Y = VDIFFrame(beam*100+tuning*10+1, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
-                        #print('Y', f1Y.seconds, f1Y.frame, c1Y)
-                    
+                        
                 else:
                     f2X.extend(pairX[32:])
                     f2Y.extend(pairY[32:])
                     
                     if f2X.is_ready:
                         remainder = f2X.write(fhOut[tuning-1])
-                        c2X += 1
-                        c2X %= vdif_frames_per_second
-                        f2X = VDIFFrame(20, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        f2X = VDIFFrame(beam*100+tuning*10+0, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                         
                     if f2Y.is_ready:
                         remainder = f2Y.write(fhOut[tuning-1])
-                        c2Y += 1
-                        c2Y %= vdif_frames_per_second
-                        f2Y = VDIFFrame(21, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        f2Y = VDIFFrame(beam*100+tuning*10+1, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
-                    
+                                    
+        if pb.amount != 0 and pb.amount % 5000 == 0:
+            sys.stdout.write(pb.show()+'\r')
+            sys.stdout.flush()
+            
+    # Update the progress bar with the total time used
+    pb.amount = pb.max
+    sys.stdout.write(pb.show()+'\n')
+    sys.stdout.flush()
+    for f in fhOut:
+        f.close()
+        
+    fh.close()
 
 
 if __name__ == "__main__":
