@@ -336,7 +336,9 @@ def main(args):
             
             ### Time tag manipulation to remove the T_NOM offset
             tNomX, timetagX = pairX.tNom, pairX.timetag
+            tNomX = 6660 if tNomX else 0    # To match what utils.get_better_time() does
             #tNomY, timetagX = pairY.tNom, pairY.timetag
+            #tNomY = 6660 if tNomY else 0    # To match what utils.get_better_time() does
             tNom = tNomX - tNomX
             timetag = timetagX - tNomX
             timetag = timetag // (fS // int(srate)) * (fS // int(srate))
