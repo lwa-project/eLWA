@@ -280,7 +280,7 @@ D/STREAM B BAND 3:  0""")
 """)
     for i in range(nAnt):
         fh.write(f"D/STREAM {i} FILES: 1\n")
-        fh.write(f"FILE {i}/0:           {filenames[i]}\n")
+        fh.write(f"FILE {i}/0:           {filenames[i]}_{(central_freq1/1e6):.0f}MHz.vdif\n")
     fh.write("\n")
     fh.close()
     clean_lines(difxname)
