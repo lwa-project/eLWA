@@ -163,7 +163,7 @@ class VDIFFrame(object):
         self.frames_per_second = frames_per_second
         
         self.seconds = self.timetag // fS - 946684800
-        self.frame = int((self.timetag % fS) / fS * frames_per_second)
+        self.frame = int(round((self.timetag % fS) / fS * frames_per_second))
         self.frame %= self.frames_per_second
         
         self._hdr = bytearray([b'\x00',]*32)
@@ -291,7 +291,8 @@ def main(args):
     buffer = RawDRXFrameBuffer(beams=[beam,], reorder=True)
     
     # Go!
-    started = False
+    started1 = False
+    started2 = False
     eofFound = False
     while True:
         if eofFound:
@@ -355,13 +356,12 @@ def main(args):
             timetag = timetagX - tNomX
             timetag = timetag // (fS // int(srate)) * (fS // int(srate))
             
-            if timetag % fS > (fS - ttSkip) or timetag % fS == 0:
-                started = True
-                
+            if (timetag % fS > (fS - ttSkip) or timetag % fS == 0) and (not started1 or not started2):
                 sample_offset = (fS - timetag % fS) % fS
                 sample_offset = sample_offset // (fS // int(srate))
                 
-                if tuning == 1:
+                if tuning == 1 and not started1:
+                    started1 = True
                     f1X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
@@ -369,7 +369,8 @@ def main(args):
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
                     
-                else:
+                elif tuning == 2 and not started2:
+                    started2 = True
                     f2X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
@@ -377,8 +378,8 @@ def main(args):
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
                     
-            elif started:
-                if tuning == 1:
+            else:
+                if tuning == 1 and started1:
                     f1X.extend(pairX[32:])
                     f1Y.extend(pairY[32:])
                     
@@ -394,7 +395,7 @@ def main(args):
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                         
-                else:
+                elif tuning == 2 and started2:
                     f2X.extend(pairX[32:])
                     f2Y.extend(pairY[32:])
                     
