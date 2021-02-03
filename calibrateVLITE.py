@@ -454,6 +454,10 @@ def main(args):
         antLookup = {}
         for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
             antLookup[ai] = smart_int(an)
+            if an[0] == 'V':
+                ### Looks like we already have a VLITE name, we need to go back
+                antLookup[ai] = unmapper[antLookup[ai]]
+                
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
         ## Baseline list
