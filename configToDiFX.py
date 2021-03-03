@@ -129,6 +129,13 @@ def main(args):
     mjd, mjdf, mjds = tStart.pulsar_mjd
     dt = tStart.datetime
     
+    # Adjust the channel count
+    nchan = config['channels']
+    nchan_ns = round(nchan * (1e9/srate), 4)
+    while int(nchan_ns) != nchan_ns or 10000000 % int(nchan_ns) != 0:
+        nchan += 1
+        nchan_ns = round(nchan * (1e9/srate), 4)
+        
     # Setup the output path/basename
     dirname = args.output_dir
     dirname = os.path.abspath(dirname)
@@ -182,7 +189,7 @@ NUM CONFIGURATIONS: 1
 CONFIG NAME:        lwa_default
 INT TIME (SEC):     {config['inttime']:.6f}
 SUBINT NANOSECONDS: 10000000
-GUARD NANOSECONDS:  400
+GUARD NANOSECONDS:  4000
 FRINGE ROTN ORDER:  1
 ARRAY STRIDE LENGTH:0
 XMAC STRIDE LENGTH: 0
@@ -205,10 +212,10 @@ RULE 0 CONFIG NAME: lwa_default
     fh.write(f"""
 # FREQ TABLE #######!
 FREQ ENTRIES:       1
-FREQ (MHZ) 0:       {(central_freq1/1e6):.11f}
+FREQ (MHZ) 0:       {((central_freq1-srate/2)/1e6):.11f}
 BW (MHZ) 0:         {(srate/1e6):.11f}
 SIDEBAND 0:         U
-NUM CHANNELS 0:     {config['channels']}
+NUM CHANNELS 0:     {nchan}
 CHANS TO AVG 0:     1
 OVERSAMPLE FAC. 0:  1
 DECIMATION FAC. 0:  1
@@ -239,8 +246,8 @@ TELESCOPE INDEX:   {i:2d}
 TSYS:               0.000000
 DATA FORMAT:        INTERLACEDVDIF/0:1
 QUANTISATION BITS:  4
-DATA FRAME SIZE:    5032
-DATA SAMPLING:      COMPLEX
+DATA FRAME SIZE:    7872
+DATA SAMPLING:      COMPLEX_DSB
 DATA SOURCE:        FILE
 FILTERBANK USED:    FALSE
 PHASE CAL INT (MHZ):0
