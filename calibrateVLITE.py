@@ -483,119 +483,135 @@ def main(args):
                 freq_comb.append( freq + offset)
             freq_comb = numpy.concatenate(freq_comb)
             
+            # Adjust the frequency so that it is 1.8 MHz above the bottom of the
+            # band to match the lowest "good" frequency for VLITE-Slow
+            freq_comb += (1.8e6 - freq_comb[0])
+            
             nBL = len(bbls)
             vis = flux[match,:,:,:]
             vis.shape = (vis.shape[0]//nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
             print('      Scan contains %i times, %i baselines, %i bands/channels, %i polarizations' % vis.shape)
             
             vis.shape = (vis.shape[0]*nBL, vis.shape[2], vis.shape[3])
+            a1_last, a2_last, t_last = -1, -1, -1
             for j in xrange(vis.shape[0]):
                 a1, a2 = (bls[match[j]] >> 8), (bls[match[j]]) & 0xFF
                 
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
-                try:
-                    # Antenna 1 - delays and gains
-                    d1p0, d1p1 = delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t)
-                    g1p0, g1p1 = gains_cl[0][mapper[a1]](t),  gains_cl[1][mapper[a1]](t)
-                except KeyError:
-                    print('skip', 'd1p*/g1p*', a2)
-                    d1p0, d1p1 = 0.0, 0.0
-                    g1p0, g1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                try:
-                    # Antenna 2 - delays and gains
-                    d2p0, d2p1 = delays_cl[0][mapper[a2]](t), delays_cl[1][mapper[a2]](t)
-                    g2p0, g2p1 = gains_cl[0][mapper[a2]](t),  gains_cl[1][mapper[a2]](t)
-                except KeyError:
-                    print('skip', 'd2p*/g2p*', a2)
-                    d2p0, d2p1 = 0.0, 0.0
-                    g2p0, g2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                try:
-                    # Antenna 1 - bandpass
-                    b1p0, b1p1 = gains_bp[0][mapper[a1]](t, freq_comb),  gains_bp[1][mapper[a1]](t, freq_comb)
-                except KeyError:
-                    print('skip', 'b1p*', a1)
-                    b1p0, b1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                try:
-                    # Antenna 2 - bandpass
-                    b2p0, b2p1 = gains_bp[0][mapper[a2]](t, freq_comb),  gains_bp[1][mapper[a2]](t, freq_comb)
-                except KeyError:
-                    print('skip', 'b2p*', a2)
-                    b2p0, b2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                    
+                if a1 != a1_last or t != t_last:
+                    try:
+                        # Antenna 1 - delays and gains
+                        d1p0, d1p1 = delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t)
+                        g1p0, g1p1 = gains_cl[0][mapper[a1]](t),  gains_cl[1][mapper[a1]](t)
+                    except KeyError:
+                        print('skip', 'd1p*/g1p*', a2)
+                        d1p0, d1p1 = 0.0, 0.0
+                        g1p0, g1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                if a2 != a2_last or t != t_last:
+                    try:
+                        # Antenna 2 - delays and gains
+                        d2p0, d2p1 = delays_cl[0][mapper[a2]](t), delays_cl[1][mapper[a2]](t)
+                        g2p0, g2p1 = gains_cl[0][mapper[a2]](t),  gains_cl[1][mapper[a2]](t)
+                    except KeyError:
+                        print('skip', 'd2p*/g2p*', a2)
+                        d2p0, d2p1 = 0.0, 0.0
+                        g2p0, g2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                if a1 != a1_last or t != t_last:
+                    try:
+                        # Antenna 1 - bandpass
+                        b1p0, b1p1 = gains_bp[0][mapper[a1]](t, freq_comb),  gains_bp[1][mapper[a1]](t, freq_comb)
+                    except KeyError:
+                        print('skip', 'b1p*', a1)
+                        b1p0, b1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                if a2 != a2_last or t != t_last:
+                    try:
+                        # Antenna 2 - bandpass
+                        b2p0, b2p1 = gains_bp[0][mapper[a2]](t, freq_comb),  gains_bp[1][mapper[a2]](t, freq_comb)
+                    except KeyError:
+                        print('skip', 'b2p*', a2)
+                        b2p0, b2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                        
                 ## Cal
-                try:
-                    # Antenna 1 - delays and gains
-                    cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
-                    cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
-                except KeyError:
-                    print('skip', 'd1p*/g1p*', a2)
-                    cd1p0, cd1p1 = 0.0, 0.0
-                    cg1p0, cg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                try:
-                    # Antenna 2 - delays and gains
-                    cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
-                    cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
-                except KeyError:
-                    print('skip', 'd2p*/g2p*', a2)
-                    cd2p0, cd2p1 = 0.0, 0.0
-                    cg2p0, cg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                    
+                if a1 != a1_last or t != t_last:
+                    try:
+                        # Antenna 1 - delays and gains
+                        cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
+                        cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
+                    except KeyError:
+                        print('skip', 'd1p*/g1p*', a2)
+                        cd1p0, cd1p1 = 0.0, 0.0
+                        cg1p0, cg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                if a2 != a2_last or t != t_last:
+                    try:
+                        # Antenna 2 - delays and gains
+                        cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
+                        cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
+                    except KeyError:
+                        print('skip', 'd2p*/g2p*', a2)
+                        cd2p0, cd2p1 = 0.0, 0.0
+                        cg2p0, cg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                        
                 ## uvout
                 if args.apply_uvout:
-                    try:
-                        # Antenna 1 - supplemental delays and gains
-                        sd1p0, sd1p1 = delays_sn[0][mapper[a1]](t), delays_sn[1][mapper[a1]](t)
-                        sg1p0, sg1p1 = gains_sn[0][mapper[a1]](t),  gains_sn[1][mapper[a1]](t)  
-                    except KeyError:
-                        print('skip', 'sd1p*/sg1p*', a1)
-                        sd1p0, sd1p1 = 0.0, 0.0
-                        sg1p0, sg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                    try:
-                        # Antenna 2 - supplemental delays and gains
-                        sd2p0, sd2p1 = delays_sn[0][mapper[a2]](t), delays_sn[1][mapper[a2]](t)            
-                        sg2p0, sg2p1 = gains_sn[0][mapper[a2]](t),  gains_sn[1][mapper[a2]](t)
-                    except KeyError:
-                        print('skip', 'sd2p*/sg2p*', a2)
-                        sd2p0, sd2p1 = 0.0, 0.0
-                        sg2p0, sg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                        
+                    if a1 != a1_last or t != t_last:
+                        try:
+                            # Antenna 1 - supplemental delays and gains
+                            sd1p0, sd1p1 = delays_sn[0][mapper[a1]](t), delays_sn[1][mapper[a1]](t)
+                            sg1p0, sg1p1 = gains_sn[0][mapper[a1]](t),  gains_sn[1][mapper[a1]](t)  
+                        except KeyError:
+                            print('skip', 'sd1p*/sg1p*', a1)
+                            sd1p0, sd1p1 = 0.0, 0.0
+                            sg1p0, sg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    if a2 != a2_last or t != t_last:
+                        try:
+                            # Antenna 2 - supplemental delays and gains
+                            sd2p0, sd2p1 = delays_sn[0][mapper[a2]](t), delays_sn[1][mapper[a2]](t)            
+                            sg2p0, sg2p1 = gains_sn[0][mapper[a2]](t),  gains_sn[1][mapper[a2]](t)
+                        except KeyError:
+                            print('skip', 'sd2p*/sg2p*', a2)
+                            sd2p0, sd2p1 = 0.0, 0.0
+                            sg2p0, sg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                            
                 # XX
                 k = 0
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0*g2p0.conj()) / (b1p0*b2p0.conj())
-                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p0)) / (cg1p0*cg2p0.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0.conj()*g2p0) / (b1p0.conj()*b2p0)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p0)) / (cg1p0.conj()*cg2p0)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p0)) / (sg1p0*sg2p0.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p0)) / (sg1p0.conj()*sg2p0)
                     vis[j,:,k] *= cgain
                     
                 # YY
                 k = 1
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p1)) / (g1p1*g2p1.conj()) / (b1p1*b2p1.conj())
-                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p1)) / (cg1p1*cg2p1.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p1)) / (g1p1.conj()*g2p1) / (b1p1.conj()*b2p1)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p1)) / (cg1p1.conj()*cg2p1)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p1)) / (sg1p1*sg2p1.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p1)) / (sg1p1.conj()*sg2p1)
                     vis[j,:,k] *= cgain
                     
                 # XY
                 k = 2
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p0*g2p1.conj()) / (b1p0*b2p1.conj())
-                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p1)) / (cg1p0*cg2p1.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p1)) / (g1p0.conj()*g2p1) / (b1p0.conj()*b2p1)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p0-cd2p1)) / (cg1p0.conj()*cg2p1)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p1)) / (sg1p0*sg2p1.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p0-sd2p1)) / (sg1p0.conj()*sg2p1)
                     vis[j,:,k] *= cgain
                     
                 # YX
                 k = 3
-                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p0)) / (g1p1*g2p0.conj()) / (b1p1*b2p0.conj())
-                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p0)) / (cg1p1*cg2p0.conj())
+                cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p1-d2p0)) / (g1p1.conj()*g2p0) / (b1p1.conj()*b2p0)
+                cgain *= numpy.exp(2j*numpy.pi*freq_comb*(cd1p1-cd2p0)) / (cg1p1.conj()*cg2p0)
                 vis[j,:,k] *= cgain
                 if args.apply_uvout:
-                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p0)) / (sg1p1*sg2p0.conj())
+                    cgain = numpy.exp(2j*numpy.pi*freq_comb*(sd1p1-sd2p0)) / (sg1p1.conj()*sg2p0)
                     vis[j,:,k] *= cgain
                     
+                a1_last, a2_last = a1, a2
+                t_last = t
+                
             vis.shape = (vis.shape[0], len(fqoffsets), vis.shape[1]//len(fqoffsets), vis.shape[2])
             flux[match,:,:,:] = vis
             
