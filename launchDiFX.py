@@ -107,7 +107,7 @@ def main(args):
     print("Finished correlation in %.3f s" % ((time.time()-t0),))
     
     # Build the 'difx2fits' command to run.
-    cmd = ['difx2fits', os.path.splitext(outname)[0]]
+    cmd = ['difx2fits', '-a', os.path.splitext(outname)[0]]
     
     # Convert!
     logname = os.path.splitext(os.path.basename(inputfile))[0]+'.difx2fits_log'
