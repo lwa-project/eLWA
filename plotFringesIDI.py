@@ -36,9 +36,8 @@ def main(args):
             newBaselines.append( (pair[1],pair[0]) )
         args.baseline.extend(newBaselines)
     ## Polarization
-    if args.xx:
-        args.polToPlot = 'XX'
-    elif args.xy:
+    args.polToPlot = 'XX'
+    if args.xy:
         args.polToPlot = 'XY'
     elif args.yx:
         args.polToPlot = 'YX'
