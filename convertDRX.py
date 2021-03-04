@@ -18,6 +18,17 @@ from lsl.writer import vdif
 from lsl.common import progress
 
 
+# This converts DRX 4+4-bit comples data into the 4+4-bit complex format that
+# VDIF expects (an I/Q swap followed by two's complement to excess eight).
+_DRX_TO_VDIF = bytearray()
+for i in range(256):
+    f = (i>>4)&0xF
+    s = i&0xF
+    f = f + 8 if f < 8 else f - 8
+    s = s + 8 if s < 8 else s - 8
+    _DRX_TO_VDIF.append(((s<<4)&0xF0 | f&0x0F))
+
+
 class RawDRXFrame(object):
     """
     Class to help hold and work with a raw (packed) DRX frame.
@@ -218,9 +229,14 @@ class VDIFFrame(object):
         self._hdr[13] = ((self.id//10) >> 8) & 0xFF
         self._hdr[12] = (self.id//10) & 0xFF
         
+        # Write the header
         fh.write(self._hdr)
-        fh.write(self._data[:self.frame_size])
         
+        # Convert the data to VDIF ordering and write the payload
+        frame_data = self._data[:self.frame_size].translate(_DRX_TO_VDIF)
+        fh.write(frame_data)
+        
+        # Return what's left
         return self._data[self.frame_size:]
 
 
@@ -262,19 +278,24 @@ def main(args):
     vdifname1 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq1/1e6)
     vdifname2 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq2/1e6)
     
-    # Output formatting
+    # Output formatting - we need an integer number of frames/s, an integer
+    # number of ns/frame, and a frame size that is a multiple of 8 bytes.
     vdif_bits = 4
     vdif_complex = True
-    vdif_frame_size = 5000
-    while int(srate) % vdif_frame_size != 0:
+    vdif_frame_size = 7840
+    vdif_frame_ns = round(vdif_frame_size * (1e9 / srate), 4)
+    while int(srate) % vdif_frame_size != 0 \
+          or int(vdif_frame_ns) != vdif_frame_ns \
+          or vdif_frame_size % 8 != 0:
         vdif_frame_size += 1
+        vdif_frame_ns = round(vdif_frame_size * (1e9 / srate), 4)
     vdif_frames_per_second = int(srate) // vdif_frame_size
     
     # Output summary
     print("Output Filenames: %s, %s" % (vdifname1, vdifname2))
     print("Bits: %i" % vdif_bits)
     print("Complex data: %s" % vdif_complex)
-    print("Samples per frame: %i" % vdif_frame_size)
+    print("Samples per frame: %i (%.0f ns)" % (vdif_frame_size, vdif_frame_ns))
     print("Frames per second: %i" % vdif_frames_per_second)
     
     # Ready the internal interface for file access
@@ -411,7 +432,7 @@ def main(args):
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                                     
-        if pb.amount != 0 and pb.amount % 5000 == 0:
+        if pb.amount != 0 and pb.amount % 5000 < tunepol:
             sys.stdout.write(pb.show()+'\r')
             sys.stdout.flush()
             
