@@ -213,7 +213,9 @@ def main(args):
         # Parse the metadata to get the delay steps
         delayStep = None
         if readers[i] is drx and metaname is not None:
-            delayStep = parse_lwa_metadata(metaname)
+            ## With the new MCS there should be no delay jumps on BAM commands.
+            ## However, we still may want to flag those times.
+            delayStep = parse_lwa_metadata(metaname, force_zero=True)
         delaySteps.append( delayStep )
         
         # Setup the frame buffers

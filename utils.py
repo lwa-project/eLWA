@@ -605,7 +605,7 @@ def get_better_time(frame):
         return list(frame.time)
 
 
-def parse_lwa_metadata(filename):
+def parse_lwa_metadata(filename, force_zero=False):
     """
     Read in a LWA metadata tarball and return a two-element tuple of the
     BAM command times and the relative change in delay for the beamformer
@@ -659,6 +659,11 @@ def parse_lwa_metadata(filename):
         t.append( c['time'] )
         d.append( mcsd_to_delay(delay_to_mcsd(b[ref_ant]*1e9))/1e9 )
         
+        ## Force the delay step to be zero, if requested.  This effectively
+        ## converts this function to only keeping track of BAM commands.
+        if force_zero:
+            d[-1] = 0.0
+            
     # Convert to NumPy arrays and adjust as needed
     t = numpy.array(t)
     d = numpy.array(d)
