@@ -394,9 +394,16 @@ EOP {day} YPOLE (arcsec):{pm_xy[1].to('arcsec').value}""")
     fh.write(f"""
 NUM SPACECRAFT:     0
 IM FILENAME:        {dirname}/{basename}.im
+FLAG FILENAME:      {dirname}/{basename}.flag
 """)
     fh.close()
     clean_lines(difxname)
+    
+    # .flag file
+    difxname = "%s.flag" % (basename,)
+    fh = open(difxname, 'w')
+    fh.write("0")
+    fh.close()
 
 
 if __name__ == "__main__":
