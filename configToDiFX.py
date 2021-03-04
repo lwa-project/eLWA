@@ -90,10 +90,28 @@ def main(args):
                 header = vdif.read_guppi_header(fh)
             for j in range(32):
                 frames.append(reader.read_frame(fh))
+                
+            ## Read in the last few frames to find the end time
+            fh.seek(os.path.getsize(filename) - 1024*reader.FRAME_SIZE)
+            backed = 0
+            while backed < 2*reader.FRAME_SIZE:
+                try:
+                    reader.read_frame(fh)
+                    fh.seek(-reader.FRAME_SIZE, 1)
+                    break
+                except errors.SyncError:
+                    backed += 1
+                    fh.seek(-reader.FRAME_SIZE-1, 1)
+            for j in range(32):
+                try:
+                    frames.append(reader.read_frame(fh))
+                except errors.SyncError:
+                    continue
                     
         if reader is vdif:
             antID = frames[0].id[0] - 12300
-            tStart =  frames[0].time
+            tStart = frames[0].time
+            tStop = frames[-1].time
             
             ## Find the antenna location
             pad, edate = db.get_pad('EA%02i' % antID, tStart.datetime)
@@ -111,6 +129,7 @@ def main(args):
         elif reader is drx:
             beam = frames[0].id[0]
             tStart = frames[0].time
+            tStop = frames[-1].time
             srate = frames[0].sample_rate
             central_freq1 = [frame.central_freq for frame in frames if frame.id[1] == 1][-1]
             central_freq2 = [frame.central_freq for frame in frames if frame.id[1] == 2][-1]
@@ -128,6 +147,7 @@ def main(args):
     # Convert the start time into something useful
     mjd, mjdf, mjds = tStart.pulsar_mjd
     dt = tStart.datetime
+    duration_sec = tStop - tStart
     
     # Adjust the channel count
     nchan = config['channels']
@@ -136,6 +156,10 @@ def main(args):
         nchan += 1
         nchan_ns = round(nchan * (1e9/srate), 4)
         
+    # Set the number of tunings
+    central_freqs = (central_freq1, central_freq2)
+    ntune = len(central_freqs)
+    
     # Setup the output path/basename
     dirname = args.output_dir
     dirname = os.path.abspath(dirname)
@@ -173,7 +197,7 @@ def main(args):
     fh.write(f"""# COMMON SETTINGS ##!
 CALC FILENAME:      {dirname}/{basename}.calc
 CORE CONF FILENAME: {dirname}/{basename}.threads
-EXECUTE TIME (SEC): 3600
+EXECUTE TIME (SEC): {duration_sec:.0f}
 START MJD:          {mjd}
 START SECONDS:      {int(mjdf*86400)}
 ACTIVE DATASTREAMS: {nAnt}
@@ -211,16 +235,18 @@ RULE 0 CONFIG NAME: lwa_default
 
     fh.write(f"""
 # FREQ TABLE #######!
-FREQ ENTRIES:       1
-FREQ (MHZ) 0:       {((central_freq1-srate/2)/1e6):.11f}
-BW (MHZ) 0:         {(srate/1e6):.11f}
-SIDEBAND 0:         U
-NUM CHANNELS 0:     {nchan}
-CHANS TO AVG 0:     1
-OVERSAMPLE FAC. 0:  1
-DECIMATION FAC. 0:  1
-PHASE CALS 0 OUT:   0
-""")
+FREQ ENTRIES:       {ntune}""")
+    for i,central_freq in enumerate(central_freqs):
+        fh.write(f"""
+FREQ (MHZ) {i}:       {((central_freq-srate/2)/1e6):.11f}
+BW (MHZ) {i}:         {(srate/1e6):.11f}
+SIDEBAND {i}:         U
+NUM CHANNELS {i}:     {nchan}
+CHANS TO AVG {i}:     1
+OVERSAMPLE FAC. {i}:  1
+DECIMATION FAC. {i}:  1
+PHASE CALS {i} OUT:   0""")
+    fh.write("\n")
     
     fh.write(f"""
 # TELESCOPE TABLE ##!
@@ -244,22 +270,27 @@ NUM DATA SEGMENTS:  8""")
         fh.write(f"""
 TELESCOPE INDEX:   {i:2d}
 TSYS:               0.000000
-DATA FORMAT:        INTERLACEDVDIF/0:1
+DATA FORMAT:        INTERLACEDVDIF/{':'.join([str(v) for v in range(2*ntune)])}
 QUANTISATION BITS:  4
 DATA FRAME SIZE:    7872
 DATA SAMPLING:      COMPLEX_DSB
 DATA SOURCE:        FILE
 FILTERBANK USED:    FALSE
 PHASE CAL INT (MHZ):0
-NUM RECORDED FREQS: 1
-REC FREQ INDEX 0:   0
-CLK OFFSET 0 (us):  0.000000
-FREQ OFFSET 0 (Hz): 0.000000
-NUM REC POLS 0:     2
-REC BAND 0 POL:     {"X" if antennas[2*i+0].pol == 0 else "Y"}
-REC BAND 0 INDEX:   0
-REC BAND 1 POL:     {"X" if antennas[2*i+1].pol == 0 else "Y"}
-REC BAND 1 INDEX:   0
+NUM RECORDED FREQS: {ntune}""")
+        for j in range(ntune):
+            fh.write(f"""
+REC FREQ INDEX {j}:   {j}
+CLK OFFSET {j} (us):  0.000000
+FREQ OFFSET {j} (Hz): 0.000000
+NUM REC POLS {j}:     2""")
+        for j in range(ntune):
+            fh.write(f"""
+REC BAND {ntune*j+0} POL:     {"X" if antennas[2*i+0].pol == 0 else "Y"}
+REC BAND {ntune*j+0} INDEX:   {j}
+REC BAND {ntune*j+1} POL:     {"X" if antennas[2*i+1].pol == 0 else "Y"}
+REC BAND {ntune*j+1} INDEX:   {j}""")
+        fh.write("""
 NUM ZOOM FREQS:     0""")
     fh.write("\n")
 
@@ -270,16 +301,16 @@ BASELINE ENTRIES:   {nBL}""")
         fh.write(f"""
 D/STREAM A INDEX {i}: {bl[0]}
 D/STREAM B INDEX {i}: {bl[1]}
-NUM FREQS {i}:        1
-POL PRODUCTS {i}/0:   4
-D/STREAM A BAND 0:  1
-D/STREAM B BAND 0:  1
-D/STREAM A BAND 1:  1
-D/STREAM B BAND 1:  0
-D/STREAM A BAND 2:  0
-D/STREAM B BAND 2:  1
-D/STREAM A BAND 3:  0
-D/STREAM B BAND 3:  0""")
+NUM FREQS {i}:        {ntune}""")
+    for j in range(ntune):
+        fh.write(f"""
+POL PRODUCTS {i}/{j}:   4""")
+        for k in range(4):
+            l = k // 2
+            m = k % 2
+            fh.write(f"""
+D/STREAM A BAND {k}:  {ntune*j+antennas[2*bl[0]+l].pol}
+D/STREAM B BAND {k}:  {ntune*j+antennas[2*bl[1]+m].pol}""")
     fh.write("\n")
     
     fh.write("""
@@ -287,7 +318,7 @@ D/STREAM B BAND 3:  0""")
 """)
     for i in range(nAnt):
         fh.write(f"D/STREAM {i} FILES: 1\n")
-        fh.write(f"FILE {i}/0:           {filenames[i]}_{(central_freq1/1e6):.0f}MHz.vdif\n")
+        fh.write(f"FILE {i}/0:           {filenames[i]}.vdif\n")
     fh.write("\n")
     fh.close()
     clean_lines(difxname)
@@ -338,7 +369,7 @@ SOURCE 0 QUAL:      0""")
 NUM SCANS:          1
 SCAN 0 IDENTIFIER:  No{jobid:04d}
 SCAN 0 START (S):   0
-SCAN 0 DUR (S):     {3600:.0f}
+SCAN 0 DUR (S):     {duration_sec:.0f}
 SCAN 0 OBS MODE NAME:lwa
 SCAN 0 UVSHIFT INTERVAL (NS):{(0.01*1e9):.0f}
 SCAN 0 AC AVG INTERVAL (NS):{(0.01*1e9):.0f}
