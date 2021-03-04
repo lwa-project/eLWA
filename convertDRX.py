@@ -274,9 +274,8 @@ def main(args):
     print("Frames: %i (%.3f s)" % (nFramesFile, 4096.0*nFramesFile / srate / tunepol))
     print("")
     
-    # Output names
-    vdifname1 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq1/1e6)
-    vdifname2 = "%s_%.0fMHz.vdif" % (os.path.basename(filename), central_freq2/1e6)
+    # Output name
+    vdifname = "%s.vdif" % (os.path.basename(filename),)
     
     # Output formatting - we need an integer number of frames/s, an integer
     # number of ns/frame, and a frame size that is a multiple of 8 bytes.
@@ -292,7 +291,7 @@ def main(args):
     vdif_frames_per_second = int(srate) // vdif_frame_size
     
     # Output summary
-    print("Output Filenames: %s, %s" % (vdifname1, vdifname2))
+    print("Output Filename: %s" % vdifname)
     print("Bits: %i" % vdif_bits)
     print("Complex data: %s" % vdif_complex)
     print("Samples per frame: %i (%.0f ns)" % (vdif_frame_size, vdif_frame_ns))
@@ -302,9 +301,7 @@ def main(args):
     fh = idf.fh
     
     # Ready the output files - one for each tune/pol
-    fhOut = []
-    for vdifname in (vdifname1, vdifname2):
-        fhOut.append(open(vdifname, 'wb'))
+    fhOut = open(vdifname, 'wb')
         
     pb = progress.ProgressBarPlus(max=nFramesFile)
     
@@ -383,19 +380,19 @@ def main(args):
                 
                 if tuning == 1 and not started1:
                     started1 = True
-                    f1X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
+                    f1X = VDIFFrame(beam*100+0, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
-                    f1Y = VDIFFrame(beam*100+tuning*10+1, timetag + sample_offset*(fS // int(srate)),
+                    f1Y = VDIFFrame(beam*100+2, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
                     
                 elif tuning == 2 and not started2:
                     started2 = True
-                    f2X = VDIFFrame(beam*100+tuning*10+0, timetag + sample_offset*(fS // int(srate)),
+                    f2X = VDIFFrame(beam*100+1, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairX[32+sample_offset:])
-                    f2Y = VDIFFrame(beam*100+tuning*10+1, timetag + sample_offset*(fS // int(srate)),
+                    f2Y = VDIFFrame(beam*100+3, timetag + sample_offset*(fS // int(srate)),
                                     vdif_frame_size, vdif_frames_per_second,
                                     data=pairY[32+sample_offset:])
                     
@@ -405,14 +402,14 @@ def main(args):
                     f1Y.extend(pairY[32:])
                     
                     if f1X.is_ready:
-                        remainder = f1X.write(fhOut[tuning-1])
-                        f1X = VDIFFrame(beam*100+tuning*10+0, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        remainder = f1X.write(fhOut)
+                        f1X = VDIFFrame(beam*100+0, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                         
                     if f1Y.is_ready:
-                        remainder = f1Y.write(fhOut[tuning-1])
-                        f1Y = VDIFFrame(beam*100+tuning*10+1, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        remainder = f1Y.write(fhOut)
+                        f1Y = VDIFFrame(beam*100+2, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                         
@@ -421,17 +418,17 @@ def main(args):
                     f2Y.extend(pairY[32:])
                     
                     if f2X.is_ready:
-                        remainder = f2X.write(fhOut[tuning-1])
-                        f2X = VDIFFrame(beam*100+tuning*10+0, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        remainder = f2X.write(fhOut)
+                        f2X = VDIFFrame(beam*100+1, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
                         
                     if f2Y.is_ready:
-                        remainder = f2Y.write(fhOut[tuning-1])
-                        f2Y = VDIFFrame(beam*100+tuning*10+1, timetag + (4096-len(remainder))*(fS // int(srate)),
+                        remainder = f2Y.write(fhOut)
+                        f2Y = VDIFFrame(beam*100+3, timetag + (4096-len(remainder))*(fS // int(srate)),
                                         vdif_frame_size, vdif_frames_per_second,
                                         data=remainder)
-                                    
+                        
         if pb.amount != 0 and pb.amount % 5000 < tunepol:
             sys.stdout.write(pb.show()+'\r')
             sys.stdout.flush()
@@ -440,9 +437,8 @@ def main(args):
     pb.amount = pb.max
     sys.stdout.write(pb.show()+'\n')
     sys.stdout.flush()
-    for f in fhOut:
-        f.close()
-        
+    fhOut.close()
+    
     fh.close()
 
 
