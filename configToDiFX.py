@@ -110,7 +110,7 @@ def main(args):
                     
         if reader is vdif:
             antID = frames[0].id[0] - 12300
-            tStart = frames[0].time
+            tStart = frames[0].time + foffsets[i]
             tStop = frames[-1].time
             
             ## Find the antenna location
@@ -128,7 +128,7 @@ def main(args):
             
         elif reader is drx:
             beam = frames[0].id[0]
-            tStart = frames[0].time
+            tStart = frames[0].time + foffsets[i]
             tStop = frames[-1].time
             srate = frames[0].sample_rate
             central_freq1 = [frame.central_freq for frame in frames if frame.id[1] == 1][-1]
@@ -147,7 +147,7 @@ def main(args):
     # Convert the start time into something useful
     mjd, mjdf, mjds = tStart.pulsar_mjd
     dt = tStart.datetime
-    duration_sec = tStop - tStart
+    duration_sec = refSrc.duration
     
     # Adjust the channel count
     nchan = config['channels']
@@ -167,8 +167,12 @@ def main(args):
     basename, ext = os.path.splitext(basename)
     try:
         jobid = smart_int(ext)
+        use_jobid_tag = True
     except ValueError:
         jobid = 1
+        use_jobid_tag = False
+    if use_jobid_tag:
+        basename += f"_{jobid}"
         
     # Find the DiFX version
     difx_version = os.getenv('DIFX_VERSION', None)
@@ -326,14 +330,14 @@ D/STREAM B BAND {k}:  {ntune*j+antennas[2*bl[1]+m].pol}""")
     # .calc file
     difxname = "%s.calc" % (basename,)
     fh = open(difxname, 'w')
-    fh.write(f"""JOB ID:             {jobid}
+    fh.write(f"""JOB ID:             {config['context']['session']}
 JOB START TIME:     {(mjd+mjdf):.6f}
 JOB STOP TIME:      {(mjd+mjdf+3600/86400.):.6f}
 DUTY CYCLE:         1.000000
-OBSCODE:            {basename.upper()}
+OBSCODE:            {config['context']['project'].upper()}
 DIFX VERSION:       {difx_version}
 DIFX LABEL:         {difx_version}
-SUBJOB ID:          0
+SUBJOB ID:          {jobid}
 SUBARRAY ID:        0
 START MJD:          {(mjd+mjdf):.6f}
 START YEAR:         {dt.year}
