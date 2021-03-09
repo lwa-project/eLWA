@@ -28,12 +28,12 @@ from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '0.9'
+__version__ = '1.0'
 __all__ = ['get_numa_node_count', 'get_numa_support', 'InterProcessLock', 
            'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
            'multi_column_print', 'parse_time_string', 'nsround', 
            'read_correlator_configuration', 'get_better_time', 
-           'parse_lwa_metadata', 'PolyCos']
+           'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -603,79 +603,6 @@ def get_better_time(frame):
         return list(base.FrameTimestamp.from_dp_timetag(tt, to))
     else:
         return list(frame.time)
-
-
-def parse_lwa_metadata(filename, force_zero=False):
-    """
-    Read in a LWA metadata tarball and return a two-element tuple of the
-    BAM command times and the relative change in delay for the beamformer
-    is s.
-    """
-    
-    t = []
-    d = []
-    
-    # Load in the command script and walk through the commands
-    try:
-        cs = get_command_script(filename)
-    except (RuntimeError, ValueError):
-        cs = get_command_scriptADP(filename)
-    for c in cs:
-        ## Jump over any command that is not a BAM
-        if c['commandID'] != 'BAM':
-            continue
-            
-        ## Figure out the station, antenna layout, and antenna closest to the array center
-        try:
-            ref_ant
-        except NameError:
-            if c['subsystemID'] == 'DP':
-                site = stations.lwa1
-            else:
-                site = stations.lwasv
-            ants = site.antennas
-            
-            ref_ant = 0
-            best = 1e20
-            for i,a in enumerate(ants):
-                r = a.stand.x**2 + a.stand.y**2 + a.stand.z**2
-                if r < best:
-                    best = r
-                    ref_ant = i
-                    
-        ## Parse the command to get the beamformer delays
-        ### Pointing and frequency
-        beam, df, gf = c['data'].split(None, 2)
-        freq, el, az = df.replace(b'.df',b'').split(b'_', 2)
-        freq = float(freq)/10.0 * 1e6
-        el = float(el)/10.0
-        az = float(az)/10.0
-        ### Delay calculation
-        b = calc_delay(ants, freq, az, el)
-        b = b.max() - b
-        
-        ## Figure out what it means and save it.  This includes a convertion to/from the MCS
-        ## delay that breaks things down into a course and fine delay for DP
-        t.append( c['time'] )
-        d.append( mcsd_to_delay(delay_to_mcsd(b[ref_ant]*1e9))/1e9 )
-        
-        ## Force the delay step to be zero, if requested.  This effectively
-        ## converts this function to only keeping track of BAM commands.
-        if force_zero:
-            d[-1] = 0.0
-            
-    # Convert to NumPy arrays and adjust as needed
-    t = numpy.array(t)
-    d = numpy.array(d)
-    d0 = d[0]				# Get the initial offset
-    d = numpy.diff(d)			# We want the relative delay change between steps
-    if site == stations.lwa1:
-        d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
-    else:
-        d = numpy.insert(d, 0, d0)	# ... and we need to start at the initial offset
-        
-    # done
-    return t, d
 
 
 class PolyCos(object):
