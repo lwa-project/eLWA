@@ -125,7 +125,6 @@ def main(args):
     tStart = []
     cFreqs = []
     bitDepths = []
-    delaySteps = []
     buffers = []
     grossOffsets = []
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
@@ -210,14 +209,6 @@ def main(args):
         except AttributeError:
             bitDepths.append( 8 )
             
-        # Parse the metadata to get the delay steps
-        delayStep = None
-        if readers[i] is drx and metaname is not None:
-            ## With the new MCS there should be no delay jumps on BAM commands.
-            ## However, we still may want to flag those times.
-            delayStep = parse_lwa_metadata(metaname, force_zero=True)
-        delaySteps.append( delayStep )
-        
         # Setup the frame buffers
         if readers[i] is vdif:
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
@@ -315,7 +306,6 @@ def main(args):
     for i in xrange(len(filenames)):
         print("Filename: %s" % os.path.basename(filenames[i]))
         print("  Type/Reader: %s" % readers[i].__name__)
-        print("  Delay Steps Avaliable: %s" % ('No' if delaySteps[i] is None else 'Yes',))
         print("  Date of First Frame: %s" % beginDates[i])
         print("  Sample Rate: %i Hz" % srate[i])
         print("  Tuning 1: %.3f Hz" % cFreqs[i][0])
@@ -393,7 +383,6 @@ def main(args):
     wallStart = time.time()
     done = False
     oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
-    delayStepApplied = [False for step in delaySteps]
     username = getpass.getuser()
     for i in xrange(nChunks):
         wallTime = time.time()
@@ -585,35 +574,6 @@ def main(args):
                     dataDSub = dataDSub[:,:tDSub.size]
                 if tDSub.size == 0:
                     continue
-                    
-            ## Update antennas for any delay steps
-            for k in xrange(len(delaySteps)):
-                if delaySteps[k] is None:
-                    ## Skip over null entries
-                    continue
-                elif delaySteps[k][0][0] > tStart[0]:
-                    ## Skip over antennas where the next step is in the future
-                    continue
-                    
-                ## Find the next step
-                nextStep = numpy.where( (float(tStart[0]) - delaySteps[k][0]) >= 0.0 )[0][0]
-                step = delaySteps[k][1][nextStep]
-                if step != 0.0:
-                    ## Report on the delay step
-                    print("DS - Applying delay step of %.3f ns to antenna %i" % (step*1e9, antennas[2*k+0].stand.id))
-                    print("DS - Step corresponds to %.1f deg at band center" % (360*cFreqs[0][0]*step,))
-                    ## Apply the step
-                    antennas[2*k+0].cable.clock_offset += step
-                    antennas[2*k+1].cable.clock_offset += step
-                    ## Update the delay step flag
-                    delayStepApplied[k] = True
-                ## Clenup so we don't re-apply the step at the next iteration
-                if nextStep+1 < delaySteps[k][0].size:
-                    ### There are still more we can apply
-                    delaySteps[k] = (delaySteps[k][0][nextStep+1:], delaySteps[k][1][nextStep+1:])
-                else:
-                    ### There is not left to apply
-                    delaySteps[k] = None
                     
             ## Update the observation
             observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
@@ -816,9 +776,7 @@ def main(args):
                 outfile = "%s-vis2-%05i.npz" % (outbase, fileCount)
                 numpy.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
                             vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
-                            tStart=numpy.mean(numpy.array(subIntTimes, dtype=numpy.float64)), tInt=tDump,
-                            delayStepApplied=delayStepApplied)
-                delayStepApplied = [False for step in delaySteps]
+                            tStart=numpy.mean(numpy.array(subIntTimes, dtype=numpy.float64)), tInt=tDump)
                 print("CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, numpy.mean(numpy.array(subIntTimes, dtype=numpy.float64))))
                 if fileCount == 1:
                     print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
