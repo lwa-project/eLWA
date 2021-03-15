@@ -7,6 +7,8 @@ import os
 import sys
 import copy
 import struct
+import argparse
+import subprocess
 from datetime import datetime
 from collections import deque
 
@@ -241,207 +243,226 @@ class VDIFFrame(object):
 
 
 def main(args):
-    filename = args[0]
-    # Open the file
-    idf = DRXFile(filename)
+    # Process the command line
+    if args.tuning == 1:
+        drx_to_thread = {(1,0): 0, (1,1): 1}
+    elif args.tuning == 2:
+        drx_to_thread = {(2,0): 0, (2,1): 1}
+    else:
+        drx_to_thread = {(1,0): 0, (2,0): 1, (1,1): 2, (2,1): 3}
+    keep_1 = (1,0) in drx_to_thread
+    keep_2 = (2,0) in drx_to_thread
     
-    # Load in basic information about the data
-    nFramesFile = idf.get_info('nframe')
-    srate = idf.get_info('sample_rate')
-    ttSkip = int(round(196e6/srate))*4096
-    beam = idf.get_info('beam')
-    beampols = idf.get_info('nbeampol')
-    tunepol = beampols
-    
-    ## Date
-    beginDate = idf.get_info('start_time')
-    beginTime = beginDate.datetime
-    mjd = beginDate.mjd
-    mjd_day = int(mjd)
-    mjd_sec = (mjd-mjd_day)*86400
-    
-    ## Tuning frequencies
-    central_freq1 = idf.get_info('freq1')
-    central_freq2 = idf.get_info('freq2')
-    beam = idf.get_info('beam')
-    
-    # File summary
-    print("Input Filename: %s" % filename)
-    print("Date of First Frame: %s (MJD=%f)" % (str(beginDate),mjd))
-    print("Tune/Pols: %i" % tunepol)
-    print("Tunings: %.1f Hz, %.1f Hz" % (central_freq1, central_freq2))
-    print("Sample Rate: %i Hz" % srate)
-    print("Frames: %i (%.3f s)" % (nFramesFile, 4096.0*nFramesFile / srate / tunepol))
-    print("")
-    
-    # Output name
-    vdifname = "%s.vdif" % (os.path.basename(filename),)
-    
-    # Output formatting - we need an integer number of frames/s, an integer
-    # number of ns/frame, and a frame size that is a multiple of 8 bytes.
-    vdif_bits = 4
-    vdif_complex = True
-    vdif_frame_size = 7840
-    vdif_frame_ns = round(vdif_frame_size * (1e9 / srate), 4)
-    while int(srate) % vdif_frame_size != 0 \
-          or int(vdif_frame_ns) != vdif_frame_ns \
-          or vdif_frame_size % 8 != 0:
-        vdif_frame_size += 1
+    # Loop over files
+    for filename in args.filename:
+        # Open the file
+        idf = DRXFile(filename)
+        
+        # Load in basic information about the data
+        nFramesFile = idf.get_info('nframe')
+        srate = idf.get_info('sample_rate')
+        ttSkip = int(round(196e6/srate))*4096
+        beam = idf.get_info('beam')
+        beampols = idf.get_info('nbeampol')
+        tunepol = beampols
+        
+        ## Date
+        beginDate = idf.get_info('start_time')
+        beginTime = beginDate.datetime
+        mjd = beginDate.mjd
+        mjd_day = int(mjd)
+        mjd_sec = (mjd-mjd_day)*86400
+        
+        ## Tuning frequencies
+        central_freq1 = idf.get_info('freq1')
+        central_freq2 = idf.get_info('freq2')
+        beam = idf.get_info('beam')
+        
+        # File summary
+        print("Input Filename: %s" % filename)
+        print("Date of First Frame: %s (MJD=%f)" % (str(beginDate),mjd))
+        print("Tune/Pols: %i" % tunepol)
+        print("Tunings: %.1f Hz, %.1f Hz" % (central_freq1, central_freq2))
+        print("Sample Rate: %i Hz" % srate)
+        print("Frames: %i (%.3f s)" % (nFramesFile, 4096.0*nFramesFile / srate / tunepol))
+        print("")
+        
+        # Output name
+        vdifname = "%s.vdif" % (os.path.basename(filename),)
+        
+        # Output formatting - we need an integer number of frames/s, an integer
+        # number of ns/frame, and a frame size that is a multiple of 8 bytes.
+        vdif_bits = 4
+        vdif_complex = True
+        vdif_frame_size = 7840
         vdif_frame_ns = round(vdif_frame_size * (1e9 / srate), 4)
-    vdif_frames_per_second = int(srate) // vdif_frame_size
-    
-    # Output summary
-    print("Output Filename: %s" % vdifname)
-    print("Bits: %i" % vdif_bits)
-    print("Complex data: %s" % vdif_complex)
-    print("Samples per frame: %i (%.0f ns)" % (vdif_frame_size, vdif_frame_ns))
-    print("Frames per second: %i" % vdif_frames_per_second)
-    
-    # Ready the internal interface for file access
-    fh = idf.fh
-    
-    # Ready the output files - one for each tune/pol
-    fhOut = open(vdifname, 'wb')
+        while int(srate) % vdif_frame_size != 0 \
+              or int(vdif_frame_ns) != vdif_frame_ns \
+              or vdif_frame_size % 8 != 0:
+            vdif_frame_size += 1
+            vdif_frame_ns = round(vdif_frame_size * (1e9 / srate), 4)
+        vdif_frames_per_second = int(srate) // vdif_frame_size
         
-    pb = progress.ProgressBarPlus(max=nFramesFile)
-    
-    # Setup the buffer
-    buffer = RawDRXFrameBuffer(beams=[beam,], reorder=True)
-    
-    # Go!
-    started1 = False
-    started2 = False
-    eofFound = False
-    while True:
-        if eofFound:
-            break
-            
-        ## Load in some frames
-        if not buffer.overfilled:
-            rFrames = deque()
-            for i in range(tunepol):
-                try:
-                    rFrames.append( RawDRXFrame(fh.read(drx.FRAME_SIZE)) )
-                    pb.inc(1)
-                    #print rFrames[-1].id, rFrames[-1].timetag, c, i
-                except errors.EOFError:
-                    eofFound = True
-                    buffer.append(rFrames)
-                    break
-                except errors.SyncError:
-                    continue
-                
-            buffer.append(rFrames)
-            
-        timetag = buffer.peek()
-        if timetag is None:
-            # Continue adding frames if nothing comes out.
-            continue
-        else:
-            # Otherwise, make sure we are on track
-            try:
-                timetag = timetag - tNomX # T_NOM has been subtracted from ttLast
-                if timetag != ttLast + ttSkip:
-                    missing = (timetag - ttLast - ttSkip) / float(ttSkip)
-                    if int(missing) == missing and missing < 50:
-                        ## This is kind of black magic down here
-                        for m in range(int(missing)):
-                            m = ttLast + ttSkip*(m+1) + tNomX   # T_NOM has been subtracted from ttLast
-                            baseframe = copy.deepcopy(rFrames[0])
-                            baseframe[14:24] = struct.pack('>HQ', struct.unpack('>HQ', baseframe[14:24])[0], m)
-                            baseframe[32:] = '\x00'*4096
-                            buffer.append(baseframe)
-            except NameError:
-                pass
-        rFrames = buffer.get()
+        # Output summary
+        print("Output Filename: %s" % vdifname)
+        print("Bits: %i" % vdif_bits)
+        print("Complex data: %s" % vdif_complex)
+        print("Samples per frame: %i (%.0f ns)" % (vdif_frame_size, vdif_frame_ns))
+        print("Frames per second: %i" % vdif_frames_per_second)
         
-        ## Continue adding frames if nothing comes out.
-        if rFrames is None:
-            continue
+        # Ready the internal interface for file access
+        fh = idf.fh
+        
+        # Ready the output files - one for each tune/pol
+        fhOut = open(vdifname, 'wb')
             
-        ## If something comes out, process it
-        for tuning in (1, 2):
-            ### Load
-            pairX = rFrames[2*(tuning-1)+0]
-            pairY = rFrames[2*(tuning-1)+1]
-            
-            ### Time tag manipulation to remove the T_NOM offset
-            tNomX, timetagX = pairX.tNom, pairX.timetag
-            tNomX = 6660 if tNomX else 0    # To match what utils.get_better_time() does
-            #tNomY, timetagX = pairY.tNom, pairY.timetag
-            #tNomY = 6660 if tNomY else 0    # To match what utils.get_better_time() does
-            tNom = tNomX - tNomX
-            timetag = timetagX - tNomX
-            timetag = timetag // (fS // int(srate)) * (fS // int(srate))
-            
-            if (timetag % fS > (fS - ttSkip) or timetag % fS == 0) and (not started1 or not started2):
-                sample_offset = (fS - timetag % fS) % fS
-                sample_offset = sample_offset // (fS // int(srate))
+        pb = progress.ProgressBarPlus(max=nFramesFile)
+        
+        # Setup the buffer
+        buffer = RawDRXFrameBuffer(beams=[beam,], reorder=True)
+        
+        # Go!
+        started1 = False
+        started2 = False
+        eofFound = False
+        while True:
+            if eofFound:
+                break
                 
-                if tuning == 1 and not started1:
-                    started1 = True
-                    f1X = VDIFFrame(beam*100+0, timetag + sample_offset*(fS // int(srate)),
-                                    vdif_frame_size, vdif_frames_per_second,
-                                    data=pairX[32+sample_offset:])
-                    f1Y = VDIFFrame(beam*100+2, timetag + sample_offset*(fS // int(srate)),
-                                    vdif_frame_size, vdif_frames_per_second,
-                                    data=pairY[32+sample_offset:])
+            ## Load in some frames
+            if not buffer.overfilled:
+                rFrames = deque()
+                for i in range(tunepol):
+                    try:
+                        rFrames.append( RawDRXFrame(fh.read(drx.FRAME_SIZE)) )
+                        pb.inc(1)
+                        #print rFrames[-1].id, rFrames[-1].timetag, c, i
+                    except errors.EOFError:
+                        eofFound = True
+                        buffer.append(rFrames)
+                        break
+                    except errors.SyncError:
+                        continue
                     
-                elif tuning == 2 and not started2:
-                    started2 = True
-                    f2X = VDIFFrame(beam*100+1, timetag + sample_offset*(fS // int(srate)),
-                                    vdif_frame_size, vdif_frames_per_second,
-                                    data=pairX[32+sample_offset:])
-                    f2Y = VDIFFrame(beam*100+3, timetag + sample_offset*(fS // int(srate)),
-                                    vdif_frame_size, vdif_frames_per_second,
-                                    data=pairY[32+sample_offset:])
-                    
+                buffer.append(rFrames)
+                
+            timetag = buffer.peek()
+            if timetag is None:
+                # Continue adding frames if nothing comes out.
+                continue
             else:
-                if tuning == 1 and started1:
-                    f1X.extend(pairX[32:])
-                    f1Y.extend(pairY[32:])
-                    
-                    if f1X.is_ready:
-                        remainder = f1X.write(fhOut)
-                        f1X = VDIFFrame(beam*100+0, timetag + (4096-len(remainder))*(fS // int(srate)),
-                                        vdif_frame_size, vdif_frames_per_second,
-                                        data=remainder)
-                        
-                    if f1Y.is_ready:
-                        remainder = f1Y.write(fhOut)
-                        f1Y = VDIFFrame(beam*100+2, timetag + (4096-len(remainder))*(fS // int(srate)),
-                                        vdif_frame_size, vdif_frames_per_second,
-                                        data=remainder)
-                        
-                elif tuning == 2 and started2:
-                    f2X.extend(pairX[32:])
-                    f2Y.extend(pairY[32:])
-                    
-                    if f2X.is_ready:
-                        remainder = f2X.write(fhOut)
-                        f2X = VDIFFrame(beam*100+1, timetag + (4096-len(remainder))*(fS // int(srate)),
-                                        vdif_frame_size, vdif_frames_per_second,
-                                        data=remainder)
-                        
-                    if f2Y.is_ready:
-                        remainder = f2Y.write(fhOut)
-                        f2Y = VDIFFrame(beam*100+3, timetag + (4096-len(remainder))*(fS // int(srate)),
-                                        vdif_frame_size, vdif_frames_per_second,
-                                        data=remainder)
-                        
-        if pb.amount != 0 and pb.amount % 5000 < tunepol:
-            sys.stdout.write(pb.show()+'\r')
-            sys.stdout.flush()
+                # Otherwise, make sure we are on track
+                try:
+                    timetag = timetag - tNomX # T_NOM has been subtracted from ttLast
+                    if timetag != ttLast + ttSkip:
+                        missing = (timetag - ttLast - ttSkip) / float(ttSkip)
+                        if int(missing) == missing and missing < 50:
+                            ## This is kind of black magic down here
+                            for m in range(int(missing)):
+                                m = ttLast + ttSkip*(m+1) + tNomX   # T_NOM has been subtracted from ttLast
+                                baseframe = copy.deepcopy(rFrames[0])
+                                baseframe[14:24] = struct.pack('>HQ', struct.unpack('>HQ', baseframe[14:24])[0], m)
+                                baseframe[32:] = '\x00'*4096
+                                buffer.append(baseframe)
+                except NameError:
+                    pass
+            rFrames = buffer.get()
             
-    # Update the progress bar with the total time used
-    pb.amount = pb.max
-    sys.stdout.write(pb.show()+'\n')
-    sys.stdout.flush()
-    fhOut.close()
-    
-    fh.close()
+            ## Continue adding frames if nothing comes out.
+            if rFrames is None:
+                continue
+                
+            ## If something comes out, process it
+            for tuning in (1, 2):
+                ### Load
+                pairX = rFrames[2*(tuning-1)+0]
+                pairY = rFrames[2*(tuning-1)+1]
+                
+                ### Time tag manipulation to remove the T_NOM offset
+                tNomX, timetagX = pairX.tNom, pairX.timetag
+                tNomX = 6660 if tNomX else 0    # To match what utils.get_better_time() does
+                #tNomY, timetagX = pairY.tNom, pairY.timetag
+                #tNomY = 6660 if tNomY else 0    # To match what utils.get_better_time() does
+                tNom = tNomX - tNomX
+                timetag = timetagX - tNomX
+                timetag = timetag // (fS // int(srate)) * (fS // int(srate))
+                
+                if (timetag % fS > (fS - ttSkip) or timetag % fS == 0) and (not started1 or not started2):
+                    sample_offset = (fS - timetag % fS) % fS
+                    sample_offset = sample_offset // (fS // int(srate))
+                    
+                    if tuning == 1 and keep_1 and not started1:
+                        started1 = True
+                        f1X = VDIFFrame(beam*100+drx_to_thread[(1,0)], timetag + sample_offset*(fS // int(srate)),
+                                        vdif_frame_size, vdif_frames_per_second,
+                                        data=pairX[32+sample_offset:])
+                        f1Y = VDIFFrame(beam*100+drx_to_thread[(1,1)], timetag + sample_offset*(fS // int(srate)),
+                                        vdif_frame_size, vdif_frames_per_second,
+                                        data=pairY[32+sample_offset:])
+                        
+                    elif tuning == 2 and keep_2 and not started2:
+                        started2 = True
+                        f2X = VDIFFrame(beam*100+drx_to_thread[(2,0)], timetag + sample_offset*(fS // int(srate)),
+                                        vdif_frame_size, vdif_frames_per_second,
+                                        data=pairX[32+sample_offset:])
+                        f2Y = VDIFFrame(beam*100+drx_to_thread[(2,1)], timetag + sample_offset*(fS // int(srate)),
+                                        vdif_frame_size, vdif_frames_per_second,
+                                        data=pairY[32+sample_offset:])
+                        
+                else:
+                    if tuning == 1 and keep_1 and started1:
+                        f1X.extend(pairX[32:])
+                        f1Y.extend(pairY[32:])
+                        
+                        if f1X.is_ready:
+                            remainder = f1X.write(fhOut)
+                            f1X = VDIFFrame(beam*100+drx_to_thread[(1,0)], timetag + (4096-len(remainder))*(fS // int(srate)),
+                                            vdif_frame_size, vdif_frames_per_second,
+                                            data=remainder)
+                            
+                        if f1Y.is_ready:
+                            remainder = f1Y.write(fhOut)
+                            f1Y = VDIFFrame(beam*100+drx_to_thread[(1,1)], timetag + (4096-len(remainder))*(fS // int(srate)),
+                                            vdif_frame_size, vdif_frames_per_second,
+                                            data=remainder)
+                            
+                    elif tuning == 2 and keep_2 and started2:
+                        f2X.extend(pairX[32:])
+                        f2Y.extend(pairY[32:])
+                        
+                        if f2X.is_ready:
+                            remainder = f2X.write(fhOut)
+                            f2X = VDIFFrame(beam*100+drx_to_thread[(2,0)], timetag + (4096-len(remainder))*(fS // int(srate)),
+                                            vdif_frame_size, vdif_frames_per_second,
+                                            data=remainder)
+                            
+                        if f2Y.is_ready:
+                            remainder = f2Y.write(fhOut)
+                            f2Y = VDIFFrame(beam*100+drx_to_thread[(2,1)], timetag + (4096-len(remainder))*(fS // int(srate)),
+                                            vdif_frame_size, vdif_frames_per_second,
+                                            data=remainder)
+                            
+            if pb.amount != 0 and pb.amount % 5000 < tunepol:
+                sys.stdout.write(pb.show()+'\r')
+                sys.stdout.flush()
+                
+        # Update the progress bar with the total time used
+        pb.amount = pb.max
+        sys.stdout.write(pb.show()+'\n')
+        sys.stdout.flush()
+        fhOut.close()
+        
+        fh.close()
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
-    
+    parser = argparse.ArgumentParser(
+        description="Convert a LWA DRX file into a multi-threaded VDIF file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+    parser.add_argument('filename', type=str, nargs='+'
+                        help='DRX file to convert')
+    parser.add_argument('-t', '--tuning', type=int,
+                        help='tuning to process if not converting both')
+    args = parser.parse_args()
+    main(args)
