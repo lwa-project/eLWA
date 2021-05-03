@@ -1075,7 +1075,11 @@ class Idi(WriterBase):
                     raise NameError
             except NameError:
                 order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
-                
+                try:
+                    del baselineMapped
+                except NameError:
+                    pass
+                    
             # Deal with defininig the values of the new data set
             if dataSet.pol == self.stokes[0]:
                 ## Figure out the new date/time for the observation
