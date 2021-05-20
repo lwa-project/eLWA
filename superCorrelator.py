@@ -127,6 +127,7 @@ def main(args):
     bitDepths = []
     buffers = []
     grossOffsets = []
+    norms = []
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
@@ -214,6 +215,7 @@ def main(args):
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
             buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
+            
     for i in xrange(len(filenames)):
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
@@ -229,6 +231,17 @@ def main(args):
                 fh[i].seek(readers[i].FRAME_SIZE, 1)
             
             nFramesFile[i] -= j
+            
+            ## Normalization stuff
+            mark = fh[i].tell()
+            dl = readers[i].DATA_LENGTH
+            norm_data = numpy.zeros((2,1000*dl), dtype=numpy.float32)
+            for k in xrange(2000):
+                f = readers[i].read_frame(fh[i])
+                norm_data[f.id[0], k//2*dl:(k//2+1)*dl] = f.payload.data
+            fh[i].seek(mark)
+            
+            norm.append( numpy.sqrt(numpy.mean(norm_data**2, axis=1) )
             
         elif readers[i] is drx:
             pass
@@ -425,6 +438,14 @@ def main(args):
                             std,pol = cFrame.id
                             sid = 2*j + pol
                             
+                            # Scale the data
+                            scale = norm[j][pol] / numpy.sqrt((cFrame.payload.data**2).mean())
+                            output = cFrame.payload.data * scale
+                            
+                            # Clean the data
+                            clip = 5*numpy.median(numpy.abs(output))
+                            output[numpy.where((output>clip)|(output<-clip))] = 0
+                            
                             if k == 0:
                                 tStart.append( cFrame.time )
                                 tStart[-1] = tStart[-1] + grossOffsets[j]
@@ -437,7 +458,7 @@ def main(args):
                                     
                             count = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
                             count -= vdifRef[sid]
-                            dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                            dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = output
                             k += 1
                                                        
                 elif readers[j] is drx:
