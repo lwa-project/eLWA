@@ -238,10 +238,13 @@ def main(args):
             norm_data = numpy.zeros((2,1000*dl), dtype=numpy.float32)
             for k in xrange(2000):
                 f = readers[i].read_frame(fh[i])
-                norm_data[f.id[0], k//2*dl:(k//2+1)*dl] = f.payload.data
+                try:
+                    norm_data[f.id[1], k//2*dl:(k//2+1)*dl] = f.payload.data
+                except IndexError:
+                    pass
             fh[i].seek(mark)
             
-            norm.append( numpy.sqrt(numpy.mean(norm_data**2, axis=1) )
+            norms.append( numpy.sqrt(numpy.mean(norm_data**2, axis=1)) )
             
         elif readers[i] is drx:
             pass
@@ -439,7 +442,7 @@ def main(args):
                             sid = 2*j + pol
                             
                             # Scale the data
-                            scale = norm[j][pol] / numpy.sqrt((cFrame.payload.data**2).mean())
+                            scale = norms[j][pol] / numpy.sqrt((cFrame.payload.data**2).mean())
                             output = cFrame.payload.data * scale
                             
                             # Clean the data
