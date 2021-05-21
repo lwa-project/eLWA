@@ -446,7 +446,7 @@ def main(args):
                             output = cFrame.payload.data * scale
                             
                             # Clean the data
-                            clip = 5*numpy.median(numpy.abs(output))
+                            clip = 4*numpy.std(output)
                             output[numpy.where((output>clip)|(output<-clip))] = 0
                             
                             if k == 0:
