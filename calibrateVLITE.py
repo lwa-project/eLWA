@@ -15,6 +15,7 @@ import numpy
 import ubjson
 from astropy.io import fits as astrofits
 import argparse
+import warnings
 from datetime import datetime
 
 from scipy.interpolate import interp1d, interp2d
@@ -22,6 +23,59 @@ from scipy.interpolate import interp1d, interp2d
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc.dedispersion import delay as ddelay
+
+
+class _DefaultInterpolatorDict(dict):
+    """
+    Sub-class of dict that makes any unknown key return a function that always
+    returns the same value.  It is basically a way to make a solution
+    interpolator that always works.
+    """
+    
+    def __init__(self, *args, default_fill=0.0, warn_missing=True, **kwds):
+        dict.__init__(self, *args, **kwds)
+        self.default_fill = default_fill
+        self.warn_missing = warn_missing
+        
+    def _default_function(self, *args):
+        try:
+            return numpy.ones(args[0].shape)*self.default_fill
+        except AttributeError:
+            return self.default_fill
+            
+    def __getitem__(self, key):
+        try:
+            dict.__getitem__(self, key)
+        except KeyError:
+            if self.warn_missing:
+                warnings.warn("Cannot find interpolator for '%s', return default values" % key, RuntimeWarning)
+            return lambda x: self._default_function(x)
+
+
+class _DelayInterpolatorDict(_DefaultInterpolatorDict):
+    """
+    Sub-class of _DefaultInterpolatorDict that uses a default value of zero.
+    """
+    
+    def __init__(self, *args, warn_missing=True, **kwds):
+        try:
+            del kwds['default_fill']
+        except KeyError:
+            pass
+        _DefaultInterpolatorDict.__init__(self, *args, default_fill=0.0, **kwds)
+
+
+class _GainInterpolatorDict(_DefaultInterpolatorDict):
+    """
+    Sub-class of _DefaultInterpolatorDict that use a default value of 1+0j.
+    """
+    
+    def __init__(self, *args, warn_missing=True, **kwds):
+        try:
+            del kwds['default_fill']
+        except KeyError:
+            pass
+        _DefaultInterpolatorDict.__init__(self, *args, default_fill=numpy.complex64(1.0), **kwds)
 
 
 def _select(data, key2, key3):
@@ -158,8 +212,8 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    delays1, delays2 = {}, {}
-    gains1, gains2 = {}, {}
+    delays1, delays2 = _DelayInterpolatorDict(), _DelayInterpolatorDict()
+    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
     for a in names:
         try:
             delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='quadratic')
@@ -168,10 +222,6 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
         except KeyError:
             print("CalTab: %s not found, setting delays to 0 and gains to 1" % a)
-            delays1[a] = interp1d(times, [0.0 for t in times])
-            delays2[a] = interp1d(times, [0.0 for t in times])
-            gains1[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
-            gains2[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             
     return delays1, delays2, gains1, gains2
 
@@ -229,7 +279,7 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    gains1, gains2 = {}, {}
+    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
     for a in names:
         try:
             v = _select(gains, a, 'g1')
@@ -244,12 +294,6 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
             gains2[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
         except KeyError:
             print("CalTab: %s not found, setting bandpass to 1" % a)
-            rgains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            igains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            gains1[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
-            rgains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            igains  = interp2d(times, freqs, numpy.ones((len(times), len(freqs)), dtype=numpy.float32).T)
-            gains2[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
             
     return gains1, gains2
 
@@ -311,8 +355,8 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    delays1, delays2 = {}, {}
-    gains1, gains2 = {}, {}
+    delays1, delays2 = _DelayInterpolatorDict(), _DelayInterpolatorDict()
+    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
     for a in names:
         try:
             delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='quadratic')
@@ -321,10 +365,6 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
         except KeyError:
             print("uvout: %s not found, setting delays to 0 and gains to 1" % a)
-            delays1[a] = interp1d(times, [0.0 for t in times])
-            delays2[a] = interp1d(times, [0.0 for t in times])
-            gains1[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
-            gains2[a]  = interp1d(times, [numpy.complex64(1.0) for t in times])
             
     return delays1, delays2, gains1, gains2
 
@@ -500,79 +540,41 @@ def main(args):
                 t = obsdates[match[j]] + obstimes[match[j]]
                 ## CalTab
                 if a1 != a1_last or t != t_last:
-                    try:
-                        # Antenna 1 - delays and gains
-                        d1p0, d1p1 = delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t)
-                        g1p0, g1p1 = gains_cl[0][mapper[a1]](t),  gains_cl[1][mapper[a1]](t)
-                    except KeyError:
-                        print('skip', 'd1p*/g1p*', a2)
-                        d1p0, d1p1 = 0.0, 0.0
-                        g1p0, g1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    # Antenna 1 - delays and gains
+                    d1p0, d1p1 = delays_cl[0][mapper[a1]](t), delays_cl[1][mapper[a1]](t)
+                    g1p0, g1p1 = gains_cl[0][mapper[a1]](t),  gains_cl[1][mapper[a1]](t)
                 if a2 != a2_last or t != t_last:
-                    try:
-                        # Antenna 2 - delays and gains
-                        d2p0, d2p1 = delays_cl[0][mapper[a2]](t), delays_cl[1][mapper[a2]](t)
-                        g2p0, g2p1 = gains_cl[0][mapper[a2]](t),  gains_cl[1][mapper[a2]](t)
-                    except KeyError:
-                        print('skip', 'd2p*/g2p*', a2)
-                        d2p0, d2p1 = 0.0, 0.0
-                        g2p0, g2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    # Antenna 2 - delays and gains
+                    d2p0, d2p1 = delays_cl[0][mapper[a2]](t), delays_cl[1][mapper[a2]](t)
+                    g2p0, g2p1 = gains_cl[0][mapper[a2]](t),  gains_cl[1][mapper[a2]](t)
                 if a1 != a1_last or t != t_last:
-                    try:
-                        # Antenna 1 - bandpass
-                        b1p0, b1p1 = gains_bp[0][mapper[a1]](t, freq_comb),  gains_bp[1][mapper[a1]](t, freq_comb)
-                    except KeyError:
-                        print('skip', 'b1p*', a1)
-                        b1p0, b1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    # Antenna 1 - bandpass
+                    b1p0, b1p1 = gains_bp[0][mapper[a1]](t, freq_comb),  gains_bp[1][mapper[a1]](t, freq_comb)
                 if a2 != a2_last or t != t_last:
-                    try:
-                        # Antenna 2 - bandpass
-                        b2p0, b2p1 = gains_bp[0][mapper[a2]](t, freq_comb),  gains_bp[1][mapper[a2]](t, freq_comb)
-                    except KeyError:
-                        print('skip', 'b2p*', a2)
-                        b2p0, b2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                        
+                    # Antenna 2 - bandpass
+                    b2p0, b2p1 = gains_bp[0][mapper[a2]](t, freq_comb),  gains_bp[1][mapper[a2]](t, freq_comb)
+                    
                 ## Cal
                 if a1 != a1_last or t != t_last:
-                    try:
-                        # Antenna 1 - delays and gains
-                        cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
-                        cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
-                    except KeyError:
-                        print('skip', 'd1p*/g1p*', a2)
-                        cd1p0, cd1p1 = 0.0, 0.0
-                        cg1p0, cg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                    # Antenna 1 - delays and gains
+                    cd1p0, cd1p1 = delays_sm[0][mapper[a1]](t), delays_sm[1][mapper[a1]](t)
+                    cg1p0, cg1p1 = gains_sm[0][mapper[a1]](t),  gains_sm[1][mapper[a1]](t)
                 if a2 != a2_last or t != t_last:
-                    try:
-                        # Antenna 2 - delays and gains
-                        cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
-                        cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
-                    except KeyError:
-                        print('skip', 'd2p*/g2p*', a2)
-                        cd2p0, cd2p1 = 0.0, 0.0
-                        cg2p0, cg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                        
+                    # Antenna 2 - delays and gains
+                    cd2p0, cd2p1 = delays_sm[0][mapper[a2]](t), delays_sm[1][mapper[a2]](t)
+                    cg2p0, cg2p1 = gains_sm[0][mapper[a2]](t),  gains_sm[1][mapper[a2]](t)
+                    
                 ## uvout
                 if args.apply_uvout:
                     if a1 != a1_last or t != t_last:
-                        try:
-                            # Antenna 1 - supplemental delays and gains
-                            sd1p0, sd1p1 = delays_sn[0][mapper[a1]](t), delays_sn[1][mapper[a1]](t)
-                            sg1p0, sg1p1 = gains_sn[0][mapper[a1]](t),  gains_sn[1][mapper[a1]](t)  
-                        except KeyError:
-                            print('skip', 'sd1p*/sg1p*', a1)
-                            sd1p0, sd1p1 = 0.0, 0.0
-                            sg1p0, sg1p1 = numpy.complex64(1.0), numpy.complex64(1.0)
+                        # Antenna 1 - supplemental delays and gains
+                        sd1p0, sd1p1 = delays_sn[0][mapper[a1]](t), delays_sn[1][mapper[a1]](t)
+                        sg1p0, sg1p1 = gains_sn[0][mapper[a1]](t),  gains_sn[1][mapper[a1]](t)  
                     if a2 != a2_last or t != t_last:
-                        try:
-                            # Antenna 2 - supplemental delays and gains
-                            sd2p0, sd2p1 = delays_sn[0][mapper[a2]](t), delays_sn[1][mapper[a2]](t)            
-                            sg2p0, sg2p1 = gains_sn[0][mapper[a2]](t),  gains_sn[1][mapper[a2]](t)
-                        except KeyError:
-                            print('skip', 'sd2p*/sg2p*', a2)
-                            sd2p0, sd2p1 = 0.0, 0.0
-                            sg2p0, sg2p1 = numpy.complex64(1.0), numpy.complex64(1.0)
-                            
+                        # Antenna 2 - supplemental delays and gains
+                        sd2p0, sd2p1 = delays_sn[0][mapper[a2]](t), delays_sn[1][mapper[a2]](t)            
+                        sg2p0, sg2p1 = gains_sn[0][mapper[a2]](t),  gains_sn[1][mapper[a2]](t)
+                        
                 # XX
                 k = 0
                 cgain = numpy.exp(2j*numpy.pi*freq_comb*(d1p0-d2p0)) / (g1p0.conj()*g2p0) / (b1p0.conj()*b2p0)
