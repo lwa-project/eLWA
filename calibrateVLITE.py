@@ -216,8 +216,8 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
     gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
     for a in names:
         try:
-            delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='quadratic')
-            delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='quadratic')
+            delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='linear')
+            delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='linear')
             gains1[a]  = interp1d(*(_select(gains, a, 'g1')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
         except KeyError:
@@ -359,8 +359,8 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
     gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
     for a in names:
         try:
-            delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='quadratic')
-            delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='quadratic')
+            delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='linear')
+            delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='linear')
             gains1[a]  = interp1d(*(_select(gains, a, 'g1')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
         except KeyError:
