@@ -25,17 +25,18 @@ from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc.dedispersion import delay as ddelay
 
 
-class _DefaultInterpolatorDict(dict):
+class _DefaultInterpolator(object):
     """
     Sub-class of dict that makes any unknown key return a function that always
     returns the same value.  It is basically a way to make a solution
     interpolator that always works.
     """
     
-    def __init__(self, *args, default_fill=0.0, warn_missing=True, **kwds):
-        dict.__init__(self, *args, **kwds)
+    def __init__(self, default_fill=0.0, warn_missing=True):
         self.default_fill = default_fill
         self.warn_missing = warn_missing
+        
+        self._store = {}
         
     def _default_function(self, *args):
         try:
@@ -43,39 +44,55 @@ class _DefaultInterpolatorDict(dict):
         except AttributeError:
             return self.default_fill
             
+    def __len__(self):
+        return len(self._store)
+        
+    def __contains__(self, key):
+        return key in self._store
+        
+    def __setitem__(self, key, value):
+        self._store[key] = value
+        
     def __getitem__(self, key):
         try:
-            dict.__getitem__(self, key)
+            return self._store[key]
         except KeyError:
             if self.warn_missing:
-                warnings.warn("Cannot find interpolator for '%s', return default values" % key, RuntimeWarning)
+                warnings.warn("Cannot find interpolator for '%s', returning default value" % key, RuntimeWarning)
             return lambda x: self._default_function(x)
-
-
-class _DelayInterpolatorDict(_DefaultInterpolatorDict):
-    """
-    Sub-class of _DefaultInterpolatorDict that uses a default value of zero.
-    """
-    
-    def __init__(self, *args, warn_missing=True, **kwds):
+            
+    def __delitem__(self, key):
         try:
-            del kwds['default_fill']
+            del self._store[key]
         except KeyError:
             pass
-        _DefaultInterpolatorDict.__init__(self, *args, default_fill=0.0, **kwds)
+            
+    def keys(self):
+        return self._store.keys()
+        
+    def values(self):
+        return self._store.values()
+        
+    def items():
+        return self._store.items()
 
 
-class _GainInterpolatorDict(_DefaultInterpolatorDict):
+class _DelayInterpolator(_DefaultInterpolator):
     """
-    Sub-class of _DefaultInterpolatorDict that use a default value of 1+0j.
+    Sub-class of _DefaultInterpolator that uses a default value of zero.
     """
     
-    def __init__(self, *args, warn_missing=True, **kwds):
-        try:
-            del kwds['default_fill']
-        except KeyError:
-            pass
-        _DefaultInterpolatorDict.__init__(self, *args, default_fill=numpy.complex64(1.0), **kwds)
+    def __init__(self, warn_missing=True):
+        _DefaultInterpolator.__init__(self, default_fill=0.0, warn_missing=warn_missing)
+
+
+class _GainInterpolator(_DefaultInterpolator):
+    """
+    Sub-class of _DefaultInterpolator that use a default value of 1+0j.
+    """
+    
+    def __init__(self, warn_missing=True):
+        _DefaultInterpolator.__init__(self, default_fill=numpy.complex64(1.0), warn_missing=warn_missing)
 
 
 def _select(data, key2, key3):
@@ -212,8 +229,8 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    delays1, delays2 = _DelayInterpolatorDict(), _DelayInterpolatorDict()
-    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
+    delays1, delays2 = _DelayInterpolator(), _DelayInterpolator()
+    gains1, gains2 = _GainInterpolator(), _GainInterpolator()
     for a in names:
         try:
             delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='linear')
@@ -279,7 +296,7 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
+    gains1, gains2 = _GainInterpolator(), _GainInterpolator()
     for a in names:
         try:
             v = _select(gains, a, 'g1')
@@ -355,8 +372,8 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
         for name in gains[t].keys():
             if name not in names:
                 names.append(name)
-    delays1, delays2 = _DelayInterpolatorDict(), _DelayInterpolatorDict()
-    gains1, gains2 = _GainInterpolatorDict(), _GainInterpolatorDict()
+    delays1, delays2 = _DelayInterpolator(), _DelayInterpolator()
+    gains1, gains2 = _GainInterpolator(), _GainInterpolator()
     for a in names:
         try:
             delays1[a] = interp1d(*(_select(gains, a, 'd1')), bounds_error=False, fill_value=0.0, kind='linear')
