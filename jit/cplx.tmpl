@@ -496,7 +496,6 @@ static PyObject *cFEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             {% else %}
                 *(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + {{nChan}}/2) / SampleRate * *(fifo + i));
             {% endif %}
-            *(rot + {{nChan}}*i + j) /= sqrt({{nChan}});
         }
     }
     
@@ -722,7 +721,6 @@ static PyObject *cPFBEngine(PyObject *self, PyObject *args, PyObject *kwds) {
             j = ij % {{nChan}};
             *(rot + {{nChan}}*i + j)  = cexp(2*NPY_PI*_Complex_I * *(c + j) * *(frac + {{nChan}}*i + j));
             *(rot + {{nChan}}*i + j) *= cexp(2*NPY_PI*_Complex_I * *(c + {{nChan}}/2) / SampleRate * *(fifo + i));
-            *(rot + {{nChan}}*i + j) /= sqrt({{nChan}});
         }
     }
     
