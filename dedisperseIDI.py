@@ -20,6 +20,8 @@ from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
 
+import ubjson
+
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
 from lsl.misc.dedispersion import delay, incoherent
@@ -214,6 +216,16 @@ def main(args):
     # Parse the command line
     filenames = args.filename
     
+    # Get the DM
+    try:
+        args.DM_or_meta = float(args.DM_or_meta)
+    except ValueError:
+        print("Loading metadata from '%s'" % os.path.basename(args.DM_or_meta))
+        with open(args.DM_or_meta, 'rb') as fh:
+            meta = ubjson.load(fh)
+        args.DM_or_meta = meta['dm']
+        print("  DM: %.3f pm/cm^3" % args.DM_or_meta)
+        
     for filename in filenames:
         t0 = time.time()
         print("Working on '%s'" % os.path.basename(filename))
@@ -310,7 +322,7 @@ def main(args):
             if i == len(blocks)-1:
                 src_name = srdata.data['SOURCE'][srcs[match[0]]-1]
                 nextmask, nextflux = get_trailing_scan(filename, src_name, 
-                                                       max(delay(freq_comb, args.DM)))
+                                                       max(delay(freq_comb, args.DM_or_meta)))
                 if nextmask is not None and nextflux is not None:
                     to_trim = ofm.shape[0]
                     vis = numpy.concatenate([vis, nextflux])
@@ -328,8 +340,8 @@ def main(args):
             else:
                 for j in xrange(nBL):
                     for k in xrange(nStk):
-                        vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
-                        ofm[:,j,:,k] = incoherent(freq_comb, ofm[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=True)
+                        vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM_or_meta, boundary='fill', fill_value=numpy.nan)
+                        ofm[:,j,:,k] = incoherent(freq_comb, ofm[:,j,:,k], ints[0], args.DM_or_meta, boundary='fill', fill_value=True)
             vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]//len(fqoffsets), vis.shape[3])
             ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]//len(fqoffsets), ofm.shape[3])
             
@@ -437,7 +449,7 @@ def main(args):
             except KeyError:
                 pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
+        flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM_or_meta
         
         # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
         if args.drop:
@@ -464,7 +476,7 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_DM%.4f%s' % (outname, args.DM, outext)
+        outname = '%s_DM%.4f%s' % (outname, args.DM_or_meta, outext)
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
@@ -490,7 +502,7 @@ def main(args):
             else:
                 primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
         primary.header['HISTORY'] = 'Dedispersed with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        primary.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
+        primary.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM_or_meta
         hdulist2.append(primary)
         hdulist2.flush()
         ## Copy the extensions over to the new file
@@ -516,8 +528,8 @@ if __name__ == "__main__":
         description='apply incoherent dedispersion to a collection of FITS-IDI files', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
-    parser.add_argument('DM', type=float, 
-                        help='dispersion measure to correct for in pc / cm^3')
+    parser.add_argument('DM_or_meta', type=str, 
+                        help='dispersion measure to correct for in pc / cm^3 or a .meta filename')
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
     parser.add_argument('-d', '--drop', action='store_true', 
