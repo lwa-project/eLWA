@@ -59,7 +59,7 @@ class _DefaultInterpolator(object):
         except KeyError:
             if self.warn_missing:
                 warnings.warn("Cannot find interpolator for '%s', returning default value" % key, RuntimeWarning)
-            return lambda x: self._default_function(x)
+            return lambda *args: self._default_function(*args)
             
     def __delitem__(self, key):
         try:
@@ -203,8 +203,6 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
                 d2, r2, i2 = row['DELAY 2'], row['REAL2'], row['IMAG2']
                 g1 = r1 + 1j*i1
                 g2 = r2 + 1j*i2
-                #if a == 1:
-                #    print(a, d1, r1, i1, d2, r2, i2)
                 
                 ### Save the timestamp
                 try:
@@ -237,7 +235,7 @@ def load_caltab_cl(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
             delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='linear')
             gains1[a]  = interp1d(*(_select(gains, a, 'g1')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
-        except KeyError:
+        except (ValueError, KeyError):
             print("CalTab: %s not found, setting delays to 0 and gains to 1" % a)
             
     return delays1, delays2, gains1, gains2
@@ -309,7 +307,8 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
             rgains  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
             igains  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
             gains2[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
-        except KeyError:
+        except (Exception, KeyError):
+            ### How do I catch dfitpack.error?
             print("CalTab: %s not found, setting bandpass to 1" % a)
             
     return gains1, gains2
@@ -348,7 +347,10 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
                 d2, r2, i2 = row['DELAY 2'], row['REAL2'], row['IMAG2']
                 g1 = r1 + 1j*i1
                 g2 = r2 + 1j*i2
-                
+                if g1 != g1 or g2 != g2:
+                    #### Ignore bad solutions where the gains are NaN
+                    continue
+                    
                 ### Save the timestamp
                 try:
                     gains[t]
@@ -380,7 +382,7 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
             delays2[a] = interp1d(*(_select(gains, a, 'd2')), bounds_error=False, fill_value=0.0, kind='linear')
             gains1[a]  = interp1d(*(_select(gains, a, 'g1')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
             gains2[a]  = interp1d(*(_select(gains, a, 'g2')), bounds_error=False, fill_value=numpy.complex64(1.0), kind='linear')
-        except KeyError:
+        except (ValueError, KeyError):
             print("uvout: %s not found, setting delays to 0 and gains to 1" % a)
             
     return delays1, delays2, gains1, gains2
