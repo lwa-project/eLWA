@@ -462,7 +462,7 @@ def main(args):
     unmapper = load_antenna_unmapper(args.metadata)
     
     # Load in the VLITE-Slow calibration information
-    flags = {'ants':[]}
+    slow_flags = {'ants':[]}
     #flags = load_caltab_fg(args.caltab)
     delays_cl_p0, delays_cl_p1, gains_cl_p0, gains_cl_p1 = load_caltab_cl(args.caltab)
     delays_cl = {0: delays_cl_p0, 1: delays_cl_p1}
@@ -683,6 +683,7 @@ def main(args):
         ## Build the FLAG table
         print('    FITS HDU')
         ### Filter and remap
+        flags = slow_flags
         flags2 = {'ants':[], 'times':[], 'chans':[], 'pflags':[], 'reason':[]}
         nFlags = len(flags['ants'])
         for f in xrange(nFlags):
