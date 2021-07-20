@@ -298,15 +298,7 @@ def main(args):
         visXY = dataDict['vis1XY'].astype(numpy.complex64)
         visYX = dataDict['vis1YX'].astype(numpy.complex64)
         visYY = dataDict['vis1YY'].astype(numpy.complex64)
-        try:
-            delayStepApplied = dataDict['delayStepApplied']
-            try:
-                len(delayStepApplied)
-            except TypeError:
-                delayStepApplied = [delayStepApplied if ant.stand.id > 50 else False for ant in antennas if ant.pol == 0]
-        except KeyError:
-            delayStepApplied = [False for ant in antennas if ant.pol == 0]
-            
+        
         dataDict.close()
         
         if args.decimate > 1:
@@ -400,11 +392,6 @@ def main(args):
         if i % 10 == 0:
             print(i)
             
-        ## Save any delay step information
-        for step,ant in zip(delayStepApplied, [ant for ant in antennas if ant.pol == 0]):
-            if step:
-                fits.add_history("Delay step at %i %f" % (ant.stand.id, tStart))
-                
         ## Update the observation
         observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
         refSrc.compute(observer)
