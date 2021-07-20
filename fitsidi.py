@@ -416,14 +416,10 @@ class Idi(WriterBase):
             xyz[i,1] = ant.stand.y
             xyz[i,2] = ant.stand.z
             
-        # Create the stand mapper to deal with the fact that stands range from 
-        # 1 to 258, not 1 to 255
+        # Create the stand mapper to deal with the fact that stands range is sparse
         mapper = OrderedDict()
-        if stands.max() > self._MAX_ANTS:
-            enableMapper = True
-        else:
-            enableMapper = False
-            
+        enableMapper = True
+        
         ants = []
         topo2eci = site.eci_transform_matrix
         for i in range(len(stands)):
@@ -687,14 +683,14 @@ class Idi(WriterBase):
         ag.header['ARRAYY'] = (self.array[0]['center'][1], 'array ECI Y coordinate (m)')
         ag.header['ARRAYZ'] = (self.array[0]['center'][2], 'array ECI Z coordinate (m)')
         
-        ag.header['NOSTAMAP'] = (int(self.array[0]['enableMapper']), 'Mapping enabled for stand numbers')
+        #ag.header['NOSTAMAP'] = (int(self.array[0]['enableMapper']), 'Mapping enabled for stand numbers')
         
         ag.name = 'ARRAY_GEOMETRY'
         self.FITS.append(ag)
         self.FITS.flush()
         
-        if self.array[0]['enableMapper']:
-            self._write_mapper_hdu()
+        #if self.array[0]['enableMapper']:
+        #    self._write_mapper_hdu()
             
     def _write_frequency_hdu(self):
         """
