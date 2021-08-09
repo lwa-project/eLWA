@@ -17,9 +17,8 @@
 #include "numpy/arrayobject.h"
 #include "numpy/npy_math.h"
 
-#include "blas.h"
-
 #include "py3_compat.h"
+#include "blas.h"
 
 
 /*
@@ -159,4 +158,3 @@ long computeDelayComponents(PyArrayObject *delays, double SampleRate, long *fifo
     
     return fifoMax;
 }
-
