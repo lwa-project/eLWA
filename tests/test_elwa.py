@@ -111,7 +111,7 @@ class database(object):
                 print(logfile.read())
         self.assertEqual(status, 0)
         
-    def test_4_flag_rfi(self):
+    def test_3_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
         cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
@@ -125,7 +125,7 @@ class database(object):
                 print(logfile.read())
         self.assertEqual(status, 0)
         
-    def test_5_validate_headers(self):
+    def test_4_validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
         _revRE = re.compile('\$Rev.*?\$')
@@ -152,7 +152,7 @@ class database(object):
         hdulist1.close()
         hdulist2.close()
         
-    def test_6_validate_data(self):
+    def test_5_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
