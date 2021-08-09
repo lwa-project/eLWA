@@ -96,14 +96,6 @@ class database(object):
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
-    def test_3_flag_steps(self):
-        """Flag LWA delay steps in the FITS-IDI file."""
-        
-        cmd = [sys.executable, '../flagDelaySteps.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
-        with open('%s-flag-0.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
-        self.assertEqual(status, 0)
-        
     def test_4_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
