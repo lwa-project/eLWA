@@ -200,10 +200,10 @@ def main(args):
                 try:
                     cs = metabundle.get_command_script(filename)
                     for c in cs:
-                        if c['subsystemID'] == 'DP':
+                        if c['subsystem_id'] == 'DP':
                             site = 'LWA1'
                             break
-                        elif c['subsystemID'] == 'ADP':
+                        elif c['subsystem_id'] == 'ADP':
                             site = 'LWA-SV'
                             break
                 except (RuntimeError, ValueError):
