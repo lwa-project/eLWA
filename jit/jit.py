@@ -10,6 +10,7 @@ import sys
 import glob
 import time
 import numpy
+import shutil
 import importlib
 try:
     from StringIO import StringIO
@@ -18,15 +19,16 @@ except ImportError:
 import platform
 import warnings
 import subprocess
-from distutils import sysconfig
-from distutils import ccompiler
+from setuptools import Extension
+from distutils import log
+from distutils.dist import Distribution
 
 from jinja2 import Environment, FileSystemLoader, Template
 
 from lsl.correlator.fx import null_window
 
 
-__version__ = '0.1'
+__version__ = '0.2'
 __all__ = ['JustInTimeOptimizer',]
 
 
@@ -80,9 +82,7 @@ class JustInTimeOptimizer(object):
         self._load_cache_dir(verbose=verbose)
         
         # Setup the compiler
-        cc = self.get_compiler()
         cflags, ldflags = self.get_flags()
-        self.cc = cc
         self.cflags = cflags
         self.ldflags = ldflags
         
@@ -111,16 +111,17 @@ class JustInTimeOptimizer(object):
         for soFile in glob.glob(os.path.join(self.cache_dir, '*.so')):
             soTime = os.stat(soFile)[8]
             module = os.path.splitext(os.path.basename(soFile))[0]
+            module = module.split('.', 1)[0]
             if module.find(self._tag) == -1:
                 continue
             if soTime < refTime:
                 ## This file is too old, clean it out
                 if verbose:
                     print(" -> Purged %s as outdated" % module)
-                for ext in ('.c', '.o', '.so'):
+                for ext in ('.c', '.so', '.dylib', '.dll'):
                     try:
                         os.unlink(os.path.join(self.cache_dir, '%s%s' % (module, ext)))
-                    except OSError:
+                    except OSError as e:
                         pass
                         
             else:
@@ -130,58 +131,50 @@ class JustInTimeOptimizer(object):
                 loadedModule = importlib.import_module(module)
                 self._cache[module] = loadedModule
                 
-    def get_compiler(self):
-        """
-        Return the compiler to use for the JIT code generation.
-        """
-        
-        compiler = ccompiler.new_compiler()
-        sysconfig.get_config_vars()
-        sysconfig.customize_compiler(compiler)
-        cc = compiler.compiler
-        return cc[0]
-        
     def get_flags(self, cc=None):
         """
         Return a two-element tuple of CFLAGS and LDFLAGS for the compiler to use for
         JIT code generation.
         """
         
-        if cc is None:
-            cc = self.get_compiler()
         cflags, ldflags = [], []
-        
-        # Python
-        try:
-            pyconfig = subprocess.check_output(['which', os.path.basename(sys.executable)+'-config']).rstrip()
-        except subprocess.CalledProcessError:
-            pyconfig = 'python-config'
-        cflags.extend( subprocess.check_output([pyconfig, '--cflags']).split() )
-        ldflags.extend( subprocess.check_output([pyconfig, '--ldflags']).split() )
         
         # Native architecture
         #cflags.append( '-march=native' )
         #ldflags.append( '-march=native' )
         
-        # fPIC since it seems to be needed
-        cflags.append( '-fPIC' )
-        ldflags.extend( ['-shared', '-fPIC'] )
-        
         # NumPy
-        cflags.append( '-I%s' % numpy.get_include() )
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
-        ldflags.append( '-lm' )
         
         # FFTW3
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
-            cflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--cflags']).split() )
-            ldflags.extend( subprocess.check_output(['pkg-config', 'fftw3f', '--libs']).split() )
+            flags = subprocess.check_output(['pkg-config', 'fftw3f', '--cflags'])
+            try:
+                flags = flags.decode()
+            except AttributeError:
+                # Python2 catch
+                pass
+            cflags.extend( flags.split() )
+            flags = subprocess.check_output(['pkg-config', 'fftw3f', '--libs'])
+            try:
+                flags = flags.decode()
+            except AttributeError:
+                # Python2 catch
+                pass
+            ldflags.extend( flags.split() )
         except subprocess.CalledProcessError:
             cflags.extend( [] )
             ldflags.extend( ['-lfftw3f', '-lm'] )
             
         # OpenMP
+        from distutils import sysconfig
+        from distutils import ccompiler
+        compiler = ccompiler.new_compiler()
+        sysconfig.get_config_vars()
+        sysconfig.customize_compiler(compiler)
+        cc = compiler.compiler
+        
         with open('openmp_test.c', 'w') as fh:
             fh.write(r"""#include <omp.h>
 #include <stdio.h>
@@ -192,7 +185,8 @@ return 0;
 }
             """)
         try:
-            call = [cc,]
+            call = []
+            call.extend(cc)
             call.extend(cflags)
             call.extend(['-fopenmp', 'openmp_test.c', '-o', 'openmp_test', '-lgomp'])
             output = subprocess.check_output(call, stderr=subprocess.STDOUT)
@@ -204,6 +198,9 @@ return 0;
         finally:
             os.unlink('openmp_test.c')
             
+        # Other
+        cflags.append( '-O2' )
+        
         return cflags, ldflags
         
     def _load_templates(self):
@@ -219,37 +216,39 @@ return 0;
             base = os.path.splitext(os.path.basename(tmplFile))[0]
             self._templates[base] = env.get_template(os.path.basename(tmplFile))
             
-    def _compile(self, srcName, objName, verbose=False):
+    def _build_module(self, srcName, module, verbose=False):
         """
-        Simple compile function.
+        Simple function to build an extension.
         """
         
-        call = [self.cc, '-c']
-        call.extend(self.cflags)
-        call.extend(['-o', objName, srcName])
-        
-        if verbose:
-            return subprocess.check_output(call, stderr=subprocess.STDOUT)
-        else:
-            return subprocess.check_output(call)
+        # Cleanup
+        try:
+            shutil.rmtree('build')
+        except OSError:
+            pass
             
-    def _link(self, objName, modName, verbose=False):
-        """
-        Simple linker function.
-        """
-        
-        call = [self.cc, '-o', modName]
-        if type(objName) is list:
-            call.extend(objName)
-        else:
-            call.append(objName)
-        call.extend(self.ldflags)
-        
+        # Setup
         if verbose:
-            return subprocess.check_output(call, stderr=subprocess.STDOUT)
-        else:
-            return subprocess.check_output(call)
+            log.set_verbosity(log.INFO)
+        ext = Extension(module, [srcName,],
+                        include_dirs=[os.path.abspath('.'), numpy.get_include()], libraries=['m'],
+                        extra_compile_args=self.cflags, extra_link_args=self.ldflags)
+        dist = Distribution(attrs={'name': 'dummy_package',
+                                   'version': '0.0',
+                                   'description': 'This is a dummy package to help build the JIT extensions',
+                                   'ext_modules': [ext,],
+                                   'verbose': True})
+        
+        # Build
+        dist.run_command('build_ext')
+        
+        # "Install"
+        modules = glob.glob('build/lib*/*')
+        for modname in modules:
+            shutil.copy(modname, os.path.join('.', os.path.basename(modname)))
             
+        return True
+        
     def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=null_window):
         """
         Generate an optimized version of the various time-domain functions 
@@ -272,8 +271,6 @@ return 0;
         # Build up the file names we need
         module = '%s_%i_%i_%i_%i_%i_%s' % (dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, self._tag)
         srcname = os.path.join(self.cache_dir, '%s.c' % module)
-        objname = os.path.join(self.cache_dir, '%s.o' % module)
-        soname = os.path.join(self.cache_dir, '%s.so' % module)
         
         # Is it cached?
         loadedModule = None
@@ -298,14 +295,9 @@ return 0;
                 fh.write( self._templates[funcTemplate].render(**config) )
                 fh.write( self._templates['post'].render(**config) )
                 
-            ### Compile, link, and cleanup
-            self._compile(srcname, objname)
-            self._link(objname, soname)
-            try:
-                os.unlink(objname)
-            except OSError:
-                pass
-                
+            ### Build
+            self._build_module(srcname, module)
+            
             ## Load and cache
             loadedModule = importlib.import_module(module)
             self._cache[module] = loadedModule
