@@ -223,7 +223,7 @@ return 0;
         
         # Cleanup
         try:
-            shutil.rmtree('build')
+            shutil.rmtree(os.path.join(_CACHE_DIR, 'build'))
         except OSError:
             pass
             
@@ -231,7 +231,7 @@ return 0;
         if verbose:
             log.set_verbosity(log.INFO)
         ext = Extension(module, [srcName,],
-                        include_dirs=[os.path.abspath('.'), numpy.get_include()], libraries=['m'],
+                        include_dirs=[os.path.abspath(_CACHE_DIR), numpy.get_include()], libraries=['m'],
                         extra_compile_args=self.cflags, extra_link_args=self.ldflags)
         dist = Distribution(attrs={'name': 'dummy_package',
                                    'version': '0.0',
@@ -243,9 +243,9 @@ return 0;
         dist.run_command('build_ext')
         
         # "Install"
-        modules = glob.glob('build/lib*/*')
+        modules = glob.glob(os.path.join(_CACHE_DIR, 'build', 'lib*', '*'))
         for modname in modules:
-            shutil.copy(modname, os.path.join('.', os.path.basename(modname)))
+            shutil.copy(modname, os.path.join(_CACHE_DIR, os.path.basename(modname)))
             
         return True
         
