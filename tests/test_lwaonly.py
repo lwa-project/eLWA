@@ -99,7 +99,7 @@ class database(object):
     def test_3_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
@@ -109,7 +109,7 @@ class database(object):
         
         _revRE = re.compile('\$Rev.*?\$')
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
@@ -134,7 +134,7 @@ class database(object):
     def test_5_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')

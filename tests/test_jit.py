@@ -115,7 +115,7 @@ class database(object):
     def test_3_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
