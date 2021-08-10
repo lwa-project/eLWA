@@ -131,7 +131,7 @@ class database(object):
         
         _revRE = re.compile('\$Rev.*?\$')
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
@@ -156,7 +156,7 @@ class database(object):
     def test_5_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged_flagged.FITS_1',
                                mode='readonly')
