@@ -601,7 +601,7 @@ def main(args):
                 freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
                                                             sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
                                                             Pol='*', phase_center=refSrc, 
-                                                            delayPadding=delayPadding)
+                                                            delayPadding=delayPadding, ignoreGeoDelays=True)
                 
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
