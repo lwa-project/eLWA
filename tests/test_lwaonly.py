@@ -100,7 +100,7 @@ class database(object):
         """Flag interference in the FITS-IDI file."""
         
         cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
-        with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
+        with open('%s-flag.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
         
