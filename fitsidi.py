@@ -416,10 +416,14 @@ class Idi(WriterBase):
             xyz[i,1] = ant.stand.y
             xyz[i,2] = ant.stand.z
             
-        # Create the stand mapper to deal with the fact that stands range is sparse
+        # Create the stand mapper to deal with the fact that stands range from 
+        # 1 to 258, not 1 to 255
         mapper = OrderedDict()
-        enableMapper = True
-        
+        if stands.max() > self._MAX_ANTS:
+            enableMapper = True
+        else:
+            enableMapper = False
+            
         ants = []
         topo2eci = site.eci_transform_matrix
         for i in range(len(stands)):
