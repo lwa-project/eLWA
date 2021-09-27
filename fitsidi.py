@@ -683,14 +683,14 @@ class Idi(WriterBase):
         ag.header['ARRAYY'] = (self.array[0]['center'][1], 'array ECI Y coordinate (m)')
         ag.header['ARRAYZ'] = (self.array[0]['center'][2], 'array ECI Z coordinate (m)')
         
-        #ag.header['NOSTAMAP'] = (int(self.array[0]['enableMapper']), 'Mapping enabled for stand numbers')
+        ag.header['NOSTAMAP'] = (int(self.array[0]['enableMapper']), 'Mapping enabled for stand numbers')
         
         ag.name = 'ARRAY_GEOMETRY'
         self.FITS.append(ag)
         self.FITS.flush()
         
-        #if self.array[0]['enableMapper']:
-        #    self._write_mapper_hdu()
+        if self.array[0]['enableMapper']:
+            self._write_mapper_hdu()
             
     def _write_frequency_hdu(self):
         """
