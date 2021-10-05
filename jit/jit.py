@@ -108,6 +108,7 @@ class JustInTimeOptimizer(object):
         refTime = max([os.stat(refFile)[8] for refFile in refFiles])
         
         # Find the modules and load the valid ones
+        any_purged = False
         for soFile in glob.glob(os.path.join(self.cache_dir, '*.so')):
             soTime = os.stat(soFile)[8]
             module = os.path.splitext(os.path.basename(soFile))[0]
@@ -116,6 +117,7 @@ class JustInTimeOptimizer(object):
                 continue
             if soTime < refTime:
                 ## This file is too old, clean it out
+                any_purged = True
                 if verbose:
                     print(" -> Purged %s as outdated" % module)
                 for ext in ('.c', '.so', '.dylib', '.dll'):
@@ -130,6 +132,12 @@ class JustInTimeOptimizer(object):
                     print(" -> Loaded %s" % module)
                 loadedModule = importlib.import_module(module)
                 self._cache[module] = loadedModule
+                
+        if any_purged:
+            try:
+                shutil.rmtree(os.path.join(_CACHE_DIR, 'build'))
+            except OSError:
+                pass
                 
     def get_flags(self, cc=None):
         """
@@ -221,12 +229,6 @@ return 0;
         Simple function to build an extension.
         """
         
-        # Cleanup
-        try:
-            shutil.rmtree(os.path.join(_CACHE_DIR, 'build'))
-        except OSError:
-            pass
-            
         # Setup
         if verbose:
             log.set_verbosity(log.INFO)
