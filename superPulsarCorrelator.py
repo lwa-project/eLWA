@@ -33,6 +33,7 @@ from lsl.writer import fitsidi
 from lsl.correlator.uvutils import compute_uvw
 
 from lsl.reader import drx, vdif, errors
+from lsl.reader.base import FrameTimestamp
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 
 from lsl.misc.dedispersion import delay as dispDelay
@@ -364,7 +365,7 @@ def main(args):
     vdifPivot = 1
     if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
         vdifPivot = 2
-    if nVDIFInputs == 0 and args.which is not None:
+    if nVDIFInputs == 0 and args.which != 0:
         vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
         print("VDIF appears to correspond to tuning #%i in DRX" % vdifPivot)
@@ -796,7 +797,7 @@ def main(args):
             svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
             
             # Get a most precise representation of the current time
-            mjdi, mjdf, mjdsf = tSubIntB[0].pulsar_mjd
+            mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
             mjdf += mjdsf/86400.0
             
             # Determine the pulsar phase as a function of frequency
@@ -807,6 +808,7 @@ def main(args):
                 currentDM = refSrc.dm*1.0
                 currentDoppler = refSrc.doppler*1.0
                 tDisp = dispDelay(sfreqXX*currentDoppler, currentDM)
+                tDisp += dispDelay(sfreqXX[-1]*currentDoppler, currentDM)
             phaseDispersion = tDisp / currentPeriod
             phaseDispersion %= 1.0
             ## Folding
