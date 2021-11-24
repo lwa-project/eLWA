@@ -6,6 +6,7 @@ Module for creating optimized data processing code when it is needed.
 from __future__ import print_function, division, absolute_import
     
 import os
+import imp
 import sys
 import glob
 import time
@@ -19,6 +20,7 @@ except ImportError:
 import platform
 import warnings
 import subprocess
+from tempfile import mkdtemp
 from setuptools import Extension
 from distutils import log
 from distutils.dist import Distribution
@@ -28,12 +30,32 @@ from jinja2 import Environment, FileSystemLoader, Template
 from lsl.correlator.fx import null_window
 
 
-__version__ = '0.2'
+__version__ = '0.3'
 __all__ = ['JustInTimeOptimizer',]
 
 
 # Setup
 _CACHE_DIR = os.path.dirname( os.path.abspath(__file__) )
+
+
+class TempBuildDir(object):
+    """
+    Class to make a temporary directory to run a JIT build in.  After the build
+    the temporary direcotry is deleted.
+    """
+    
+    def __enter__(self):
+        self.curdir = os.getcwd()
+        self.dirname = mkdtemp(suffix='.jit', prefix='build-')
+        os.chdir(self.dirname)
+        return self.dirname
+        
+    def __exit__(self, type, value, tb):
+        os.chdir(self.curdir)
+        try:
+            shutil.rmtree(self.dirname)
+        except OSError:
+            pass
 
 
 class JustInTimeOptimizer(object):
@@ -98,9 +120,9 @@ class JustInTimeOptimizer(object):
         if verbose:
             print("JIT cache directory: %s" % self.cache_dir)
             
-        # Make sure the cache directory is in the path as well
-        if self.cache_dir not in sys.path:
-            sys.path.append(self.cache_dir)
+        # # Make sure the cache directory is in the path as well
+        # if self.cache_dir not in sys.path:
+        #     sys.path.append(self.cache_dir)
             
         # Come up with a 'reference time' that we can use to see what may be outdated
         refFiles = glob.glob(os.path.join(os.path.dirname(__file__), '*.tmpl'))
@@ -132,7 +154,9 @@ class JustInTimeOptimizer(object):
                     if module not in self._cache:
                         if verbose:
                             print(" -> Loaded %s" % module)
-                        loadedModule = importlib.import_module('jit.'+module)
+                        info = imp.find_module(module, [self.cache_dir,])
+                        loadedModule = imp.load_module('jit.'+module, *info)
+                        info[0].close()
                         self._cache[module] = loadedModule
                         
     def get_flags(self, cc=None):
@@ -142,10 +166,6 @@ class JustInTimeOptimizer(object):
         """
         
         cflags, ldflags = [], []
-        
-        # Native architecture
-        #cflags.append( '-march=native' )
-        #ldflags.append( '-march=native' )
         
         # NumPy
         cflags.append( '-DNPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION' )
@@ -179,8 +199,9 @@ class JustInTimeOptimizer(object):
         sysconfig.customize_compiler(compiler)
         cc = compiler.compiler
         
-        with open('openmp_test.c', 'w') as fh:
-            fh.write(r"""#include <omp.h>
+        with TempBuildDir():
+            with open('openmp_test.c', 'w') as fh:
+                fh.write(r"""#include <omp.h>
 #include <stdio.h>
 int main(void) {
 #pragma omp parallel
@@ -188,20 +209,18 @@ printf("Hello from thread %d, nthreads %d\n", omp_get_thread_num(), omp_get_num_
 return 0;
 }
             """)
-        try:
-            call = []
-            call.extend(cc)
-            call.extend(cflags)
-            call.extend(['-fopenmp', 'openmp_test.c', '-o', 'openmp_test', '-lgomp'])
-            output = subprocess.check_output(call, stderr=subprocess.STDOUT)
-            cflags.append( '-fopenmp' )
-            ldflags.append( '-lgomp' )
-            os.unlink('openmp_test')
-        except subprocess.CalledProcessError:
-            pass
-        finally:
-            os.unlink('openmp_test.c')
-            
+            try:
+                call = []
+                call.extend(cc)
+                call.extend(cflags)
+                call.extend(['-fopenmp', 'openmp_test.c', '-o', 'openmp_test', '-lgomp'])
+                output = subprocess.check_output(call, stderr=subprocess.STDOUT)
+                cflags.append( '-fopenmp' )
+                ldflags.append( '-lgomp' )
+                os.unlink('openmp_test')
+            except subprocess.CalledProcessError:
+                pass
+                
         # Other
         cflags.append( '-O2' )
         
@@ -226,25 +245,26 @@ return 0;
         """
         
         # Setup
-        if verbose:
-            log.set_verbosity(log.INFO)
-        ext = Extension(module, [srcName,],
-                        include_dirs=[os.path.abspath(_CACHE_DIR), numpy.get_include()], libraries=['m'],
-                        extra_compile_args=self.cflags, extra_link_args=self.ldflags)
-        dist = Distribution(attrs={'name': 'dummy_package',
-                                   'version': '0.0',
-                                   'description': 'This is a dummy package to help build the JIT extensions',
-                                   'ext_modules': [ext,],
-                                   'verbose': True})
-        
-        # Build
-        dist.run_command('build_ext')
-        
-        # "Install"
-        modules = glob.glob(os.path.join('.', 'build', 'lib*', '*'))
-        for modname in modules:
-            shutil.copy(modname, os.path.join(self.cache_dir, os.path.basename(modname)))
+        with TempBuildDir():
+            if verbose:
+                log.set_verbosity(log.INFO)
+            ext = Extension(module, [srcName,],
+                            include_dirs=[os.path.abspath(_CACHE_DIR), numpy.get_include()], libraries=['m'],
+                            extra_compile_args=self.cflags, extra_link_args=self.ldflags)
+            dist = Distribution(attrs={'name': "dummy_package_%s" % module,
+                                       'version': '0.0',
+                                       'description': 'This is a dummy package to help build the JIT extensions',
+                                       'ext_modules': [ext,],
+                                       'verbose': True})
             
+            # Build
+            dist.run_command('build_ext')
+            
+            # "Install"
+            modules = glob.glob(os.path.join('.', 'build', 'lib*', '*'))
+            for modname in modules:
+                shutil.copy(modname, os.path.join(self.cache_dir, os.path.basename(modname)))
+                
         return True
         
     def get_module(self, dtype, nStand, nSamps, nChan, nOverlap, ClipLevel, window=null_window):
@@ -297,7 +317,9 @@ return 0;
             self._build_module(srcname, module)
             
             ## Load and cache
-            loadedModule = importlib.import_module('jit.'+module)
+            info = imp.find_module(module, [self.cache_dir,])
+            loadedModule = imp.load_module('jit.'+module, *info)
+            info[0].close()
             self._cache[module] = loadedModule
             
         # Done
