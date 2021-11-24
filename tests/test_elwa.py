@@ -135,12 +135,12 @@ class database(object):
         hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
+        # Skip over the FLAG table(s)
+        hdulist1P = [hdu for hdu in hdulist1 if hdu.name not in ('FLAG',)]
+        hdulist2P = [hdu for hdu in hdulist2 if hdu.name not in ('FLAG',)]
+        
         # Loop through the HDUs
-        for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the FLAG header
-            if hdu1.name in ('FLAG',):
-                continue
-                
+        for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             ## Check the header values, modulo the old $Rev$ tag
             for key in hdu1.header:
                 if key in ('DATE-MAP', 'UT1UTC', 'POLARX', 'POLARY'):
@@ -160,12 +160,12 @@ class database(object):
         hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
+        # Skip over the PRIMARY and FLAG tables
+        hdulist1P = [hdu for hdu in hdulist1 if hdu.name not in ('PRIMARY', 'FLAG')]
+        hdulist2P = [hdu for hdu in hdulist2 if hdu.name not in ('PRIMARY', 'FLAG')]
+        
         # Loop through the HDUs
-        for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the PRIMARY and FLAG headers
-            if hdu1.name in ('PRIMARY', 'FLAG'):
-                continue
-                
+        for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
                     atol = 1e-8
