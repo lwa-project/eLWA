@@ -132,7 +132,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Skip over the FLAG table(s)
@@ -157,7 +157,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
         # Skip over the PRIMARY and FLAG tables
