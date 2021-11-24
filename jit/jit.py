@@ -109,36 +109,32 @@ class JustInTimeOptimizer(object):
         
         # Find the modules and load the valid ones
         any_purged = False
-        for soFile in glob.glob(os.path.join(self.cache_dir, '*.so')):
-            soTime = os.stat(soFile)[8]
-            module = os.path.splitext(os.path.basename(soFile))[0]
-            module = module.split('.', 1)[0]
-            if module.find(self._tag) == -1:
-                continue
-            if soTime < refTime:
-                ## This file is too old, clean it out
-                any_purged = True
-                if verbose:
-                    print(" -> Purged %s as outdated" % module)
-                for ext in ('.c', '.so', '.dylib', '.dll'):
-                    try:
-                        os.unlink(os.path.join(self.cache_dir, '%s%s' % (module, ext)))
-                    except OSError as e:
-                        pass
+        for soExt in importlib.machinery.EXTENSION_SUFFIXES:
+            for soFile in glob.glob(os.path.join(self.cache_dir, '*%s' % soExt)):
+                soTime = os.stat(soFile)[8]
+                module = os.path.splitext(os.path.basename(soFile))[0]
+                module = module.split('.', 1)[0]
+                if module.find(self._tag) == -1:
+                    continue
+                if soTime < refTime:
+                    ## This file is too old, clean it out
+                    any_purged = True
+                    if verbose:
+                        print(" -> Purged %s as outdated" % module)
+                    for ext in ('.c', soExt):
+                        try:
+                            os.unlink(os.path.join(self.cache_dir, '%s%s' % (module, ext)))
+                        except OSError as e:
+                            pass
+                            
+                else:
+                    ## This file is OK, load it and cache it
+                    if module not in self._cache:
+                        if verbose:
+                            print(" -> Loaded %s" % module)
+                        loadedModule = importlib.import_module('jit.'+module)
+                        self._cache[module] = loadedModule
                         
-            else:
-                ## This file is OK, load it and cache it
-                if verbose:
-                    print(" -> Loaded %s" % module)
-                loadedModule = importlib.import_module(module)
-                self._cache[module] = loadedModule
-                
-        if any_purged:
-            try:
-                shutil.rmtree(os.path.join(_CACHE_DIR, 'build'))
-            except OSError:
-                pass
-                
     def get_flags(self, cc=None):
         """
         Return a two-element tuple of CFLAGS and LDFLAGS for the compiler to use for
@@ -224,7 +220,7 @@ return 0;
             base = os.path.splitext(os.path.basename(tmplFile))[0]
             self._templates[base] = env.get_template(os.path.basename(tmplFile))
             
-    def _build_module(self, srcName, module, verbose=False):
+    def _build_module(self, srcName, module, verbose=True):
         """
         Simple function to build an extension.
         """
@@ -245,9 +241,9 @@ return 0;
         dist.run_command('build_ext')
         
         # "Install"
-        modules = glob.glob(os.path.join(_CACHE_DIR, 'build', 'lib*', '*'))
+        modules = glob.glob(os.path.join('.', 'build', 'lib*', '*'))
         for modname in modules:
-            shutil.copy(modname, os.path.join(_CACHE_DIR, os.path.basename(modname)))
+            shutil.copy(modname, os.path.join(self.cache_dir, os.path.basename(modname)))
             
         return True
         
@@ -301,7 +297,7 @@ return 0;
             self._build_module(srcname, module)
             
             ## Load and cache
-            loadedModule = importlib.import_module(module)
+            loadedModule = importlib.import_module('jit.'+module)
             self._cache[module] = loadedModule
             
         # Done
