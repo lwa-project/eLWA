@@ -706,8 +706,10 @@ def main(args):
             nWin = 1e12
             if nVDIFInputs > 0:
                 nWin = min([nWin, feoV.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV.sum(axis=0)))+1])
             if nDRXInputs > 0:
                 nWin = min([nWin, feoD.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD.sum(axis=0)))+1])
                 
             ### Initialize the intermediate arrays
             try:
@@ -749,7 +751,7 @@ def main(args):
             svisXY = multirate.xengine(feoX, veoX, feoY, veoY)
             svisYX = multirate.xengine(feoY, veoY, feoX, veoX)
             svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
-            
+
             ## Accumulate
             if subIntCount == 0:
                 subIntTimes = [tSubInt,]
