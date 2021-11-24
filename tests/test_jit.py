@@ -100,7 +100,7 @@ class database(object):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s-*.npz' % self._BASENAME)
-        cmd = [sys.executable, '../buildIDI.py', '-t', self._BASENAME]
+        cmd = [sys.executable, '../buildIDI.py', '-f', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
             try:
@@ -115,7 +115,7 @@ class database(object):
     def test_3_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../flagIDI.py', '-f', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
