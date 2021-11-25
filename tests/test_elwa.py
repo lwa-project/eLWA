@@ -168,11 +168,8 @@ class database(object):
         for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
-                    atol = 1e-8
-                    if hdu1.data.columns[f].name == 'FLUX' and r//6 in (2, 5, 7, 10, 12):
-                        atol = 1e-4
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=atol)
+                        same_value = numpy.allclose(row1[f], row2[f], atol=1e-7)
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))
