@@ -230,7 +230,7 @@ def main(args):
         ## New Flags
         obsdates.shape = (obsdates.shape[0]//nBL, nBL)
         obstimes.shape = (obstimes.shape[0]//nBL, nBL)
-        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)
+        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)  # pylint: disable=no-member
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
