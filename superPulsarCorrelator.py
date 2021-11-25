@@ -793,10 +793,7 @@ def main(args):
             except NameError:
                 sfreqXX = freqD
                 sfreqYY = freqD
-            svisXX = multirate.xengine(feoX, veoX, feoX, veoX)
-            svisXY = multirate.xengine(feoX, veoX, feoY, veoY)
-            svisYX = multirate.xengine(feoY, veoY, feoX, veoX)
-            svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
+            svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
             
             # Get a most precise representation of the current time
             mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
