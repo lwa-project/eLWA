@@ -49,7 +49,10 @@ _SAFE_TO_IGNORE = ["Possible",
                    "No name 'ccompiler",
                    "No name 'c' in module 'astropy.constants'",
                    "Instance of 'GitError' has no 'GitError' member",
-                   "Instance of 'Exception' has no 'GitError' member"]
+                   "Instance of 'Exception' has no 'GitError' member",
+                   "Argument '.ndarray' does not match format type",
+                   "Value 'section' is unsubscriptable",
+                   "Module 'data' has no 'createNewFile' member"]
 
 
 def _get_context(filename, line, before=0, after=0):
