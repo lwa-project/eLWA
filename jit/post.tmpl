@@ -157,13 +157,13 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
     v = (float complex *) PyArray_DATA(vis);
     
     // Time-domain blanking control
-    long nActVisPureX, nActVisPureY, nActVisCross;
+    long nActVisPureX, nActVisPureY, nActVisCross0, nActVisCross1;
     unsigned char *u1, *u2;
     u1 = (unsigned char *) PyArray_DATA(validX);
     u2 = (unsigned char *) PyArray_DATA(validY);
     
     #ifdef _OPENMP
-        #pragma omp parallel default(shared) private(s1, s2, c, f, nActVisPureX, nActVisPureY, nActVisCross, tempVis)
+        #pragma omp parallel default(shared) private(s1, s2, c, f, nActVisPureX, nActVisPureY, nActVisCross0, nActVisCross1, tempVis)
     #endif
     {
         #ifdef _OPENMP
@@ -175,11 +175,13 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
             
             nActVisPureX = 0;
             nActVisPureY = 0;
-            nActVisCross = 0;
+            nActVisCross0 = 0;
+            nActVisCross1 = 0;
             for(f=0; f<{{nFFT}}; f++) {
-                nActVisPureX += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
-                nActVisPureY += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
-                nActVisCross += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+                nActVisPureX  += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
+                nActVisPureY  += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+                nActVisCross0 += (long) (*(u1 + {{nFFT}}*s1 + f) * *(u2 + {{nFFT}}*s2 + f));
+                nActVisCross1 += (long) (*(u2 + {{nFFT}}*s1 + f) * *(u1 + {{nFFT}}*s2 + f));
             }
             
             for(c=0; c<{{nChan}}; c++) {
@@ -189,12 +191,11 @@ static PyObject *XEngine3(PyObject *self, PyObject *args) {
                 
                 // XY
                 blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (a + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-                *(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
+                *(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross0;
                 
                 // YX
-                //blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
-                //*(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross;
-                *(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = conjf(*(v + 1*{{nBL}}*{{nChan}} + bl*{{nChan}} + c));
+                blas_cdotc_sub({{nFFT}}, (a + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
+                *(v + 2*{{nBL}}*{{nChan}} + bl*{{nChan}} + c) = tempVis / nActVisCross1;
                 
                 // YY
                 blas_cdotc_sub({{nFFT}}, (b + {{nChan}}*{{nFFT}}*s2 + {{nFFT}}*c), 1, (b + {{nChan}}*{{nFFT}}*s1 + {{nFFT}}*c), 1, &tempVis);
