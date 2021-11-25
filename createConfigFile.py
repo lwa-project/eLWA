@@ -351,7 +351,7 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
                 ## VLA time offset

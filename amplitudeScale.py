@@ -237,8 +237,8 @@ def main(args):
                 print("    Baseline %i of %i" % (i+1, nBL))
                 
             for b,offset in enumerate(fqoffsets):
-                maskXX = mask[:,i,b,:,0]
-                maskYY = mask[:,i,b,:,1]
+                maskXX = mask[:,i,b,:,0]    # pylint: disable=invalid-sequence-inde
+                maskYY = mask[:,i,b,:,1]    # pylint: disable=invalid-sequence-inde
                 
                 flagsXX, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXX)
                 flagsYY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskYY)
