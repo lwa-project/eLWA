@@ -129,7 +129,7 @@ class database(object):
     def test_4_validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
-        _revRE = re.compile(', revision .*$')
+        _revRE = re.compile(', revision .*')
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
