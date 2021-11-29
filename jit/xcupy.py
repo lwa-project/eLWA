@@ -129,9 +129,13 @@ void xengine3(const float2 *signalsX,
 class _MemoryCache(object):
     def __init__(self, device=None, max_len=10):
         if device is not None:
-            cupy.cuda.Device(device).use()
-            self._device = device
-            
+            dev = cupy.cuda.Device(device)
+        else:
+            dev = cupy.cuda.Device()
+            device = dev.id
+        dev.use()
+        self._device = device
+        
         self._pool = cupy.get_default_memory_pool()
         self._cache = {}
         self._created = {}
@@ -168,11 +172,8 @@ class _MemoryCache(object):
         self._pool.free_all_blocks()
         
     def select_gpu(self, device=0):
-        try:
-            if self._device == device:
-                return
-        except AttributeError:
-            pass
+        if self._device == device:
+            return
             
         size_bytes = self.get_limit()
         self._cache.clear()
@@ -202,7 +203,7 @@ def set_memory_usage_limit(size_bytes):
 
 
 set_memory_usage_limit(2*1024**3)
-print("Loaded GPU X-engine support with %.2f GB" % (get_memory_usage_limit()/1024.0**3,))
+print("Loaded GPU X-engine support with %.2f GB of device memory" % (get_memory_usage_limit()/1024.0**3))
 
 
 def xengine(signalsF1, validF1, signalsF2, validF2):
