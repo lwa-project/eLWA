@@ -9,6 +9,10 @@ import cupy
 import time
 import numpy
 
+__version__ = '0.1'
+__all__ = ['select_gpu', 'get_memory_usage_limit', 'set_memory_usage_limit',
+           'xengine', 'xengine_full']
+
 
 _XENGINE2 = cupy.RawKernel(r"""
 extern "C" __global__
@@ -30,6 +34,7 @@ void xengine2(const float2 *signals1,
     
     float2 temp1, temp2, tempO, tempO;
     unsigned char valid1, valid2, valid;
+    
     int count = 0;
     tempOR = tempOI = 0.0;
     for(k=0; k<nFFT; k++) {
@@ -79,6 +84,7 @@ void xengine3(const float2 *signalsX,
     float2 tempXX, tempXY, tempYX, tempYY;
     unsigned char valid1X, valid1Y, valid2X, valid2Y, valid;
     int countXX, countXY, countYX, countYY;
+    
     tempXX = tempXY = tempYX = tempYY = make_float2(0.0, 0.0);
     countXX = countXY = countYX = countYY = 0;
     for(k=0; k<nFFT; k++) {
@@ -234,7 +240,7 @@ def xengine(signalsF1, validF1, signalsF2, validF2):
             _CACHE[(1,nBL,nChan)] = output
         _XENGINE2((nBL,int(numpy.ceil(nChan/512))), (min([512, nChan]),), (signalsF1, signalsF2, validF1, validF2,
                                      cupy.int32(nStand), cupy.int32(nBL), cupy.int32(nChan), cupy.int32(nWin),
-                                     output.view(numpy.float32)))
+                                     output))
         output_cpu = cupy.asnumpy(output)
     return output_cpu
 
@@ -267,6 +273,6 @@ def xengine_full(signalsFX, validFX, signalsFY, validFY):
             _CACHE[(4,nBL,nChan)] = output
         _XENGINE3((nBL,int(numpy.ceil(nChan/512))), (min([512, nChan]),), (signalsFX, signalsFY, validFX, validFY,
                                      cupy.int32(nStand), cupy.int32(nBL), cupy.int32(nChan), cupy.int32(nWin),
-                                     output.view(numpy.float32)))
+                                     output))
         output_cpu = cupy.asnumpy(output)
     return output_cpu[0,:,:], output_cpu[1,:,:], output_cpu[2,:,:], output_cpu[3,:,:]
