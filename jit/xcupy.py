@@ -7,15 +7,15 @@ import numpy
 
 _XENGINE2 = cupy.RawKernel(r"""
 extern "C" __global__
-void xengine2(const float *signals1,
-              const float *signals2,
+void xengine2(const float2 *signals1,
+              const float2 *signals2,
               const char *sigValid1,
               const char *sigValid2,
               int nStand,
               int nBL,
               int nChan,
               int nFFT,
-              float *output) {
+              float2 *output) {
   int bl = blockIdx.x;
   int chan = blockIdx.y*512 + threadIdx.x;
   if( chan < nChan ) {
@@ -23,41 +23,39 @@ void xengine2(const float *signals1,
     i = (int) (-0.5*sqrt(4.0*nStand*nStand + 4.0*nStand - 8.0*bl + 1.0) + nStand + 0.5);
     j = bl - i*(2*(nStand-1) + 1 - i)/2;
     
-    float temp1R, temp1I, temp2R, temp2I, tempOR, tempOI;
+    float2 temp1, temp2, tempO, tempO;
     char valid1, valid2, valid;
     int count = 0;
     tempOR = tempOI = 0.0;
     for(k=0; k<nFFT; k++) {
-      temp1R = *(signals1 + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp1I = *(signals1 + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
-      temp2R = *(signals2 + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp2I = *(signals2 + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
+      temp1 = *(signals1 + i*nChan*nFFT + chan*nFFT + k);
+      temp2 = *(signals2 + j*nChan*nFFT + chan*nFFT + k);
       
       valid1 = *(sigValid1 + i*nFFT + k);
       valid2 = *(sigValid2 + j*nFFT + k);
-      valid = valid1*valid2;
       
-      tempOR += valid*(temp2R*temp1R + temp2I*temp1I);
-      tempOI += valid*(temp2R*temp1I - temp2I*temp1R);
+      valid = valid1 & valid2;
+      tempO.x += valid*(temp2.x*temp1.x + temp2.y*temp1.y);
+      tempO.y += valid*(temp2.x*temp1.y - temp2.y*temp1.x);
       count += valid;
     }
     
-    *(output + bl*nChan*2 + chan*2 + 0) = tempOR / count;
-    *(output + bl*nChan*2 + chan*2 + 1) = tempOI / count;
+    *(output + bl*nChan + chan) = make_float2(tempO.x / count, \
+                                              tempO.y / count);
   }
 }""", 'xengine2')
 
 _XENGINE3 = cupy.RawKernel(r"""
 extern "C" __global__
-void xengine3(const float *signalsX,
-              const float *signalsY,
+void xengine3(const float2 *signalsX,
+              const float2 *signalsY,
               const char *sigValidX,
               const char *sigValidY,
               int nStand,
               int nBL,
               int nChan,
               int nFFT,
-              float *output) {
+              float2 *output) {
   int bl = blockIdx.x;
   int chan = blockIdx.y*512 + threadIdx.x;
   if( chan < nChan ) {
@@ -65,56 +63,52 @@ void xengine3(const float *signalsX,
     i = (int) (-0.5*sqrt(4.0*nStand*nStand + 4.0*nStand - 8.0*bl + 1.0) + nStand + 0.5);
     j = bl - i*(2*(nStand-1) + 1 - i)/2;
     
-    float temp1XR, temp1XI, temp1YR, temp1YI;
-    float temp2XR, temp2XI, temp2YR, temp2YI;
-    float tempXXR, tempXXI, tempXYR, tempXYI, tempYXR, tempYXI, tempYYR, tempYYI;
-    char valid1X, valid1Y, valid2X, valid2Y;
+    float2 temp1X, temp1Y, temp2X, temp2Y;
+    float2 tempXX, tempXY, tempYX, tempYY;
+    char valid1X, valid1Y, valid2X, valid2Y, valid;
     int countXX, countXY, countYX, countYY;
-    tempXXR = tempXXI = tempXYR = tempXYI = tempYXR = tempYXI = tempYYR = tempYYI = 0.0;
+    tempXX = tempXY = tempYX = tempYY = make_float2(0.0, 0.0);
     countXX = countXY = countYX = countYY = 0;
     for(k=0; k<nFFT; k++) {
-      temp1XR = *(signalsX + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp1XI = *(signalsX + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
-      temp1YR = *(signalsY + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp1YI = *(signalsY + i*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
-      temp2XR = *(signalsX + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp2XI = *(signalsX + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
-      temp2YR = *(signalsY + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 0);
-      temp2YI = *(signalsY + j*nChan*nFFT*2 + chan*nFFT*2 + 2*k + 1);
+      temp1X = *(signalsX + i*nChan*nFFT + chan*nFFT + k);
+      temp1Y = *(signalsY + i*nChan*nFFT + chan*nFFT + k);
+      temp2X = *(signalsX + j*nChan*nFFT + chan*nFFT + k);
+      temp2Y = *(signalsY + j*nChan*nFFT + chan*nFFT + k);
       
       valid1X = *(sigValidX + i*nFFT + k);
       valid1Y = *(sigValidY + i*nFFT + k);
       valid2X = *(sigValidX + j*nFFT + k);
       valid2Y = *(sigValidY + j*nFFT + k);
       
-      tempXXR += valid1X*valid2X*(temp2XR*temp1XR + temp2XI*temp1XI);
-      tempXXI += valid1X*valid2X*(temp2XR*temp1XI - temp2XI*temp1XR);
-      countXX += valid1X*valid2X;
+      valid = valid1X & valid2X;
+      tempXX.x += valid*(temp2X.x*temp1X.x + temp2X.y*temp1X.y);
+      tempXX.y += valid*(temp2X.x*temp1X.y - temp2X.y*temp1X.x);
+      countXX += valid;
       
-      tempXYR += valid1X*valid2Y*(temp2YR*temp1XR + temp2YI*temp1XI);
-      tempXYI += valid1X*valid2Y*(temp2YR*temp1XI - temp2YI*temp1XR);
-      countXY += valid1X*valid2Y;
+      valid = valid1X & valid2Y;
+      tempXY.x += valid*(temp2Y.x*temp1X.x + temp2Y.y*temp1X.y);
+      tempXY.y += valid*(temp2Y.x*temp1X.y - temp2Y.y*temp1X.x);
+      countXY += valid;
       
-      tempYXR += valid1Y*valid2X*(temp2XR*temp1YR + temp2XI*temp1YI);
-      tempYXI += valid1Y*valid2X*(temp2XR*temp1YI - temp2XI*temp1YR);
-      countYX += valid1Y*valid2X;
+      valid = valid1Y & valid2X;
+      tempYX.x += valid*(temp2X.x*temp1Y.x + temp2X.y*temp1Y.y);
+      tempYX.y += valid*(temp2X.x*temp1Y.y - temp2X.y*temp1Y.x);
+      countYX += valid;
       
-      tempYYR += valid1Y*valid2Y*(temp2YR*temp1YR + temp2YI*temp1YI);
-      tempYYI += valid1Y*valid2Y*(temp2YR*temp1YI - temp2YI*temp1YR);
-      countYY += valid1Y*valid2Y;
+      valid = valid1Y & valid2Y;
+      tempYY.x += valid*(temp2Y.x*temp1Y.x + temp2Y.y*temp1Y.y);
+      tempYY.y += valid*(temp2Y.x*temp1Y.y - temp2Y.y*temp1Y.x);
+      countYY += valid;
     }
     
-    *(output + 0*nBL*nChan*2 + bl*nChan*2 + chan*2 + 0) = tempXXR / countXX;
-    *(output + 0*nBL*nChan*2 + bl*nChan*2 + chan*2 + 1) = tempXXI / countXX;
-    
-    *(output + 1*nBL*nChan*2 + bl*nChan*2 + chan*2 + 0) = tempXYR / countXY;
-    *(output + 1*nBL*nChan*2 + bl*nChan*2 + chan*2 + 1) = tempXYI / countXY;
-    
-    *(output + 2*nBL*nChan*2 + bl*nChan*2 + chan*2 + 0) = tempYXR / countYX;
-    *(output + 2*nBL*nChan*2 + bl*nChan*2 + chan*2 + 1) = tempYXI / countYX;
-    
-    *(output + 3*nBL*nChan*2 + bl*nChan*2 + chan*2 + 0) = tempYYR / countYY;
-    *(output + 3*nBL*nChan*2 + bl*nChan*2 + chan*2 + 1) = tempYYI / countYY;
+    *(output + 0*nBL*nChan + bl*nChan + chan) = make_float2(tempXX.x / countXX, \
+                                                            tempXX.y / countXX);
+    *(output + 1*nBL*nChan + bl*nChan + chan) = make_float2(tempXY.x / countXY, \
+                                                            tempXY.y / countXY);
+    *(output + 2*nBL*nChan + bl*nChan + chan) = make_float2(tempYX.x / countYX, \
+                                                            tempYX.y / countYX);
+    *(output + 3*nBL*nChan + bl*nChan + chan) = make_float2(tempYY.x / countYY, \
+                                                            tempYY.y / countYY);
   }  
 }""", 'xengine3')
 
