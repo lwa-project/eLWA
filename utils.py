@@ -505,7 +505,7 @@ def _read_correlator_configuration(filename):
             apparent_stand = stations.Stand(aid, *app_location)
         except TypeError:
             apparent_stand = None
-        for pol,offset,idm in zip(pols, clock_offsets, ignore_delay_model):
+        for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
             cable.clock_offset = offset
             
