@@ -157,6 +157,20 @@ if run_scripts_tests:
         _SCRIPTS.extend(glob.glob(os.path.join(*path)))
     _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
     _SCRIPTS.sort()
+    try:
+        import cupy
+    except ImportError:
+        while True:
+            idx = None
+            for i,script in enumerate(_SCRIPTS):
+                if script.find('cupy') != -1:
+                    idx = i
+                    break
+            if idx is None:
+                break
+            else:
+                del _SCRIPTS[idx]
+                
     for script in _SCRIPTS:
         test = _test_generator(script)
         name = 'test_%s' % _name_to_name(script)
