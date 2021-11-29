@@ -87,7 +87,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6, ignoreGeoDelays=False):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -149,9 +149,12 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
     dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
-        xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
-        
-        delays1[i,:] = antennas1[i].cable.delay(freq) - (1-int(ignoreGeoDelays))*numpy.dot(source, xyz1) / vLight + delayPadding
+        try:
+            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+        except AttributeError:
+            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            
+        delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
         raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))
@@ -171,7 +174,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6, ignoreGeoDelays=False):
+def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate PFB-based F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -233,9 +236,12 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose
     dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
-        xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
-        
-        delays1[i,:] = antennas1[i].cable.delay(freq) - (1-int(ignoreGeoDelays))*numpy.dot(source, xyz1) / vLight + delayPadding
+        try:
+            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+        except AttributeError:
+            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            
+        delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
         raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))
