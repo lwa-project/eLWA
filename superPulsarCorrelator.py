@@ -752,8 +752,10 @@ def main(args):
             nWin = 1e12
             if nVDIFInputs > 0:
                 nWin = min([nWin, feoV.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV.sum(axis=0)))+1])
             if nDRXInputs > 0:
                 nWin = min([nWin, feoD.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD.sum(axis=0)))+1])
                 
             ### Initialize the intermediate arrays
             try:
@@ -791,10 +793,7 @@ def main(args):
             except NameError:
                 sfreqXX = freqD
                 sfreqYY = freqD
-            svisXX = multirate.xengine(feoX, veoX, feoX, veoX)
-            svisXY = multirate.xengine(feoX, veoX, feoY, veoY)
-            svisYX = multirate.xengine(feoY, veoY, feoX, veoX)
-            svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
+            svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
             
             # Get a most precise representation of the current time
             mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd

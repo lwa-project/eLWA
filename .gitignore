@@ -3,6 +3,13 @@
 *.FITS_*
 get_vla_ant_pos.py
 
+# Testing files
+tests/*.log
+tests/*.config
+tests/*.d
+tests/*.tar.gz
+tests/*.tgz
+
 # Cache files
 _data.py
 _data.etag

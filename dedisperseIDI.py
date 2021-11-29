@@ -498,7 +498,7 @@ def main(args):
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the dedispersed data
                 flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
-                flux = flux.view(numpy.float32)
+                flux = flux.view(numpy.float32) # pylint: disable=no-member
                 flux = flux.astype(hdu.data['FLUX'].dtype)
                 flux.shape = hdu.data['FLUX'].shape
                 hdu.data['FLUX'][...] = flux

@@ -1268,7 +1268,7 @@ class Idi(WriterBase):
         uv.header['CRVAL6'] = 0.0
         
         uv.header['TELESCOP'] = self.siteName
-        uv.header['OBSERVER'] = 'ZASKY'
+        uv.header['OBSERVER'] = self.observer
         uv.header['SORT'] = ('TB', 'data is sorted in [time,baseline] order')
         
         uv.header['VISSCALE'] = (1.0, 'UV data scale factor')

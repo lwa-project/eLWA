@@ -18,8 +18,8 @@ from lsl.correlator.fx import pol_to_pols, null_window
 
 from .jit import JustInTimeOptimizer
 
-__version__ = '0.2'
-__all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xengine3']
+__version__ = '0.3'
+__all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xengine_full']
 
 
 vLight = vLight.to('m/s').value
@@ -268,13 +268,13 @@ def xengine(signalsF1, validF1, signalsF2, validF2):
     return output
 
 
-def xengine3(signalsF1, validF1, signalsF2, validF2):
+def xengine_full(signalsFX, validFX, signalsFY, validFY):
     """
     X-engine for the outputs of fengine().
     """
     
     # Optimize
-    XEngine = JIT_OPT.get_function('XEngine3', signalsF1, signalsF2, validF1, validF2)
-
-    output = XEngine(signalsF1, signalsF2, validF1, validF2)
-    return output
+    XEngine = JIT_OPT.get_function('XEngine3', signalsFX, signalsFY, validFX, validFY)
+    
+    output = XEngine(signalsFX, signalsFY, validFX, validFY)
+    return output[0,:,:], output[1,:,:], output[2,:,:], output[3,:,:]

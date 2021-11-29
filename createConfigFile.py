@@ -254,7 +254,7 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
                 ## Read in the first few frames to get the start time
@@ -351,7 +351,7 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
                 ## VLA time offset
@@ -365,7 +365,7 @@ def main(args):
                 except IndexError:
                     corrConfig['context']['project'] = header['BASENAME'].split('.')[0]
                     corrConfig['context']['session'] = header['BASENAME'].split('.')[1].replace('sb', '')
-                corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
+                corrConfig['context']['vlaref'] = re.sub('\.[0-9]+\.[0-9]+\.[AB][CD]-.*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']

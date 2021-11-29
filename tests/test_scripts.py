@@ -44,12 +44,15 @@ _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>
 _SAFE_TO_IGNORE = ["Possible",
                    "Module 'numpy",
                    "Module 'ephem",
+                   "Module 'data'",
                    "Instance of 'HDUList'",
                    "Unable to import 'polycos",
                    "No name 'ccompiler",
                    "No name 'c' in module 'astropy.constants'",
                    "Instance of 'GitError' has no 'GitError' member",
-                   "Instance of 'Exception' has no 'GitError' member"]
+                   "Instance of 'Exception' has no 'GitError' member",
+                   "Argument '.ndarray' does not match format type",
+                   "Value 'section' is unsubscriptable"]
 
 
 def _get_context(filename, line, before=0, after=0):

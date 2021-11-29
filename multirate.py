@@ -19,8 +19,8 @@ from lsl.common import dp as dp_common
 from lsl.correlator import _core
 from lsl.correlator.fx import pol_to_pols, null_window
 
-__version__ = '0.2'
-__all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine']
+__version__ = '0.3'
+__all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xengine_full']
 
 
 vLight = vLight.to('m/s').value
@@ -248,3 +248,12 @@ def xengine(signalsF1, validF1, signalsF2, validF2):
     
     output = _core.XEngine2(signalsF1, signalsF2, validF1, validF2)
     return output
+
+
+def xengine_full(signalsFX, validFX, signalsFY, validFY):
+    """
+    X-engine for the outputs of fengine().
+    """
+    
+    output = _core.XEngine3(signalsFX, signalsFY, validFX, validFY)
+    return output[0,:,:], output[1,:,:], output[2,:,:], output[3,:,:]
