@@ -1,3 +1,8 @@
+"""
+Module that provides GPU-based X-engines built using cupy.
+"""
+
+# Python2 compatibility
 from __future__ import print_function, division
 
 import cupy
@@ -9,8 +14,8 @@ _XENGINE2 = cupy.RawKernel(r"""
 extern "C" __global__
 void xengine2(const float2 *signals1,
               const float2 *signals2,
-              const char *sigValid1,
-              const char *sigValid2,
+              const unsigned char *sigValid1,
+              const unsigned char *sigValid2,
               int nStand,
               int nBL,
               int nChan,
@@ -24,7 +29,7 @@ void xengine2(const float2 *signals1,
     j = bl - i*(2*(nStand-1) + 1 - i)/2;
     
     float2 temp1, temp2, tempO, tempO;
-    char valid1, valid2, valid;
+    unsigned char valid1, valid2, valid;
     int count = 0;
     tempOR = tempOI = 0.0;
     for(k=0; k<nFFT; k++) {
@@ -40,17 +45,24 @@ void xengine2(const float2 *signals1,
       count += valid;
     }
     
-    *(output + bl*nChan + chan) = make_float2(tempO.x / count, \
-                                              tempO.y / count);
+    tempO.x /= count;
+    tempO.y /= count;
+    
+    *(output + bl*nChan + chan) = tempO;
   }
 }""", 'xengine2')
 
 _XENGINE3 = cupy.RawKernel(r"""
+inline __host__ __device__ void operator/=(float2 &a, int b) {
+  a.x /= b;
+  a.y /= b;
+}
+
 extern "C" __global__
 void xengine3(const float2 *signalsX,
               const float2 *signalsY,
-              const char *sigValidX,
-              const char *sigValidY,
+              const unsigned char *sigValidX,
+              const unsigned char *sigValidY,
               int nStand,
               int nBL,
               int nChan,
@@ -65,7 +77,7 @@ void xengine3(const float2 *signalsX,
     
     float2 temp1X, temp1Y, temp2X, temp2Y;
     float2 tempXX, tempXY, tempYX, tempYY;
-    char valid1X, valid1Y, valid2X, valid2Y, valid;
+    unsigned char valid1X, valid1Y, valid2X, valid2Y, valid;
     int countXX, countXY, countYX, countYY;
     tempXX = tempXY = tempYX = tempYY = make_float2(0.0, 0.0);
     countXX = countXY = countYX = countYY = 0;
@@ -101,14 +113,15 @@ void xengine3(const float2 *signalsX,
       countYY += valid;
     }
     
-    *(output + 0*nBL*nChan + bl*nChan + chan) = make_float2(tempXX.x / countXX, \
-                                                            tempXX.y / countXX);
-    *(output + 1*nBL*nChan + bl*nChan + chan) = make_float2(tempXY.x / countXY, \
-                                                            tempXY.y / countXY);
-    *(output + 2*nBL*nChan + bl*nChan + chan) = make_float2(tempYX.x / countYX, \
-                                                            tempYX.y / countYX);
-    *(output + 3*nBL*nChan + bl*nChan + chan) = make_float2(tempYY.x / countYY, \
-                                                            tempYY.y / countYY);
+    tempXX /= countXX;
+    tempXY /= countXY;
+    tempYX /= countYX;
+    tempYY /= countYY;
+    
+    *(output + 0*nBL*nChan + bl*nChan + chan) = tempXX;
+    *(output + 1*nBL*nChan + bl*nChan + chan) = tempXY;
+    *(output + 2*nBL*nChan + bl*nChan + chan) = tempYX;
+    *(output + 3*nBL*nChan + bl*nChan + chan) = tempYY;
   }  
 }""", 'xengine3')
 
