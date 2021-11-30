@@ -159,6 +159,8 @@ class database(object):
             for key in hdu1.header:
                 if key in ('DATE-MAP', 'UT1UTC', 'POLARX', 'POLARY'):
                     continue
+                if 'EXTNAME' in hdu1.header and hdu1.header['EXTNAME'] == 'UV_DATA' and key == 'NAXIS2':
+                    continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
                 self.assertEqual(h1, h2, "Mis-match on %s - %s: '%s' != '%s'" % (hdu1.name, key, h1, h2))
@@ -182,11 +184,11 @@ class database(object):
         for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
-                    atol = 1e-7
-                    if r in (91, 92, 94) and f == 12:
-                        atol = 5e-6
+                    if hdu1.header['EXTNAME'] == 'UV_DATA' and r > 35:
+                        ## Don't look at the last (partial) integration
+                        continue
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=atol)
+                        same_value = numpy.allclose(row1[f], row2[f], atol=1e-7)
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))
