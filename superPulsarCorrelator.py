@@ -385,6 +385,14 @@ def main(args):
     print("Integration (dump) time is: %.3f s" % tDump)
     print(" ")
     
+    if args.gpu:
+        try:
+            from jit import xcupy
+            multirate.xengine = xcupy.xengine
+            multirate.xengine_full = xcupy.xengine_full
+        except ImportError as e:
+            pass
+            
     # Solve for the pulsar binning
     observer.date = beginMJDs[0] + astro.MJD_OFFSET - astro.DJD_OFFSET
     refSrc.compute(observer)
@@ -936,6 +944,8 @@ if __name__ == "__main__":
                         help='tag to use for the output file')
     parser.add_argument('-j', '--jit', action='store_true', 
                         help='enable experimental just-in-time optimizations')
+    parser.add_argument('--gpu', action='store_true',
+                        help='enable the experimental GPU X-engine')
     parser.add_argument('-w', '--which', type=int, default=0, 
                         help='for LWA-only observations, which tuning to use for correlation; 0 = auto-select')
     args = parser.parse_args()

@@ -37,6 +37,11 @@ __all__ = ['JustInTimeOptimizer',]
 # Setup
 _CACHE_DIR = os.path.dirname( os.path.abspath(__file__) )
 
+try:
+    _EXTENSION_SUFFIXES = importlib.machinery.EXTENSION_SUFFIXES
+except AttributeError:
+    _EXTENSION_SUFFIXES = ('.so', '.dylib', '.dll')
+
 
 class TempBuildDir(object):
     """
@@ -131,7 +136,7 @@ class JustInTimeOptimizer(object):
         
         # Find the modules and load the valid ones
         any_purged = False
-        for soExt in importlib.machinery.EXTENSION_SUFFIXES:
+        for soExt in _EXTENSION_SUFFIXES:
             for soFile in glob.glob(os.path.join(self.cache_dir, '*%s' % soExt)):
                 soTime = os.stat(soFile)[8]
                 module = os.path.splitext(os.path.basename(soFile))[0]
@@ -308,7 +313,7 @@ return 0;
             config = {'module':module, 'dtype':dtype, 'dtypeN':dtypeN, 'dtypeC':dtypeC, 
                       'nStand':'%iL'%nStand, 'nSamps':'%iL'%nSamps, 'nChan':'%iL'%nChan, 'nOverlap':'%iL'%nOverlap, 
                       'nFFT':'%iL'%nFFT, 'nBL':'%iL'%nBL, 'ClipLevel':ClipLevel, 'useWindow':useWindow}
-            with open(os.path.join(self.cache_dir, srcname), 'w') as fh:
+            with open(srcname, 'w') as fh:
                 fh.write( self._templates['head'].render(**config) )
                 fh.write( self._templates[funcTemplate].render(**config) )
                 fh.write( self._templates['post'].render(**config) )
