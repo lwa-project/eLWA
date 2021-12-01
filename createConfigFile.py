@@ -351,7 +351,7 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
                 ## Set an apparent position if WiDAR is already applying a delay model
@@ -360,7 +360,7 @@ def main(args):
                     apparent_xyz = VLA_ECEF
                     apparent_rho = apparent_xyz - LWA1_ECEF
                     apparent_sez = numpy.dot(LWA1_ROT, apparent_rho)
-                    apparent_enz = apparent_sez[[1,0,2]]
+                    apparent_enz = apparent_sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                     apparent_enz[1] *= -1
                     
                 ## VLA time offset
