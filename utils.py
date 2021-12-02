@@ -402,6 +402,8 @@ def _read_correlator_configuration(filename):
             block['pols'] = [v.strip().rstrip() for v in line.split(None, 1)[1].split(',')]
         elif line[:8] == 'Location':
             block['location'] = [float(v) for v in line.split(None, 1)[1].split(',')]
+        elif line[:16]  == 'ApparentLocation':
+            block['appLocation'] = [float(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:11] == 'ClockOffset':
             block['clockOffset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:10] == 'FileOffset':
@@ -489,12 +491,20 @@ def _read_correlator_configuration(filename):
                     pass
         pols = block['pols']
         location = block['location']
+        try:
+            app_location = block['appLocation']
+        except KeyError:
+            app_location = None
         clock_offsets = block['clockOffset']
         
         if aid is None:
             raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
             
         stand = stations.Stand(aid, *location)
+        try:
+            apparent_stand = stations.Stand(aid, *app_location)
+        except TypeError:
+            apparent_stand = None
         for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
             cable.clock_offset = offset
@@ -503,7 +513,8 @@ def _read_correlator_configuration(filename):
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=0)
             else:
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=1)
-                        
+            antenna.apparent_stand = apparent_stand
+            
             antennas.append( antenna )
             i += 1
             

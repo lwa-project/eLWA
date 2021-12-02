@@ -149,8 +149,11 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
     dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
-        xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
-        
+        try:
+            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+        except AttributeError:
+            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            
         delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
@@ -233,8 +236,11 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose
     dlyRef = len(freq)//2
     delays1 = numpy.zeros((nStands,LFFT))
     for i in list(range(nStands)):
-        xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
-        
+        try:
+            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+        except AttributeError:
+            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            
         delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
