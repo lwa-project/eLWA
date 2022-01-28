@@ -357,6 +357,8 @@ if __name__ == "__main__":
                         help='number of processes to run per node')
     parser.add_argument('-n', '--nodes', type=aph.csv_hostname_list, default='localhost',
                         help='comma seperated lists of nodes to use')
+    parser.add_argument('--gpu', action='store_true',
+                        help='enable the experimental GPU X-engine')
     parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1 -j",
                         help='correlator options to use')
     parser.add_argument('-b', '--both-tunings', action='store_true',
@@ -364,6 +366,8 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--results-dir', type=str, default="./results",
                         help='directory to put the results in')
     args = parser.parse_args()
+    if args.gpu:
+        args.options += " --gpu"
     if not os.path.exists(args.results_dir):
         print("Warning: %s does not exist, creating" % args.results_dir)
         os.mkdir(args.results_dir)
