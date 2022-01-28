@@ -626,7 +626,7 @@ class PolyCos(object):
             psrname = os.path.basename(filename)
             psrname = psrname.split('_', 1)[0]
             
-        from polycos import polycos
+        from mini_presto.polycos import polycos
         
         self.filename = filename
         self._polycos_base = polycos(psrname, filename)
