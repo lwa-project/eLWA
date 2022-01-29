@@ -66,7 +66,8 @@ class database(object):
         files = []
         for regex in self._FILES:
             files.extend(glob.glob(regex))
-            
+        files.sort()
+        
         cmd = [sys.executable, '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
         with open('%s-create.log' % self._BASENAME, 'w') as logfile:
