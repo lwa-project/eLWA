@@ -4,6 +4,10 @@ This software was originally released under GPLv2.
 """
 
 from __future__ import absolute_import
+try:
+    string_type = basestring
+except NameError:
+    string_type = str
 
 import os
 import sys
@@ -239,7 +243,7 @@ def create_polycos(parfn, telescope_id, center_freq, start_mjd, end_mjd, \
         Output:
             new_polycos: a polycos object.
     """
-    if type(parfn) == basestring:
+    if type(parfn) is string_type:
         # assume parfn is a filename
         par = parfile.psr_par(parfn)
     else:
