@@ -25,6 +25,21 @@ def rad_to_dms(rad):
     else:
         return (sign * d, m, s)
 
+def dms_to_rad(deg, min, sec):
+    """
+    dms_to_rad(deg, min, sec):
+       Convert degrees, minutes, and seconds of arc to radians.
+    """
+    if (deg < 0.0):
+        sign = -1
+    elif (deg==0.0 and (min < 0.0 or sec < 0.0)):
+        sign = -1
+    else:
+        sign = 1
+    return sign * ARCSECTORAD * \
+           (60.0 * (60.0 * Num.fabs(deg) +
+                    Num.fabs(min)) + Num.fabs(sec))
+
 def rad_to_hms(rad):
     """
     rad_to_hms(rad):
@@ -38,6 +53,17 @@ def rad_to_hms(rad):
     m = int(arc)
     s = (arc - m) * 60.0
     return (h, m, s)
+
+def hms_to_rad(hour, min, sec):
+    """
+    hms_to_rad(hour, min, sec):
+       Convert hours, minutes, and seconds of arc to radians
+    """
+    if (hour < 0.0): sign = -1
+    else: sign = 1
+    return sign * SECTORAD * \
+           (60.0 * (60.0 * Num.fabs(hour) +
+                    Num.fabs(min)) + Num.fabs(sec))
 
 def coord_to_string(h_or_d, m, s):
     """
