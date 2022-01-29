@@ -4,6 +4,10 @@ This software was originally released under GPLv2.
 """
 
 from __future__ import print_function, absolute_import
+try:
+    string_type = basestring
+except NameError:
+    string_type = str
 
 import math, re
 from mini_presto import psr_utils as pu
@@ -197,7 +201,7 @@ class psr_par:
         out = ""
         for k, v in self.__dict__.items():
             if k[:2]!="__":
-                if type(self.__dict__[k]) is basestring:
+                if type(self.__dict__[k]) is string_type:
                     out += "%10s = '%s'\n" % (k, v)
                 else:
                     out += "%10s = %-20.15g\n" % (k, v)
