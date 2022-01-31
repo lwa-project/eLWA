@@ -297,7 +297,7 @@ def main(args):
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
-        is_pulsar = configfile_is_pulsar(configfile):
+        is_pulsar = configfile_is_pulsar(configfile)
         
         if args.both_tunings and configfile_is_lwa_only(configfile):
             coptions = args.options
