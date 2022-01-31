@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Run a collection of correlation jobs on the LWAUCF.
+Run a collection of pulsar binning mode correlation jobs on the LWAUCF.
 """
 
 # Python3 compatibility
@@ -40,6 +40,20 @@ def check_for_other_instances(quiet=True):
     if quiet:
         DEVNULL = open(os.devnull, 'wb')
     p = subprocess.Popen(pcmd, shell=True, stdout=DEVNULL, stderr=DEVNULL)
+    status = p.wait()
+    if quiet:
+        DEVNULL.close()
+        
+    return True if status == 0 else False
+
+
+def configfile_is_pulsar(configfile, quiet=True):
+    gcmd = ['grep', 'Polyco', configfile]
+    
+    DEVNULL = None
+    if quiet:
+        DEVNULL = open(os.devnull, 'wb')
+    p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
     if quiet:
         DEVNULL.close()
@@ -101,7 +115,7 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
     return status
 
 
-def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE):
+def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, resultsDir=None, returnQueue=FAILED_QUEUE, isPulsar=False):
     code = 0
     
     # Create a temporary directory to use
@@ -113,10 +127,30 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         returnQueue.put(False)
         return False
         
+    # Set the correlator mode and check for a polyco if this is a binning job
+    corr_mode = 'superCorrelator.py'
+    polyfile = None
+    if isPulsar:
+        corr_mode = 'superPulsarCorrelator.py'
+        # Find the polyco file to use from the configuration file
+        p = subprocess.Popen(['grep', 'Polyco', configfile], stdout=subprocess.PIPE)
+        polyfile, err = p.communicate()
+        try:
+            try:
+                polyfile = polyfile.decode(encoding='ascii', errors='ignore')
+            except AttributeError:
+                pass
+            polyfile = polyfile.split(None, 1)[1].strip().rstrip()
+            polyfile = os.path.join(os.path.dirname(configfile), polyfile)
+        except IndexError:
+            print("WARNING: failed to find polyco file on %s - %s" % (node, os.path.basename(configfile)))
+            returnQueue.put(False)
+            return False
+            
     # Copy the software over
     if softwareDir is None:
         softwareDir = os.path.dirname(__file__)
-    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'utils.py', 'jit']:
+    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'jit', 'mini_presto']:
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
@@ -125,7 +159,9 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         return False
         
     # Copy the configuration over
-    for filename in [configfile,]:
+    for filename in [configfile, polyfile]:
+        if polyfile is None:
+            continue
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
         print("WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile)))
@@ -160,9 +196,14 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    code += run_command('%s ./superCorrelator.py %s -g %s %s > %s 2>&1' % (sys.executable, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
+    ## Sort out the Python path envirnoment variable so that we can find PRESTO
+    pythonPath = ''
+    pythonPathVariable = os.environ.get('PYTHONPATH')
+    if pythonPathVariable is not None:
+        pythonPath = 'PYTHONPATH=%s' % pythonPathVariable
+    code += run_command('%s %s ./%s %s -g %s %s > %s 2>&1' % (pythonPath, sys.executable, corr_mode, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
     if code != 0:
-        print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
+        print("WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -256,25 +297,26 @@ def main(args):
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
+        is_pulsar = configfile_is_pulsar(configfile):
+        
         if args.both_tunings and configfile_is_lwa_only(configfile):
             coptions = args.options
             coptions = coptions.replace('-w 1', '').replace('-w1', '')
             coptions = coptions.replace('-w 2', '').replace('-w2', '')
-            jobs.append( (configfile, coptions+' -w 1', args.results_dir) )
-            jobs.append( (configfile, coptions+' -w 2', args.results_dir) )
+            jobs.append( (configfile, coptions+' -w 1', args.results_dir, is_pulsar) )
+            jobs.append( (configfile, coptions+' -w 2', args.results_dir, is_pulsar) )
         else:
-            jobs.append( (configfile, args.options, args.results_dir) )
+            jobs.append( (configfile, args.options, args.results_dir, is_pulsar) )
     nJobs = len(jobs)
     
     # Start
-    nfailed = 0
     for slot in sorted(threads.keys()):
         node, socket = slot.split('-', 1)
         socket = int(socket, 10)
         
         try:
-            configfile, coptions, resultsdir = jobs.pop(0)
-            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+            configfile, coptions, resultsdir, is_pulsar = jobs.pop(0)
+            threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir, 'isPulsar':is_pulsar})
             threads[slot].daemon = True
             threads[slot].start()
             create_lock_file(node)
@@ -298,8 +340,8 @@ def main(args):
             socket = int(socket, 10)
             
             try:
-                configfile, coptions, resultsdir = jobs.pop(0)
-                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir})
+                configfile, coptions, resultsdir, is_pulsar = jobs.pop(0)
+                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdirm, 'isPulsar':is_pulsar})
                 threads[slot].daemon = True
                 threads[slot].start()
                 print("%s - %s started" % (slot, threads[slot].name))
@@ -347,7 +389,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="iven a collection of superCorrelator.py configuration files, process the runs and aggregate the results",
+        description="given a collection of superPulsarCorrelator.py configuration files, process the runs and aggregate the results",
         epilog="NOTE:  The -n/--nodes option also supports numerical node ranges using the '~' character to indicate a decimal range.  For example, 'lwaucf1~2' is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also be combined with other comma separated entries to specify more complex node lists.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
