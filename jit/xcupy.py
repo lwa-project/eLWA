@@ -208,7 +208,7 @@ def set_memory_usage_limit(size_bytes):
     _CACHE.set_limit(size_bytes)
 
 
-set_memory_usage_limit(2*1024**3)
+set_memory_usage_limit(1.5*1024**3)
 print("Loaded GPU X-engine support with %.2f GB of device memory" % (get_memory_usage_limit()/1024.0**3))
 
 
