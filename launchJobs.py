@@ -160,7 +160,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         
     # Copy the configuration over
     for filename in [configfile, polyfile]:
-        if polyfile is None:
+        if filename is None:
             continue
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
