@@ -172,7 +172,7 @@ class _MemoryCache(object):
         return self._pool.get_limit()
         
     def set_limit(self, size_bytes):
-        self._pool.set_limit(size=size_bytes)
+        self._pool.set_limit(size=int(size_bytes))
         
     def free(self):
         self._pool.free_all_blocks()
