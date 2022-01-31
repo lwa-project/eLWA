@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Run a collection of pulsar binning mode correlation jobs on the LWAUCF.
+Run a collection of correlation jobs on the LWAUCF.
 """
 
 # Python3 compatibility
@@ -196,14 +196,9 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    ## Sort out the Python path envirnoment variable so that we can find PRESTO
-    pythonPath = ''
-    pythonPathVariable = os.environ.get('PYTHONPATH')
-    if pythonPathVariable is not None:
-        pythonPath = 'PYTHONPATH=%s' % pythonPathVariable
-    code += run_command('%s %s ./%s %s -g %s %s > %s 2>&1' % (pythonPath, sys.executable, corr_mode, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
+    code += run_command('%s ./%s %s -g %s %s > %s 2>&1' % (sys.executable, corr_mode, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
     if code != 0:
-        print("WARNING: failed to run pulsar correlator on %s - %s" % (node, os.path.basename(configfile)))
+        print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
         returnQueue.put(False)
         return False
         
@@ -389,7 +384,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="given a collection of superPulsarCorrelator.py configuration files, process the runs and aggregate the results",
+        description="given a collection of superCorrelator.py/superPulsarCorrelator.py configuration files, process the runs and aggregate the results",
         epilog="NOTE:  The -n/--nodes option also supports numerical node ranges using the '~' character to indicate a decimal range.  For example, 'lwaucf1~2' is expanded to 'lwaucf1' and 'lwaucf2'.  The range exansion can also be combined with other comma separated entries to specify more complex node lists.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
         )
