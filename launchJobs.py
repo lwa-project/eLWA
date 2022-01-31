@@ -341,7 +341,7 @@ def main(args):
             
             try:
                 configfile, coptions, resultsdir, is_pulsar = jobs.pop(0)
-                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdirm, 'isPulsar':is_pulsar})
+                threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir, 'isPulsar':is_pulsar})
                 threads[slot].daemon = True
                 threads[slot].start()
                 print("%s - %s started" % (slot, threads[slot].name))
