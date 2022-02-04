@@ -197,9 +197,9 @@ def main(args):
     
     # Build up the master list of antennas and report
     master_antennas = antennas
-    obs_groups = [os.path.basename(filenames[0]).split('-vis2-', 1)[0],]
+    obs_groups = [os.path.basename(filenames[0]).split('-vis2', 1)[0],]
     for filename in filenames:
-        group = os.path.basename(filename).split('-vis2-', 1)[0]
+        group = os.path.basename(filename).split('-vis2', 1)[0]
         if group not in obs_groups:
             dataDict = numpy.load(filename)
             config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
@@ -259,7 +259,7 @@ def main(args):
     # Fill in the data
     for i,filename in enumerate(filenames):
         ## Load in the integration
-        group = os.path.basename(filename).split('-vis2-', 1)[0]
+        group = os.path.basename(filename).split('-vis2', 1)[0]
         dataDict = numpy.load(filename)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
