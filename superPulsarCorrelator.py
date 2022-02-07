@@ -672,6 +672,7 @@ def main(args):
                     tv,tu = bestFreqUnits(subChanFreqOffset)
                     print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
                     
+                freqD += subChanFreqOffset
                 for w in xrange(feoD.shape[2]):
                     feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
                     
@@ -727,8 +728,8 @@ def main(args):
                     # Validate
                     fd = freqV[goodV] - freqD[goodD]
                     try:
-                        assert(fd.min() >= 0.99*subChanFreqOffset)
-                        assert(fd.max() <= 1.01*subChanFreqOffset)
+                        assert(fd.min() >= -1.01*subChanFreqOffset)
+                        assert(fd.max() <=  1.01*subChanFreqOffset)
                         
                         ## FS = frequency selection
                         tv,tu = bestFreqUnits(freqV[1]-freqV[0])
