@@ -385,11 +385,14 @@ def main(args):
     print("Integration (dump) time is: %.3f s" % tDump)
     print(" ")
     
-    if args.gpu:
+    if args.gpu is not None:
         try:
             from jit import xcupy
+            xcupy.select_gpu(args.gpu)
+            xcupy.set_memory_usage_limit(1.5*1024**3)
             multirate.xengine = xcupy.xengine
             multirate.xengine_full = xcupy.xengine_full
+            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, xcupy.get_memory_usage_limit()/1024.0**3))
         except ImportError as e:
             pass
             
@@ -945,7 +948,7 @@ if __name__ == "__main__":
                         help='tag to use for the output file')
     parser.add_argument('-j', '--jit', action='store_true', 
                         help='enable experimental just-in-time optimizations')
-    parser.add_argument('--gpu', action='store_true',
+    parser.add_argument('--gpu', type=int,
                         help='enable the experimental GPU X-engine')
     parser.add_argument('-w', '--which', type=int, default=0, 
                         help='for LWA-only observations, which tuning to use for correlation; 0 = auto-select')
