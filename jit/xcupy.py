@@ -282,6 +282,7 @@ class _MemoryCache(object):
         self._cache = {}
         self._created = {}
         self._device = device
+        self.set_limit(size_bytes)
 
 
 _CACHE = _MemoryCache()
@@ -297,10 +298,6 @@ def get_memory_usage_limit():
 
 def set_memory_usage_limit(size_bytes):
     _CACHE.set_limit(size_bytes)
-
-
-set_memory_usage_limit(1.5*1024**3)
-print("Loaded GPU X-engine support with %.2f GB of device memory" % (get_memory_usage_limit()/1024.0**3))
 
 
 def xengine(signalsF1, validF1, signalsF2, validF2, blockDim=(4,16)):
