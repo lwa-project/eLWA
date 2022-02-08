@@ -28,12 +28,12 @@ from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '1.0'
-__all__ = ['get_numa_node_count', 'get_numa_support', 'InterProcessLock', 
-           'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
-           'multi_column_print', 'parse_time_string', 'nsround', 
-           'read_correlator_configuration', 'get_better_time', 
-           'PolyCos']
+__version__ = '1.1'
+__all__ = ['get_numa_node_count', 'get_numa_support', 'get_gpu_count',
+           'get_gpu_support', 'InterProcessLock', 'EnhancedFixedBody',
+           'EnhancedSun', 'EnhancedJupiter', 'multi_column_print',
+           'parse_time_string', 'nsround', 'read_correlator_configuration',
+           'get_better_time', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -80,6 +80,44 @@ def get_numa_support():
     # If we have more than one NUMA node and numactl we are good to go
     status = False
     if numactl == 0 and nn > 1:
+        status = True
+        
+    return status
+
+
+def get_gpu_count():
+    # Query nvidia-smi
+    smi = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = smi.communicate()
+    try:
+        output = output.decode()
+        error = error.decode()
+    except AttributeError:
+        pass
+    output = output.split('\n')
+    
+    # Look for the number of NUMA nodes
+    gpus = 0
+    for line in output:
+        if line.find('Attached GPUs') != -1:
+            gpus = int(line.rsplit(':', 1)[1], 10)
+    return gpus
+
+
+def get_gpu_support():
+    # Check the number of GPUs
+    gpus = get_gpu_count()
+    
+    # Check for the cupy module
+    has_cupy = 1
+    try:
+        import cupy
+    except ImportError:
+        has_cupy = 0
+        
+    # If we have at least one GPU and cupy is installed we are ready
+    status = False
+    if has_cupy == 1 and gpus >= 1:
         status = True
         
     return status
