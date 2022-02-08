@@ -97,7 +97,7 @@ class database(object):
         """Run the correlator on eLWA data."""
         
         cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', 
-               '--gpu', '-g', self._BASENAME, '%s.config' % self._BASENAME]
+               '--gpu=0', '-g', self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
