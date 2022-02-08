@@ -183,6 +183,25 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         ## Yep, make sure the socket number is in range
         socket = socket % int(numa_node_count, 10)
         
+    if options.find('--gpu') != -1 and options.find('--gpu=') == -1:
+        # Query the GPU status
+        scode, gpu_status = run_command("%s -c 'from __future__ import print_function; import utils; print(utils.get_gpu_support(), utils.get_gpu_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
+        if scode != 0:
+            print("WARNING: failed to determine GPU status on %s - %s" % (node, os.path.basename(configfile)))
+            ## Unknown, drop the GPU option
+            options = options.replace('--gpu', '')
+        else:
+            gpu_support, gpu_count = gpu_status.split(None, 1)
+            if gpu_support == 'False':
+                ## Nope, drop the GPU option
+                options = options.replace('--gpu', '')
+            else:
+                ## Yep, now figure out if we want to set the GPU number
+                gpu = 0
+                if socket is not None:
+                    gpu = socket % int(gpu_count, 10)
+                options = options.replace('--gpu', '--gpu=%i' % gpu)
+                
     # Run the correlator
     configfile = os.path.basename(configfile)
     outname, count = os.path.splitext(configfile)
