@@ -55,7 +55,7 @@ def apply_matrix(data, matrix, blockDim=(16,)):
     nStand, nSamp = data.shape
     
     data = copy_using_cache(data)
-    matrix = copy_using_cache(matrix.astype(np.float32))
+    matrix = copy_using_cache(matrix.astype(np.float32), tag='jam')
     
     nst = blockDim[0]
     nsb = int(np.ceil(nSamp/nst))
