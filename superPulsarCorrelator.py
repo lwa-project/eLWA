@@ -387,12 +387,12 @@ def main(args):
     
     if args.gpu is not None:
         try:
-            from jit import xcupy
-            xcupy.select_gpu(args.gpu)
-            xcupy.set_memory_usage_limit(1.5*1024**3)
-            multirate.xengine = xcupy.xengine
-            multirate.xengine_full = xcupy.xengine_full
-            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, xcupy.get_memory_usage_limit()/1024.0**3))
+            import gpu
+            gpu.select_gpu(args.gpu)
+            gpu.set_memory_limit(1.5*1024**3)
+            multirate.xengine = gpu.xengine
+            multirate.xengine_full = gpu.xengine_full
+            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, gpu.get_memory_limit()/1024.0**3))
         except ImportError as e:
             pass
             
