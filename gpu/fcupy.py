@@ -9,6 +9,8 @@ import ephem
 import cupy as cp
 import numpy as np
 
+from cupyx.scipy.fft import fft as cufft
+
 from astropy.constants import c as vLight
 from astropy.coordinates import AltAz as AstroAltAz
 
@@ -21,7 +23,7 @@ from lsl.correlator.fx import pol_to_pols, null_window
 from .cache import get_from_shape, get_from_ndarray, copy_using_cache
 
 __version__ = '0.1'
-__all__ = ['fengine']
+__all__ = ['fengine', 'frequency_correct']
 
 
 _FENGINE = cp.RawModule(code=r"""
@@ -192,10 +194,11 @@ def _fengine(signals, frequency, delays, LFFT=64, sample_rate=196e6, blockDim=(4
                 cp.int32(nChan), cp.int32(nWin),
                 output, validF))
     
-    signalsF = cp.fft.fft(output, n=nChan, axis=2)
     if is_complex:
-        signalsF = cp.fft.fftshift(signalsF, axes=2)    
+        cufft(output, n=nChan, axis=2, overwrite_x=True)
+        signalsF = cp.fft.fftshift(output, axes=2)
     else:
+        signalsF = cp.fft.fft(output, n=nChan, axis=2)
         nChan //= 2
         
     outputF = get_from_shape((nAnt,nChan,nWin), dtype=np.complex64)
@@ -214,7 +217,7 @@ def _fengine(signals, frequency, delays, LFFT=64, sample_rate=196e6, blockDim=(4
     return outputF, validF
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6, blockDim=(4,16)):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -293,9 +296,58 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
         
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
-        signalsF1, validF1 = _fengine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, sample_rate=sample_rate)
+        signalsF1, validF1 = _fengine(signals[signalsIndex1,:], freq, delays1, LFFT=LFFT, sample_rate=sample_rate, blockDim=blockDim)
     else:
-        signalsF1, validF1 = _fengine(signals, freq, delays1, LFFT=LFFT, sample_rate=sample_rate)
+        signalsF1, validF1 = _fengine(signals, freq, delays1, LFFT=LFFT, sample_rate=sample_rate, blockDim=blockDim)
         
     return freq, signalsF1, validF1, delays1
+
+
+_FREQ_FRINGE_ROTATE = cp.RawKernel(r"""
+#define M_PI 3.1415926535897931e+0
+
+extern "C" __global__
+void freq_fringe_rotate(const double *time,
+                       float2 *signals,
+                       double freqOffset,
+                       int nStand,
+                       int nChan,
+                       int nWin) {
+  int a = blockIdx.x;
+  int c = blockIdx.y*blockDim.x + threadIdx.x;
+  int w = blockIdx.z*blockDim.y + threadIdx.y;
+  
+  if( c >= nChan || w >= nWin) {
+    // Nothin'
+  } else {
+    double arg = -2*M_PI*freqOffset * *(time + w);
+    double2 phase;
+    phase.x = cos(arg);
+    phase.y = sin(arg);
     
+    float2 temp, temp2;
+    temp = *(signals + a*nChan*nWin + c*nWin + w);
+    temp2.x = temp.x*phase.x - temp.y*phase.y;
+    temp2.y = temp.y*phase.x + temp.x*phase.y;
+    
+    *(signals + a*nChan*nWin + c*nWin + w) = temp2;
+  }
+}              
+""", 'freq_fringe_rotate')
+
+
+def frequency_correct(t, signals, freqOffset, blockDim=(4,16)):
+    nStand, nChan, nWin = signals.shape
+    
+    t = copy_using_cache(t[::nChan])
+    signals = copy_using_cache(signals)
+    
+    nct, nwt = blockDim
+    ncb = ncb = int(np.ceil(nChan/nct))
+    nwb = int(np.ceil(nWin/nwt))
+    nab = nStand
+    
+    _FREQ_FRINGE_ROTATE((nab,ncb,nwb), (nct,nwt),
+                        (t, signals, cp.float64(freqOffset),
+                         cp.int32(nStand), cp.int32(nChan), cp.int32(nWin)))
+    return signals
