@@ -37,7 +37,6 @@ class _ReusableCache(object):
         try:
             cached_array = self._cache[array_key]
         except KeyError:
-            print('miss')
             try:
                 cached_array = cp.empty(shape=shape, dtype=dtype)
             except cp.cuda.memory.OutOfMemoryError:
