@@ -25,7 +25,7 @@ class _ReusableCache(object):
         self._pool = cp.get_default_memory_pool()
         self._cache = {}
         
-    def get_from_shape(self, shape, dtype=np.float32):
+    def get_from_shape(self, shape, dtype=np.float32, tag=''):
         """
         Given a shape and a dtype, return the cache entry for that shape/type of
         array.  If the array does not already exist in the cache attempt to
@@ -33,7 +33,7 @@ class _ReusableCache(object):
         cp.cuda.memory.OutOfMemoryError on failure.
         """
         
-        array_key = shape + (dtype,)
+        array_key = shape + (dtype,tag)
         try:
             cached_array = self._cache[array_key]
         except KeyError:
@@ -45,7 +45,7 @@ class _ReusableCache(object):
             self._cache[array_key] = cached_array
         return cached_array
         
-    def get_from_ndarray(self, ndarray):
+    def get_from_ndarray(self, ndarray, tag=''):
         """
         Given a numpy.ndarray, return the cache entry for that shape/type of
         array.  If the array does not already exist in the cache attempt to
@@ -53,7 +53,7 @@ class _ReusableCache(object):
         cp.cuda.memory.OutOfMemoryError on failure.
         """
         
-        return get_from_shape(ndarray.shape, dtype=ndarray.dtype)
+        return get_from_shape(ndarray.shape, dtype=ndarray.dtype, tag=tag)
         
     def get_memory_limit(self):
         """
@@ -114,10 +114,10 @@ def set_memory_limit(size_bytes):
     Set the pool memory usage limit in bytes.
     """
     
-    _REUSABLE_CACHE.set_limit(size_bytes)
+    _REUSABLE_CACHE.set_memory_limit(size_bytes)
 
 
-def get_from_shape(shape, dtype=np.float32):
+def get_from_shape(shape, dtype=np.float32, tag=''):
     """
     Given a shape and a dtype, return the cache entry for that shape/type of
     array.  If the array does not already exist in the cache attempt to
@@ -125,10 +125,10 @@ def get_from_shape(shape, dtype=np.float32):
     cp.cuda.memory.OutOfMemoryError on failure.
     """
     
-    return _REUSABLE_CACHE.get_from_shape(shape, dtype=dtype)
+    return _REUSABLE_CACHE.get_from_shape(shape, dtype=dtype, tag=tag)
 
 
-def get_from_ndarray(ndarray):
+def get_from_ndarray(ndarray, tag=''):
     """
     Given a numpy.ndarray, return the cache entry for that shape/type of
     array.  If the array does not already exist in the cache attempt to
@@ -136,10 +136,10 @@ def get_from_ndarray(ndarray):
     cp.cuda.memory.OutOfMemoryError on failure.
     """
     
-    return _REUSABLE_CACHE.get_from_ndarray(ndarray)
+    return _REUSABLE_CACHE.get_from_ndarray(ndarray, tag=tag)
 
 
-def copy_using_cache(ndarray):
+def copy_using_cache(ndarray, tag=''):
     """
     Given a numpy.ndarray try to copy that array to the GPU using memory already
     in the cache.  Return a cp.ndarray on success or raise a
@@ -154,7 +154,7 @@ def copy_using_cache(ndarray):
     stream = cp.cuda.get_current_stream()
     
     # Create the GPU array and queue the copy
-    cparray = _REUSABLE_CACHE.get_from_ndarray(ndarray)
+    cparray = _REUSABLE_CACHE.get_from_ndarray(ndarray, tag=tag)
     cp.cuda.runtime.memcpyAsync(cparray.data.ptr,
                                 ndarray.ctypes.data,
                                 ndarray.size*ndarray.dtype.itemsize,
