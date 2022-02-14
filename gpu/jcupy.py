@@ -31,7 +31,7 @@ void apply_c(float2 *signals,
              int nSamp) {
   int t = blockIdx.x*blockDim.x + threadIdx.x;
   
-  if( t > nSamp ) {
+  if( t >= nSamp ) {
     // Nothin'
   } else {
     int a;
