@@ -92,6 +92,27 @@ void delay_and_trim_c(const float2* signals,
 }
 
 extern "C" __global__
+void fftshift(const float2* signals,
+              int nStand,
+              int nChan,
+              int nWin,
+              float2* output) {
+  int a = blockIdx.x;
+  int c = blockIdx.y*blockDim.x + threadIdx.x;
+  int w = blockIdx.z*blockDim.y + threadIdx.y;
+  
+  if( c >= nChan || w >= nWin ) {
+    // Nothin'
+  } else {
+    int cP = c + nChan / 2;
+    if( cP > nChan-1 ) {
+      cP -= nChan;
+    }
+    *(output + a*nWin*nChan + w*nChan + cP) = *(signals + a*nWin*nChan + w*nChan + c);
+  }
+}
+
+extern "C" __global__
 void postf_rotate_r(const float2* signals,
                     const double* frequency,
                     const int* sample_delays,
@@ -159,6 +180,7 @@ void postf_rotate_c(const float2* signals,
 
 _DELAY_AND_TRIM_R = _FENGINE.get_function('delay_and_trim_r')
 _DELAY_AND_TRIM_C = _FENGINE.get_function('delay_and_trim_c')
+_FFTSHIFT = _FENGINE.get_function('fftshift')
 _POSTF_ROTATE_R = _FENGINE.get_function('postf_rotate_r')
 _POSTF_ROTATE_C = _FENGINE.get_function('postf_rotate_c')
 
@@ -194,11 +216,20 @@ def _fengine(signals, frequency, delays, LFFT=64, sample_rate=196e6, blockDim=(4
                 cp.int32(nChan), cp.int32(nWin),
                 output, validF))
     
+    cufft(output, n=nChan, axis=2, overwrite_x=True)
     if is_complex:
-        cufft(output, n=nChan, axis=2, overwrite_x=True)
-        signalsF = cp.fft.fftshift(output, axes=2)
+        signalsF = get_from_shape(output.shape, dtype=output.dtype, tag='fftshift')
+        
+        nct, nwt = blockDim
+        ncb = int(np.ceil(nChan/nct))
+        nwb = int(np.ceil(nWin/nwt))
+        nab = nAnt
+        
+        _FFTSHIFT((nab,ncb,nwb), (nct,nwt),
+                  (output, cp.int32(nAnt), cp.int32(nChan), cp.int32(nWin),
+                   signalsF))
     else:
-        signalsF = cp.fft.fft(output, n=nChan, axis=2)
+        signalsF = output
         nChan //= 2
         
     outputF = get_from_shape((nAnt,nChan,nWin), dtype=np.complex64)
