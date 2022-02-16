@@ -598,9 +598,9 @@ def main(args):
             streamD = cupy.cuda.Stream()
             
             with streamV:
-                dataVSub = gpu.copy_using_cache(dataVSub, tag='inputV')
+                dataVSub = gpu.load_raw_subint(dataVSub, tag='inputV')
             with streamD:
-                dataDSub = gpu.copy_using_cache(dataDSub, tag='inputD')
+                dataDSub = gpu.load_raw_subint(dataDSub, tag='inputD')
             
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
