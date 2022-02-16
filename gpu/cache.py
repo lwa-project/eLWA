@@ -149,7 +149,10 @@ def copy_using_cache(ndarray, tag=''):
     # Check if it's already on the GPU
     if isinstance(ndarray, cp.ndarray):
         return ndarray
-        
+       
+    # Make sure we are contiguous
+    ndarray = np.ascontiguousarray(ndarray)
+    
     # Get the current stream
     stream = cp.cuda.get_current_stream()
     
