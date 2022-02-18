@@ -387,14 +387,18 @@ def main(args):
     
     if args.gpu is not None:
         try:
+            import cupy, cupyx
+            
             import gpu
             gpu.select_gpu(args.gpu)
-            gpu.set_memory_limit(1.5*1024**3)
+            jones.apply_matrix = gpu.apply_matrix
+            multirate.fengine = gpu.fengine
             multirate.xengine = gpu.xengine
             multirate.xengine_full = gpu.xengine_full
-            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, gpu.get_memory_limit()/1024.0**3))
+            print("Loaded GPU support on GPU #%i" % (args.gpu,))
         except ImportError as e:
-            pass
+            print("ERROR: Cannot load GPU support - %s", str(e))
+            sys.exit(1)
             
     # Solve for the pulsar binning
     observer.date = beginMJDs[0] + astro.MJD_OFFSET - astro.DJD_OFFSET
@@ -402,16 +406,16 @@ def main(args):
     pulsarPeriod = refSrc.period
     nProfileBins = args.profile_bins
     if nProfileBins <= 0:
-        nProfileBins = int(pulsarPeriod / tSub)
-        nProfileBins = min([nProfileBins, 64])
-    profileBins = numpy.linspace(0, 1+1.0/nProfileBins, nProfileBins+2)
-    profileBins -= (profileBins[1]-profileBins[0])/2.0
+        tSub_scale = 1
+        nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+        while nProfileBins > 64:
+            tSub_scale += 1
+            nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+    profileBins = numpy.linspace(1.0/nProfileBins, 1, nProfileBins)
     print("Pulsar frequency: %.6f Hz" % refSrc.frequency)
     print("Pulsar period: %.6s seconds" % pulsarPeriod)
     print("Number of profile bins:  %i" % nProfileBins)
     print("Phase coverage per bin: %.3f" % (profileBins[1]-profileBins[0],))
-    if pulsarPeriod >= tDump:
-        print("WARNING:  Pulsar period is longer than the integration time!")
     print(" ")
     
     pulsarDM, pulsarDoppler = refSrc.dm, refSrc.doppler
@@ -428,13 +432,11 @@ def main(args):
         tDiff = numpy.diff(tDelay)
         
     subIntTimes = [[] for i in xrange(nProfileBins)]
-    subIntCount = [0 for i in xrange(nProfileBins)]
+    subIntCount = [0.0 for i in xrange(nProfileBins)]
     subIntWeight = [0 for i in xrange(nProfileBins)]
+    subIntReset = [False for i in xrange(nProfileBins)]
     fileCount   = [0 for i in xrange(nProfileBins)]
-    visXX = [0 for i in xrange(nProfileBins)]
-    visXY = [0 for i in xrange(nProfileBins)]
-    visYX = [0 for i in xrange(nProfileBins)]
-    visYY = [0 for i in xrange(nProfileBins)]
+    avis = [None for i in xrange(nProfileBins)]
     wallStart = time.time()
     done = False
     oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
@@ -636,18 +638,28 @@ def main(args):
             observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
             refSrc.compute(observer)
             
+            streamV = cupy.cuda.Stream()
+            streamD = cupy.cuda.Stream()
+            
+            with streamV:
+                dataVSub = gpu.load_raw_subint(dataVSub, tag='inputV')
+            with streamD:
+                dataDSub = gpu.load_raw_subint(dataDSub, tag='inputD')
+            
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
-                dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
-                dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
-                dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
+                with streamD:
+                    dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
+                    dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
+                    dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
                 
             ## Get the Jones matrices and apply
             ## NOTE: This moves the LWA into the frame of the VLA
             if nVDIFInputs*nDRXInputs > 0:
-                lwaToSky = jones.get_matrix_lwa(observer, refSrc)
-                skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
-                dataDSub = jones.apply_matrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
+                with streamD:
+                    lwaToSky = jones.get_matrix_lwa(observer, refSrc)
+                    skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
+                    dataDSub = jones.apply_matrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
                 
             ## Correlate
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
@@ -655,39 +667,46 @@ def main(args):
                                                                central_freq=cFreqs[-1][vdifPivot-1], 
                                                                Pol='*', phase_center=refSrc)
             if nVDIFInputs > 0:
-                freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
-                                                            sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
-                                                            Pol='*', phase_center=refSrc, 
-                                                            delayPadding=delayPadding)
-                
+                with streamV:
+                    freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
+                                                                sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
+                                                                Pol='*', phase_center=refSrc, 
+                                                                delayPadding=delayPadding)
+                    
             if nDRXInputs > 0:
-                freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-                                                            sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
-                                                            Pol='*', phase_center=refSrc, 
-                                                            delayPadding=delayPadding)
-                
+                with streamD:
+                    freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
+                                                                sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
+                                                                Pol='*', phase_center=refSrc, 
+                                                                delayPadding=delayPadding)
+                    
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
             if nDRXInputs*nVDIFInputs > 0:
-                subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
-                
-                if i == 0 and j == 0:
-                    ## FC = frequency correction
-                    tv,tu = bestFreqUnits(subChanFreqOffset)
-                    print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
+                with streamD:
+                    subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
                     
-                freqD += subChanFreqOffset
-                for w in xrange(feoD.shape[2]):
-                    feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
+                    if i == 0 and j == 0:
+                        ## FC = frequency correction
+                        tv,tu = bestFreqUnits(subChanFreqOffset)
+                        print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
+                        
+                    freqD += subChanFreqOffset
+                    gpu.frequency_correct(tDSub, feoD, subChanFreqOffset)
                     
+            streamV.synchronize()
+            streamD.synchronize()
+            
             ## Sort out what goes where (channels and antennas) if we don't already know
             try:
                 if nVDIFInputs > 0:
-                    freqV = freqV[goodV]
-                    feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    with streamV:
+                        freqV = freqV[goodV]
+                        feoV = gpu.inplace_freq_roll(feoV, -goodV[0])
                 if nDRXInputs > 0:
-                    freqD = freqD[goodD]
-                    feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
-                    
+                    with streamD:
+                        freqD = freqD[goodD]
+                        feoD = gpu.inplace_freq_roll(feoD, -goodD[0])
+                        
             except NameError:
                 ### Frequency overlap
                 fMin, fMax = -1e12, 1e12
@@ -701,10 +720,12 @@ def main(args):
                     goodV = numpy.where( (freqV >= fMin) & (freqV <= fMax) )[0]
                     aXV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
                     aYV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
+                    swapV = numpy.array([a.pol for a in antennas[0:2*nVDIFInputs:2]], dtype=numpy.uint8)
                 if nDRXInputs > 0:
                     goodD = numpy.where( (freqD >= fMin) & (freqD <= fMax) )[0]
                     aXD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
                     aYD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
+                    swapD = numpy.array([a.pol for a in antennas[2*nVDIFInputs::2]], dtype=numpy.uint8)
                     
                 ### Validate the channel alignent and fix it if needed
                 if nVDIFInputs*nDRXInputs != 0:
@@ -746,11 +767,20 @@ def main(args):
                         
                 ### Apply
                 if nVDIFInputs > 0:
-                    freqV = freqV[goodV]
-                    feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    with streamV:
+                        freqV = freqV[goodV]
+                        feoV = gpu.inplace_freq_roll(feoV, -goodV[0])
                 if nDRXInputs > 0:
-                    freqD = freqD[goodD]
-                    feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
+                    with streamD:
+                        freqD = freqD[goodD]
+                        feoD = gpu.inplace_freq_roll(feoD, -goodD[0])
+                        
+            streamV.synchronize()
+            streamD.synchronize()
+            
+            stream = cupy.cuda.Stream()
+            stream.use()
+            
             try:
                 nchan = freqV.size
                 fdt = feoV.dtype
@@ -761,42 +791,30 @@ def main(args):
                 vdt = veoD.dtype
             ## Setup the intermediate F-engine products and trim the data
             ### Figure out the minimum number of windows
-            nWin = 1e12
+            nWin = 1000000000
             if nVDIFInputs > 0:
+                veoV_cpu = cupy.asnumpy(veoV)
                 nWin = min([nWin, feoV.shape[2]])
-                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV.sum(axis=0)))+1])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV_cpu.sum(axis=0)))+1])
             if nDRXInputs > 0:
+                veoD_cpu = cupy.asnumpy(veoD)
                 nWin = min([nWin, feoD.shape[2]])
-                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD.sum(axis=0)))+1])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD_cpu.sum(axis=0)))+1])
                 
             ### Initialize the intermediate arrays
             try:
                 assert(feoX.shape[2] == nWin)
             except (NameError, AssertionError):
-                feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-                veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+                feoX = gpu.get_from_shape((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt, tag='feoX')
+                feoY = gpu.get_from_shape((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt, tag='feoY')
+                veoX = gpu.get_from_shape((nVDIFInputs+nDRXInputs, nWin), dtype=vdt, tag='veoX')
+                veoY = gpu.get_from_shape((nVDIFInputs+nDRXInputs, nWin), dtype=vdt, tag='veoY')
                 
-            ### Trim
+            ### Trim and sort out the polarizations
             if nVDIFInputs > 0:
-                feoV = feoV[:,:,:nWin]
-                veoV = veoV[:,:nWin]
+                feoX, veoX, feoY, veoY = gpu.pol_fill(feoV, veoV, swapV, 0, feoX, veoX, feoY, veoY)
             if nDRXInputs > 0:
-                feoD = feoD[:,:,:nWin]
-                veoD = veoD[:,:nWin]
-                
-            ## Sort it all out by polarization
-            for k in xrange(nVDIFInputs):
-                feoX[k,:,:] = feoV[aXV[k],:,:]
-                feoY[k,:,:] = feoV[aYV[k],:,:]
-                veoX[k,:] = veoV[aXV[k],:]
-                veoY[k,:] = veoV[aYV[k],:]
-            for k in xrange(nDRXInputs):
-                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]
-                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]
-                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]
-                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]
+                feoX, veoX, feoY, veoY = gpu.pol_fill(feoD, veoD, swapD, nVDIFInputs, feoX, veoX, feoY, veoY)
                 
             ## Cross multiply
             try:
@@ -805,7 +823,7 @@ def main(args):
             except NameError:
                 sfreqXX = freqD
                 sfreqYY = freqD
-            svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
+            svis = gpu.combined_xengine_full(feoX, veoX, feoY, veoY)
             
             # Get a most precise representation of the current time
             mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
@@ -830,7 +848,7 @@ def main(args):
             ## Map the phases to bins
             bestBins = {}
             for b,phs in enumerate(profilePhase):
-                bestBin = numpy.where( phs >= profileBins )[0][-1] % nProfileBins
+                bestBin = numpy.where( phs <= profileBins )[0][0]
                 try:
                     bestBins[bestBin].append( b )
                 except KeyError:
@@ -848,36 +866,37 @@ def main(args):
                     subIntTimes[bestBin] = []
                     freqXX = sfreqXX
                     freqYY = sfreqYY
-                    try:
-                        okToZero = numpy.where( subIntWeight[bestBin] ==  subIntWeight[bestBin].max() )[0]
-                        subIntWeight[bestBin] *= 0
-                    except AttributeError:
-                        subIntWeight[bestBin] = numpy.zeros(freqXX.size)
-                        
-                    visXX[bestBin] = svisXX*0.0
-                    visXY[bestBin] = svisXY*0.0
-                    visYX[bestBin] = svisYX*0.0
-                    visYY[bestBin] = svisYY*0.0
+                    subIntReset[bestBin] = True
+                freq_mask = numpy.zeros(freqXX.size, dtype=numpy.uint8)
+                freq_mask[bestFreq] = 1
+                
+                try:
+                    assert(avis[bestBin] is not None)
+                except (NameError, AssertionError):
+                    avis[bestBin] = gpu.get_from_shape(svis.shape, dtype=svis.dtype, tag='avis-'+str(bestBin))
+                    subIntWeight[bestBin] = numpy.zeros(freqXX.size)
                     
                 subIntTimes[bestBin].append( float(tSubInt) )
-                visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
-                visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
-                visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
-                visYY[bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
-                subIntCount[bestBin] += 1
+                avis[bestBin] = gpu.bin_accumulate_vis(freq_mask, avis[bestBin], svis, scale=1.0/nDump, reset=subIntReset[bestBin])
+                if subIntReset[bestBin]:
+                    subIntWeight[bestBin] *= 0
+                subIntCount[bestBin] += len(bestFreq) / freqXX.size
                 subIntWeight[bestBin][bestFreq] += 1
-            
+                subIntReset[bestBin] = False
+                
             ## Save
             anyFilesSaved = False
             for bestBin in bestBins:
-                if subIntCount[bestBin] == nDump:
-                    subIntCount[bestBin] = 0
+                if subIntCount[bestBin] >= nDump:
+                    subIntCount[bestBin] = 0.0
                     fileCount[bestBin] += 1
                     
-                    visXX[bestBin] *= nDump / subIntWeight[bestBin]
-                    visXY[bestBin] *= nDump / subIntWeight[bestBin]
-                    visYX[bestBin] *= nDump / subIntWeight[bestBin]
-                    visYY[bestBin] *= nDump / subIntWeight[bestBin]
+                    stream.synchronize()
+                    vis_cpu = cupy.asnumpy(avis[bestBin])
+                    visXX = vis_cpu[0,...] * nDump / subIntWeight[bestBin]
+                    visXY = vis_cpu[1,...] * nDump / subIntWeight[bestBin]
+                    visYX = vis_cpu[2,...] * nDump / subIntWeight[bestBin]
+                    visYY = vis_cpu[3,...] * nDump / subIntWeight[bestBin]
                     
                     ### Compute the effective integration time - this should be
                     ### tDump/nProfileBins but let's use the actual median number
@@ -891,8 +910,8 @@ def main(args):
                     outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
                     numpy.savez(outfile, config=rawConfig, polycos=rawPolycos, 
                                 srate=srate[0]/2.0, freq1=freqXX, 
-                                vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
-                                vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
+                                vis1XX=visXX, vis1XY=visXY, 
+                                vis1YX=visYX, vis1YY=visYY, 
                                 tStart=numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64)), tInt=tDumpAct)
                     anyFilesSaved = True
                     print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64))))
@@ -907,7 +926,8 @@ def main(args):
                             etm = int(etc/60.0) % 60
                             ets = etc % 60
                             print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
-                            
+            del stream
+            
         if done:
             break
             

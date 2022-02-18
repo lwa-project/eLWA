@@ -4,3 +4,4 @@ from .jcupy import *
 from .fcupy import *
 from .xcupy import *
 from .misc import *
+from .pulsar import *
