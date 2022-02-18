@@ -394,6 +394,7 @@ def main(args):
             
     subIntTimes = []
     subIntCount = 0
+    subIntReset = True
     fileCount   = 0
     wallStart = time.time()
     done = False
@@ -786,14 +787,14 @@ def main(args):
                 subIntTimes = []
                 freqXX = sfreqXX
                 freqYY = sfreqYY
-                reset = True
+                subIntReset = True
             try:
                 avis
             except NameError:
                 avis = gpu.get_from_shape(svis.shape, dtype=svis.dtype, tag='avis')
             subIntTimes.append( tSubInt )
-            avis = gpu.accumulate_vis(avis, svis, scale=1.0/nDump, reset=reset)
-            reset = False
+            avis = gpu.accumulate_vis(avis, svis, scale=1.0/nDump, reset=subIntReset)
+            subIntReset = False
             subIntCount += 1
             
             ## Save
