@@ -387,7 +387,7 @@ def main(args):
     
     if args.gpu is not None:
         try:
-            import cupy, cupyx
+            import cupy
             
             import gpu
             gpu.select_gpu(args.gpu)
