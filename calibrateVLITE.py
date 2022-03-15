@@ -104,7 +104,7 @@ def _select(data, key2, key3):
             y.append(value)
         except KeyError:
             pass
-    return x, y
+    return [x, y]
 
 
 def load_event_window(filename):
@@ -298,11 +298,17 @@ def load_caltab_bp(filename, start=-numpy.inf, stop=numpy.inf, margin=60.0, vers
     for a in names:
         try:
             v = _select(gains, a, 'g1')
+            if len(v[0]) == 1:
+                v[0] = [v[0][0], v[0][0]+1]
+                v[1] = [v[1][0], v[1][0]]
             vt, va = numpy.array(v[0]), numpy.array(v[1])
             rgains  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
             igains  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
             gains1[a] = lambda x, y: (rgains(x,y) + 1j*igains(x,y)).ravel()
             v = _select(gains, a, 'g2')
+            if len(v[0]) == 1:
+                v[0] = [v[0][0], v[0][0]+1]
+                v[1] = [v[1][0], v[1][0]]
             vt, va = numpy.array(v[0]), numpy.array(v[1])
             rgains  = interp2d(vt, freqs, va.T.real, bounds_error=False, fill_value=1.0)
             igains  = interp2d(vt, freqs, va.T.imag, bounds_error=False, fill_value=0.0)
