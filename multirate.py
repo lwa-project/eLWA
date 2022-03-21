@@ -26,15 +26,15 @@ __all__ = ['get_optimal_delay_padding', 'fengine', 'pfbengine', 'xengine', 'xeng
 vLight = vLight.to('m/s').value
 
 
-def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=None, central_freq=0.0, Pol='XX', phase_center='z'):
+def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=None, central_freq=0.0, pol='XX', phase_center='z'):
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
-    if Pol == '*':
+    if pol == '*':
         antennas1 = antennaSet1
         antennas2 = antennaSet2
         
     else:
-        pol1, pol2 = pol_to_pols(Pol)
+        pol1, pol2 = pol_to_pols(pol)
         
         antennas1 = [a for a in antennaSet1 if a.pol == pol1]
         antennas2 = [a for a in antennaSet2 if a.pol == pol1]
@@ -85,19 +85,19 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
     
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
-    if Pol == '*':
+    if pol == '*':
         antennas1 = antennas
         signalsIndex1 = [i for (i, a) in enumerate(antennas)]
         
     else:
-        pol1, pol2 = pol_to_pols(Pol)
+        pol1, pol2 = pol_to_pols(pol)
         
         antennas1 = [a for a in antennas if a.pol == pol1]
         signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]
@@ -166,19 +166,19 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, Pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate PFB F-engine based on the lsl.correlator.fx.FXMaster() function.
     """
     
     # Decode the polarization product into something that we can use to figure 
     # out which antennas to use for the cross-correlation
-    if Pol == '*':
+    if pol == '*':
         antennas1 = antennas
         signalsIndex1 = [i for (i, a) in enumerate(antennas)]
         
     else:
-        pol1, pol2 = pol_to_pols(Pol)
+        pol1, pol2 = pol_to_pols(pol)
         
         antennas1 = [a for a in antennas if a.pol == pol1]
         signalsIndex1 = [i for (i, a) in enumerate(antennas) if a.pol == pol1]

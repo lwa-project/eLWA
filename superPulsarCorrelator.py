@@ -665,19 +665,19 @@ def main(args):
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
                                                                LFFT=drxLFFT, sample_rate=srate[-1], 
                                                                central_freq=cFreqs[-1][vdifPivot-1], 
-                                                               Pol='*', phase_center=refSrc)
+                                                               pol='*', phase_center=refSrc)
             if nVDIFInputs > 0:
                 with streamV:
                     freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
                                                                 sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
-                                                                Pol='*', phase_center=refSrc, 
+                                                                pol='*', phase_center=refSrc, 
                                                                 delayPadding=delayPadding)
                     
             if nDRXInputs > 0:
                 with streamD:
                     freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                                 sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
-                                                                Pol='*', phase_center=refSrc, 
+                                                                pol='*', phase_center=refSrc, 
                                                                 delayPadding=delayPadding)
                     
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
