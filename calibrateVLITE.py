@@ -329,7 +329,7 @@ def load_uvout_sn(filename, start=-numpy.inf, stop=numpy.inf, margin=120.0, vers
         version = [version,]
         
     hdulist = astrofits.open(filename)
-    ref_date = hdulist[0].header['PZERO4']
+    ref_date = hdulist[1].header['TZERO4']
     
     gains = {}
     count = 0
