@@ -402,10 +402,12 @@ def main(args):
     pulsarPeriod = refSrc.period
     nProfileBins = args.profile_bins
     if nProfileBins <= 0:
-        nProfileBins = int(pulsarPeriod / tSub)
-        nProfileBins = min([nProfileBins, 64])
-    profileBins = numpy.linspace(0, 1+1.0/nProfileBins, nProfileBins+2)
-    profileBins -= (profileBins[1]-profileBins[0])/2.0
+        tSub_scale = 1
+        nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+        while nProfileBins > 64:
+            tSub_scale += 1
+            nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+    profileBins = numpy.linspace(0, 1-1.0/nProfileBins, nProfileBins)
     print("Pulsar frequency: %.6f Hz" % refSrc.frequency)
     print("Pulsar period: %.6s seconds" % pulsarPeriod)
     print("Number of profile bins:  %i" % nProfileBins)
