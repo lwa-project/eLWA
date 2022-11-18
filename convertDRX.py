@@ -460,7 +460,7 @@ if __name__ == "__main__":
         description="Convert a LWA DRX file into a multi-threaded VDIF file",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
-    parser.add_argument('filename', type=str, nargs='+'
+    parser.add_argument('filename', type=str, nargs='+',
                         help='DRX file to convert')
     parser.add_argument('-t', '--tuning', type=int,
                         help='tuning to process if not converting both')
