@@ -179,7 +179,7 @@ class VDIFFrame(object):
         self.frame = int(round((self.timetag % fS) / fS * frames_per_second))
         self.frame %= self.frames_per_second
         
-        self._hdr = bytearray([b'\x00',]*32)
+        self._hdr = bytearray([0,]*32)
         self._data = bytearray()
         if data is not None:
             self.extend(data)
