@@ -324,6 +324,10 @@ def main(args):
         # Go!
         started1 = False
         started2 = False
+        if args.tuning == 1:
+            started2 = True
+        if args.tuning == 2:
+            started1 = True
         eofFound = False
         while True:
             if eofFound:
