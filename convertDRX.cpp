@@ -21,6 +21,7 @@ int main(int argc, char** argv) {
   
   std::string filename = std::string(argv[1]);
   DRXBuffer *buffer = new DRXBuffer(filename);
+  int beam = buffer->beam();
   int sample_rate = buffer->sample_rate();
   std::cout << "Start found with sample rate " << sample_rate << std::endl;
   
@@ -39,9 +40,17 @@ int main(int argc, char** argv) {
   std::cout << "Samples per frame: " << vdif_frame_size << " (" << vdif_frame_ns << " ns)" << std::endl;
   std::cout << "Frames per second: " << vdif_frames_per_second << std::endl;
   
+  std::string outname1, outname2;
+  std::size_t marker = filename.rfind("/");
+  outname1 = filename.substr(marker+1, filename.size()-marker);
+  marker = outname1.rfind(".");
+  outname1 = outname1.substr(0, marker);
+  outname2 = outname1+"_b"+std::to_string(beam)+"t2.vdif";
+  outname1 = outname1+"_b"+std::to_string(beam)+"t1.vdif";
+  
   std::ofstream oh1, oh2;
-  oh1.open("vdif1", std::ios::out|std::ios::binary);
-  oh2.open("vdif2", std::ios::out|std::ios::binary);
+  oh1.open(outname1, std::ios::out|std::ios::binary);
+  oh2.open(outname2, std::ios::out|std::ios::binary);
   
   int s, max_s;
   s = 0;
