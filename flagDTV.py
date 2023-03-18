@@ -108,7 +108,7 @@ def main(args):
         blocks.sort()
         
         # Build up the mask
-        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        mask = numpy.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
             print('  Working on scan %i of %i' % (i+1, len(blocks)))
@@ -132,7 +132,7 @@ def main(args):
                 visYY.shape = (visYY.shape[0]//nBL, nBL, visYY.shape[1])
                 print('      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape)
                 
-                maskDTV = numpy.zeros(visXX.shape, dtype=numpy.bool)
+                maskDTV = numpy.zeros(visXX.shape, dtype=bool)
                 
                 ## Mask channels 2, 3, 4, 5, and 6 which are all in the LWA band
                 for ledge in (54, 60, 66, 76, 82):

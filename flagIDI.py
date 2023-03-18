@@ -114,7 +114,7 @@ def main(args):
         blocks.sort()
         
         # Build up the mask
-        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        mask = numpy.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
             print('  Working on scan %i of %i' % (i+1, len(blocks)))

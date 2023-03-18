@@ -106,7 +106,7 @@ def main(args):
     times = numpy.unique(times)
     
     # Build a mask
-    mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+    mask = numpy.zeros(flux.shape, dtype=bool)
     if fgdata is not None and not args.drop:
         reltimes = obsdates - obsdates[0] + obstimes
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -145,7 +145,7 @@ def main(args):
             cStart, cStop = row['CHANS']
             if cStop == 0:
                 cStop = -1
-            pol = row['PFLAGS'].astype(numpy.bool)
+            pol = row['PFLAGS'].astype(bool)
             
             if ant1 == 0 and ant2 == 0:
                 btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
