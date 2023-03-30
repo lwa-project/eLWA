@@ -64,7 +64,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     except ValueError:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-    fmask = numpy.zeros(freq.size, dtype=numpy.bool)
+    fmask = numpy.zeros(freq.size, dtype=bool)
     fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
     if isinstance(freq_range[0], (tuple, list)):
         for section in freq_range:
@@ -79,7 +79,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     if len(bad) == bp.size and ds < 1e-6 and spec.mean() > 1e-6:
         dm = numpy.mean(bp)
         ds = numpy.std(bp)
-        fmask = numpy.zeros(freq.size, dtype=numpy.bool)
+        fmask = numpy.zeros(freq.size, dtype=bool)
         fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
         if isinstance(freq_range[0], (tuple, list)):
             for section in freq_range:
@@ -169,7 +169,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
     """
     Given a list of antennas, an array of times, and array of frequencies, 
     and a 3-D (time by baseline by frequency) data set, flag RFI and return 
-    a numpy.bool mask suitable for creating a masked array.  This function:
+    a bool mask suitable for creating a masked array.  This function:
     1) Calls flag_bandpass_freq() and flag_bandpass_time() to create an
         initial mask, 
     2) Uses the median bandpass and power drift from (1) to flatten data, 
@@ -188,7 +188,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
     try:
         mask = data.mask
     except AttributeError:
-        mask = numpy.zeros(data.shape, dtype=numpy.bool)
+        mask = numpy.zeros(data.shape, dtype=bool)
         
     # Loop over baselines
     for i,bl in enumerate(blList):
@@ -259,7 +259,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     Given a list of antenna, an array of times, an array of uvw coordinates, 
     an array of frequencies, and a 3-D (times by baselines by frequencies) 
     data set, look for and flag baselines with spurious correlations.  Returns
-    a numpy.bool mask suitable for creating a masked array.
+    a bool mask suitable for creating a masked array.
     """
     
     # Build the exclusion list
@@ -278,7 +278,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     try:
         mask = data.mask
     except AttributeError:
-        mask = numpy.zeros(data.shape, dtype=numpy.bool)
+        mask = numpy.zeros(data.shape, dtype=bool)
         
     # Setup StringIO so that we can deal with the annoying
     # 'Warning: converting a masked element to nan.' messages.
@@ -452,7 +452,7 @@ def create_flag_groups(times, freq, mask):
         
     flagsD = []
     flagsP = []
-    claimed = numpy.zeros(mask.shape, dtype=numpy.bool)
+    claimed = numpy.zeros(mask.shape, dtype=bool)
     group = numpy.where( mask )
     for l in range(len(group[0])):
         i, j = group[0][l], group[1][l]

@@ -1,5 +1,6 @@
 """
-Unit tests for the a small LWA correlation job.
+Unit tests for the a small eLWA correlation job using the just-in-time
+correlator.
 """
 
 # Python3 compatibility
@@ -9,8 +10,6 @@ if sys.version_info > (3,):
     xrange = range
     
 import unittest
-unittest.TestLoader.sortTestMethodsUsing = None
-
 import os
 import re
 import glob
@@ -18,11 +17,24 @@ import numpy
 from astropy.io import fits as astrofits
 import subprocess
 
-_RAW = 'eLWA_test_small_raw.tar.gz'
+_RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
-class lwa_tests(unittest.TestCase):
+run_gpu_tests = False
+try:
+    import cupy
+    try:
+        cupy.cuda.Device()
+        run_gpu_tests = True
+    except cupy.cuda.runtime.CUDARuntimeError:
+        pass
+except ImportError:
+    pass
+
+
+@unittest.skipUnless(run_gpu_tests, "requires the 'cupy' module")
+class gpu_tests(unittest.TestCase):
     def setUp(self):
         """Make sure we have the comparison files in place."""
         
@@ -58,8 +70,8 @@ class database(object):
             subprocess.check_call(['tar', '-C', 'ref', '-x', '-z', '-f', 'ref/%s' % _REF])
             
         # Other variables
-        self._FILES = ['0*', 'LT004_*.tgz']
-        self._BASENAME = 'lwaonly'
+        self._FILES = ['0*', '*.vdif', 'LT004_*.tgz']
+        self._BASENAME = 'gpu'
         
     def test_0_create(self):
         """Build the correlator configuration file."""
@@ -71,30 +83,47 @@ class database(object):
         
         cmd = [sys.executable, '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
-        status = subprocess.check_call(cmd)
+        with open('%s-create.log' % self._BASENAME, 'w') as logfile:
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-create.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
-               '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
-        with open('%s-correlate-L.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', 
+               '--gpu=0', '-g', self._BASENAME, '%s.config' % self._BASENAME]
+        with open('%s-correlate.log' % self._BASENAME, 'w') as logfile:
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s.config' % self._BASENAME, 'r') as configfile:
+                print(configfile.read())
+            with open('%s-correlate.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
-        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
-               '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
-        with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
         
     def test_2_build(self):
         """Build a FITS-IDI file for the eLWA data."""
         
-        files = glob.glob('%s[LH]-*.npz' % self._BASENAME)
-        cmd = [sys.executable, '../buildMultiBandIDI.py', '-f', '-t', self._BASENAME]
+        files = glob.glob('%s-*.npz' % self._BASENAME)
+        cmd = [sys.executable, '../buildIDI.py', '-f', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-build.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_3_flag_rfi(self):
@@ -102,7 +131,13 @@ class database(object):
         
         cmd = [sys.executable, '../flagIDI.py', '-f', 'buildIDI_%s.FITS_1' % self._BASENAME]
         with open('%s-flag.log' % self._BASENAME, 'w') as logfile:
-            status = subprocess.check_call(cmd, stdout=logfile)
+            try:
+                status = subprocess.check_call(cmd, stdout=logfile)
+            except subprocess.CalledProcessError:
+                status = 1
+        if status == 1:
+            with open('%s-flag.log' % self._BASENAME, 'r') as logfile:
+                print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_4_validate_headers(self):
@@ -112,7 +147,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged.FITS_1',
                                mode='readonly')
         
         # Skip over the FLAG table(s)
@@ -129,7 +164,7 @@ class database(object):
                     continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
-                self.assertEqual(h1, h2, "Mis-match on %s: '%s' != '%s'" % (key, h1, h2))
+                self.assertEqual(h1, h2, "Mis-match on %s - %s: '%s' != '%s'" % (hdu1.name, key, h1, h2))
                 
         hdulist1.close()
         hdulist2.close()
@@ -139,7 +174,7 @@ class database(object):
         
         hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_elwa_flagged.FITS_1',
                                mode='readonly')
         
         # Skip over the PRIMARY and FLAG tables
@@ -150,7 +185,7 @@ class database(object):
         for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
-                    if hdu1.header['EXTNAME'] == 'UV_DATA' and r > 17:
+                    if hdu1.header['EXTNAME'] == 'UV_DATA' and r > 35:
                         ## Don't look at the last (partial) integration
                         continue
                     try:
@@ -163,14 +198,15 @@ class database(object):
         hdulist2.close()
 
 
-class lwa_test_suite(unittest.TestSuite):
-    """A unittest.TestSuite class which contains all of the LWA correlation tests."""
+class gpu_test_suite(unittest.TestSuite):
+    """A unittest.TestSuite class which contains all of the eLWA correlation tests
+    for the just-in-time version of the correlator."""
     
     def __init__(self):
         unittest.TestSuite.__init__(self)
         
         loader = unittest.TestLoader()
-        self.addTests(loader.loadTestsFromTestCase(lwa_tests)) 
+        self.addTests(loader.loadTestsFromTestCase(gpu_tests)) 
 
 
 if __name__ == '__main__':

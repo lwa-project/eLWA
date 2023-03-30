@@ -16,7 +16,7 @@ import numpy
 from astropy.io import fits as astrofits
 import subprocess
 
-_RAW = 'eLWA_test_raw.tar.gz'
+_RAW = 'eLWA_test_small_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
 
@@ -65,7 +65,8 @@ class database(object):
         files = []
         for regex in self._FILES:
             files.extend(glob.glob(regex))
-            
+        files.sort()
+        
         cmd = [sys.executable, '../createConfigFile.py', '-o', '%s.config' % self._BASENAME]
         cmd.extend(files)
         with open('%s-create.log' % self._BASENAME, 'w') as logfile:
@@ -99,7 +100,7 @@ class database(object):
         """Build a FITS-IDI file for the eLWA data."""
         
         files = glob.glob('%s-*.npz' % self._BASENAME)
-        cmd = [sys.executable, '../buildIDI.py', '-t', self._BASENAME]
+        cmd = [sys.executable, '../buildIDI.py', '-f', '-t', self._BASENAME]
         cmd.extend(files)
         with open('%s-build.log' % self._BASENAME, 'w') as logfile:
             try:
@@ -114,36 +115,38 @@ class database(object):
     def test_3_flag_rfi(self):
         """Flag interference in the FITS-IDI file."""
         
-        cmd = [sys.executable, '../flagIDI.py', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
-        with open('%s-flag-1.log' % self._BASENAME, 'w') as logfile:
+        cmd = [sys.executable, '../flagIDI.py', '-f', 'buildIDI_%s.FITS_1' % self._BASENAME]
+        with open('%s-flag.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
             except subprocess.CalledProcessError:
                 status = 1
         if status == 1:
-            with open('%s-flag-1.log' % self._BASENAME, 'r') as logfile:
+            with open('%s-flag.log' % self._BASENAME, 'r') as logfile:
                 print(logfile.read())
         self.assertEqual(status, 0)
         
     def test_4_validate_headers(self):
         """Validate the headers of the flagged FITS-IDI file against the reference."""
         
-        _revRE = re.compile('\$Rev.*?\$')
+        _revRE = re.compile(', revision .*(\n.*)?')
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
+        
+        # Skip over the FLAG table(s)
+        hdulist1P = [hdu for hdu in hdulist1 if hdu.name not in ('FLAG',)]
+        hdulist2P = [hdu for hdu in hdulist2 if hdu.name not in ('FLAG',)]
         
         # Loop through the HDUs
-        for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the FLAG header
-            if hdu1.name in ('FLAG',):
-                continue
-                
+        for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             ## Check the header values, modulo the old $Rev$ tag
             for key in hdu1.header:
                 if key in ('DATE-MAP', 'UT1UTC', 'POLARX', 'POLARY'):
+                    continue
+                if 'EXTNAME' in hdu1.header and hdu1.header['EXTNAME'] == 'UV_DATA' and key == 'NAXIS2':
                     continue
                 h1 = re.sub(_revRE, '', str(hdu1.header[key]))
                 h2 = re.sub(_revRE, '', str(hdu2.header[key]))
@@ -155,24 +158,24 @@ class database(object):
     def test_5_validate_data(self):
         """Validate the data in the flagged FITS-IDI file against the reference."""
         
-        hdulist1 = astrofits.open('buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist1 = astrofits.open('buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
-        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged_flagged.FITS_1' % self._BASENAME,
+        hdulist2 = astrofits.open('./ref/buildIDI_%s_flagged.FITS_1' % self._BASENAME,
                                mode='readonly')
         
+        # Skip over the PRIMARY and FLAG tables
+        hdulist1P = [hdu for hdu in hdulist1 if hdu.name not in ('PRIMARY', 'FLAG')]
+        hdulist2P = [hdu for hdu in hdulist2 if hdu.name not in ('PRIMARY', 'FLAG')]
+        
         # Loop through the HDUs
-        for hdu1,hdu2 in zip(hdulist1, hdulist2):
-            ## Skip over the PRIMARY and FLAG headers
-            if hdu1.name in ('PRIMARY', 'FLAG'):
-                continue
-                
+        for hdu1,hdu2 in zip(hdulist1P, hdulist2P):
             for r,row1,row2 in zip(range(len(hdu1.data)), hdu1.data, hdu2.data):
                 for f in range(len(row1)):
-                    atol = 1e-8
-                    if hdu1.data.columns[f].name == 'FLUX' and r//6 in (2, 5, 7, 10, 12):
-                        atol = 1e-4
+                    if hdu1.header['EXTNAME'] == 'UV_DATA' and r > 35:
+                        ## Don't look at the last (partial) integration
+                        continue
                     try:
-                        same_value = numpy.allclose(row1[f], row2[f], atol=atol)
+                        same_value = numpy.allclose(row1[f], row2[f], atol=1e-7)
                     except TypeError:
                         same_value = numpy.array_equal(row1[f], row2[f])
                     self.assertTrue(same_value, "%s, row %i, field %i (%s) does not match - %s != %s" % (hdu1.name, r, f, hdu1.data.columns[f], row1[f], row2[f]))

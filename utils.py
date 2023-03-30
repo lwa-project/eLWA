@@ -28,12 +28,12 @@ from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '1.0'
-__all__ = ['get_numa_node_count', 'get_numa_support', 'InterProcessLock', 
-           'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter', 
-           'multi_column_print', 'parse_time_string', 'nsround', 
-           'read_correlator_configuration', 'get_better_time', 
-           'PolyCos']
+__version__ = '1.1'
+__all__ = ['get_numa_node_count', 'get_numa_support', 'get_gpu_count',
+           'get_gpu_support', 'InterProcessLock', 'EnhancedFixedBody',
+           'EnhancedSun', 'EnhancedJupiter', 'multi_column_print',
+           'parse_time_string', 'nsround', 'read_correlator_configuration',
+           'get_better_time', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -85,6 +85,44 @@ def get_numa_support():
     return status
 
 
+def get_gpu_count():
+    # Query nvidia-smi
+    smi = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    output, error = smi.communicate()
+    try:
+        output = output.decode()
+        error = error.decode()
+    except AttributeError:
+        pass
+    output = output.split('\n')
+    
+    # Look for the number of NUMA nodes
+    gpus = 0
+    for line in output:
+        if line.find('Attached GPUs') != -1:
+            gpus = int(line.rsplit(':', 1)[1], 10)
+    return gpus
+
+
+def get_gpu_support():
+    # Check the number of GPUs
+    gpus = get_gpu_count()
+    
+    # Check for the cupy module
+    has_cupy = 1
+    try:
+        import cupy
+    except ImportError:
+        has_cupy = 0
+        
+    # If we have at least one GPU and cupy is installed we are ready
+    status = False
+    if has_cupy == 1 and gpus >= 1:
+        status = True
+        
+    return status
+
+
 class InterProcessLock(object):
     def __init__(self, name):
         self.name = name
@@ -104,7 +142,7 @@ class InterProcessLock(object):
     def lock(self, block=True):	
         while not self.locked:
             try:
-                fcntl.flock(self.fh, fcntl.LOCK_EX)
+                fcntl.flock(self.fh, fcntl.LOCK_EX|fcntl.LOCK_NB)
                 self.locked = True
             except IOError as e:
                 if e.errno != errno.EAGAIN:
@@ -402,6 +440,8 @@ def _read_correlator_configuration(filename):
             block['pols'] = [v.strip().rstrip() for v in line.split(None, 1)[1].split(',')]
         elif line[:8] == 'Location':
             block['location'] = [float(v) for v in line.split(None, 1)[1].split(',')]
+        elif line[:16]  == 'ApparentLocation':
+            block['appLocation'] = [float(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:11] == 'ClockOffset':
             block['clockOffset'] = [parse_time_string(v) for v in line.split(None, 1)[1].split(',')]
         elif line[:10] == 'FileOffset':
@@ -489,12 +529,20 @@ def _read_correlator_configuration(filename):
                     pass
         pols = block['pols']
         location = block['location']
+        try:
+            app_location = block['appLocation']
+        except KeyError:
+            app_location = None
         clock_offsets = block['clockOffset']
         
         if aid is None:
             raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
             
         stand = stations.Stand(aid, *location)
+        try:
+            apparent_stand = stations.Stand(aid, *app_location)
+        except TypeError:
+            apparent_stand = None
         for pol,offset in zip(pols, clock_offsets):
             cable = stations.Cable('%s-%s' % (name, pol), 0.0, vf=1.0, dd=0.0)
             cable.clock_offset = offset
@@ -503,7 +551,8 @@ def _read_correlator_configuration(filename):
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=0)
             else:
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=1)
-                        
+            antenna.apparent_stand = apparent_stand
+            
             antennas.append( antenna )
             i += 1
             
@@ -615,7 +664,7 @@ class PolyCos(object):
             psrname = os.path.basename(filename)
             psrname = psrname.split('_', 1)[0]
             
-        from polycos import polycos
+        from mini_presto.polycos import polycos
         
         self.filename = filename
         self._polycos_base = polycos(psrname, filename)

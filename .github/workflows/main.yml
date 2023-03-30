@@ -1,0 +1,53 @@
+name: Test
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron:  '30 5 7 * *'
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ['3.8', '3.10']
+        include:
+          - os: ubuntu-20.04
+            python-version: '3.6'
+      fail-fast: false
+    steps:
+        - name: "Software Install - Ubuntu"
+          run: |
+            sudo apt-get install -y \
+              build-essential \
+              ca-certificates \
+              curl \
+              git \
+              gzip \
+              libfftw3-dev \
+              libhdf5-dev \
+              libgdbm-dev \
+              pkg-config \
+              tar
+        - uses: actions/setup-python@v2
+          with:
+            python-version: ${{ matrix.python-version }}
+        - uses: actions/checkout@v2
+        - name: "Software Install - Python"
+          run: |
+            pip install \
+              setuptools \
+              numpy \
+              matplotlib \
+              scipy \
+              h5py \
+              jinja2 \
+              GitPython
+            pip install \
+              git+https://github.com/lwa-project/lsl.git
+            pip install \
+             pylint
+        - name: Test
+          run: |
+            cd tests
+            python -m unittest discover

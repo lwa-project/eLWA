@@ -44,12 +44,15 @@ _LINT_RE = re.compile('(?P<module>.*?)\:(?P<line>\d+)\: (error )?[\[\(](?P<type>
 _SAFE_TO_IGNORE = ["Possible",
                    "Module 'numpy",
                    "Module 'ephem",
+                   "Module 'data'",
                    "Instance of 'HDUList'",
                    "Unable to import 'polycos",
                    "No name 'ccompiler",
                    "No name 'c' in module 'astropy.constants'",
                    "Instance of 'GitError' has no 'GitError' member",
-                   "Instance of 'Exception' has no 'GitError' member"]
+                   "Instance of 'Exception' has no 'GitError' member",
+                   "Argument '.ndarray' does not match format type",
+                   "Value 'section' is unsubscriptable"]
 
 
 def _get_context(filename, line, before=0, after=0):
@@ -154,6 +157,20 @@ if run_scripts_tests:
         _SCRIPTS.extend(glob.glob(os.path.join(*path)))
     _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
     _SCRIPTS.sort()
+    try:
+        import cupy
+    except ImportError:
+        while True:
+            idx = None
+            for i,script in enumerate(_SCRIPTS):
+                if script.find('cupy') != -1:
+                    idx = i
+                    break
+            if idx is None:
+                break
+            else:
+                del _SCRIPTS[idx]
+                
     for script in _SCRIPTS:
         test = _test_generator(script)
         name = 'test_%s' % _name_to_name(script)

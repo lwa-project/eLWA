@@ -17,9 +17,8 @@
 #include "numpy/arrayobject.h"
 #include "numpy/npy_math.h"
 
-#include "blas.h"
-
 #include "py3_compat.h"
+#include "blas.h"
 
 
 /*
@@ -102,12 +101,12 @@ float hanningf(float x) {
 */
 
 double hamming(double x) {
-    return 0.53836 - 0.46164*cos(x);
+    return 0.54 - 0.46*cos(x);
     
 }
 
 float hammingf(float x) {
-        return 0.53836 - 0.46164*cosf(x);
+        return 0.54 - 0.46*cosf(x);
 }
 
 
@@ -159,4 +158,3 @@ long computeDelayComponents(PyArrayObject *delays, double SampleRate, long *fifo
     
     return fifoMax;
 }
-

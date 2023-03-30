@@ -254,7 +254,7 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
                 ## Read in the first few frames to get the start time
@@ -351,9 +351,18 @@ def main(args):
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
                 sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]
+                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
+                ## Set an apparent position if WiDAR is already applying a delay model
+                apparent_enz = (None, None, None)
+                if args.no_vla_delay_model:
+                    apparent_xyz = VLA_ECEF
+                    apparent_rho = apparent_xyz - LWA1_ECEF
+                    apparent_sez = numpy.dot(LWA1_ROT, apparent_rho)
+                    apparent_enz = apparent_sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
+                    apparent_enz[1] *= -1
+                    
                 ## VLA time offset
                 off = args.vla_offset
                                 
@@ -365,7 +374,7 @@ def main(args):
                 except IndexError:
                     corrConfig['context']['project'] = header['BASENAME'].split('.')[0]
                     corrConfig['context']['session'] = header['BASENAME'].split('.')[1].replace('sb', '')
-                corrConfig['context']['vlaref'] = re.sub('\.\d+\.\d+\.[AB][CD]-*', '', header['BASENAME'])
+                corrConfig['context']['vlaref'] = re.sub('\.[0-9]+\.[0-9]+\.[AB][CD]-.*', '', header['BASENAME'])
                 corrConfig['source']['name'] = header['SRC_NAME']
                 corrConfig['source']['intent'] = 'target'
                 corrConfig['source']['ra2000'] = header['RA_STR']
@@ -373,6 +382,7 @@ def main(args):
                 corrConfig['inputs'].append( {'file': filename, 'type': 'VDIF', 
                                               'antenna': 'EA%02i' % antID, 'pols': 'Y, X', 
                                               'location': (enz[0], enz[1], enz[2]),
+                                              'apparent_location': (apparent_enz[0], apparent_enz[1], apparent_enz[2]),
                                               'clockoffset': (off, off), 'fileoffset': 0, 
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
@@ -584,21 +594,26 @@ def main(args):
                 fh.write("# Frequency tuning 2 is %.3f Hz\n" % cinp['freq'][1])
             except TypeError:
                 fh.write("# Frequency tuning is %.3f Hz\n" % cinp['freq'])
-            fh.write("  File         %s\n" % cinp['file'])
+            fh.write("  File             %s\n" % cinp['file'])
             try:
                 metaname = metadata[os.path.basename(cinp['file'])]
-                fh.write("  MetaData     %s\n" % metaname)
+                fh.write("  MetaData         %s\n" % metaname)
             except KeyError:
                 if cinp['type'] == 'DRX':
                     sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(cinp['file']), s+1))
                     sys.stderr.flush()
                 pass
-            fh.write("  Type         %s\n" % cinp['type'])
-            fh.write("  Antenna      %s\n" % cinp['antenna'])
-            fh.write("  Pols         %s\n" % cinp['pols'])
-            fh.write("  Location     %.6f, %.6f, %.6f\n" % cinp['location'])
-            fh.write("  ClockOffset  %s, %s\n" % cinp['clockoffset'])
-            fh.write("  FileOffset   %.3f\n" % (startOffset + cinp['fileoffset'],))
+            fh.write("  Type             %s\n" % cinp['type'])
+            fh.write("  Antenna          %s\n" % cinp['antenna'])
+            fh.write("  Pols             %s\n" % cinp['pols'])
+            fh.write("  Location         %.6f, %.6f, %.6f\n" % cinp['location'])
+            try:
+                if cinp['apparent_location'][0] is not None:
+                    fh.write("  ApparentLocation %.6f, %.6f, %.6f\n" % cinp['apparent_location'])
+            except KeyError:
+                pass
+            fh.write("  ClockOffset      %s, %s\n" % cinp['clockoffset'])
+            fh.write("  FileOffset       %.3f\n" % (startOffset + cinp['fileoffset'],))
             fh.write("InputDone\n")
             fh.write("\n")
         if fh != sys.stdout:
@@ -637,6 +652,8 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='file or directory name to process')
+    parser.add_argument('-n', '--no-vla-delay-model', action='store_true',
+                        help='process assuming that WiDAR has already applied a delay model')
     parser.add_argument('-l', '--lwa1-offset', type=time_string, default='0.0', 
                         help='LWA1 clock offset')
     parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 

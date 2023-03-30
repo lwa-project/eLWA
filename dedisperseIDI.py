@@ -101,7 +101,7 @@ def get_flags_as_mask(hdulist, selection=None, version=0):
         flux_rows = len(selection)
         
     # Create the mask
-    mask = numpy.zeros((flux_rows, nBand, nFreq, nStk), dtype=numpy.bool)
+    mask = numpy.zeros((flux_rows, nBand, nFreq, nStk), dtype=bool)
     if fgdata is not None:
         reltimes = obsdates - obsdates[0] + obstimes
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -125,7 +125,7 @@ def get_flags_as_mask(hdulist, selection=None, version=0):
             cStart, cStop = row['CHANS']
             if cStop == 0:
                 cStop = -1
-            pol = row['PFLAGS'].astype(numpy.bool)
+            pol = row['PFLAGS'].astype(bool)
             
             if ant1 == 0 and ant2 == 0:
                 btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
@@ -281,7 +281,7 @@ def main(args):
         old_flag_mask = get_flags_as_mask(hdulist, version=0-args.drop)
         
         # Dedisperse
-        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        mask = numpy.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
             print('  Working on scan %i of %i' % (i+1, len(blocks)))
@@ -498,7 +498,7 @@ def main(args):
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the dedispersed data
                 flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
-                flux = flux.view(numpy.float32)
+                flux = flux.view(numpy.float32) # pylint: disable=no-member
                 flux = flux.astype(hdu.data['FLUX'].dtype)
                 flux.shape = hdu.data['FLUX'].shape
                 hdu.data['FLUX'][...] = flux

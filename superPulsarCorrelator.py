@@ -33,6 +33,7 @@ from lsl.writer import fitsidi
 from lsl.correlator.uvutils import compute_uvw
 
 from lsl.reader import drx, vdif, errors
+from lsl.reader.base import FrameTimestamp
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 
 from lsl.misc.dedispersion import delay as dispDelay
@@ -364,7 +365,7 @@ def main(args):
     vdifPivot = 1
     if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
         vdifPivot = 2
-    if nVDIFInputs == 0 and args.which is not None:
+    if nVDIFInputs == 0 and args.which != 0:
         vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
         print("VDIF appears to correspond to tuning #%i in DRX" % vdifPivot)
@@ -384,16 +385,29 @@ def main(args):
     print("Integration (dump) time is: %.3f s" % tDump)
     print(" ")
     
+    if args.gpu is not None:
+        try:
+            from jit import xcupy
+            xcupy.select_gpu(args.gpu)
+            xcupy.set_memory_usage_limit(1.5*1024**3)
+            multirate.xengine = xcupy.xengine
+            multirate.xengine_full = xcupy.xengine_full
+            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, xcupy.get_memory_usage_limit()/1024.0**3))
+        except ImportError as e:
+            pass
+            
     # Solve for the pulsar binning
     observer.date = beginMJDs[0] + astro.MJD_OFFSET - astro.DJD_OFFSET
     refSrc.compute(observer)
     pulsarPeriod = refSrc.period
     nProfileBins = args.profile_bins
     if nProfileBins <= 0:
-        nProfileBins = int(pulsarPeriod / tSub)
-        nProfileBins = min([nProfileBins, 64])
-    profileBins = numpy.linspace(0, 1+1.0/nProfileBins, nProfileBins+2)
-    profileBins -= (profileBins[1]-profileBins[0])/2.0
+        tSub_scale = 1
+        nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+        while nProfileBins > 64:
+            tSub_scale += 1
+            nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
+    profileBins = numpy.linspace(0, 1-1.0/nProfileBins, nProfileBins)
     print("Pulsar frequency: %.6f Hz" % refSrc.frequency)
     print("Pulsar period: %.6s seconds" % pulsarPeriod)
     print("Number of profile bins:  %i" % nProfileBins)
@@ -641,17 +655,17 @@ def main(args):
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
                                                                LFFT=drxLFFT, sample_rate=srate[-1], 
                                                                central_freq=cFreqs[-1][vdifPivot-1], 
-                                                               Pol='*', phase_center=refSrc)
+                                                               pol='*', phase_center=refSrc)
             if nVDIFInputs > 0:
                 freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
                                                             sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
-                                                            Pol='*', phase_center=refSrc, 
+                                                            pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                             sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
-                                                            Pol='*', phase_center=refSrc, 
+                                                            pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
@@ -663,6 +677,7 @@ def main(args):
                     tv,tu = bestFreqUnits(subChanFreqOffset)
                     print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
                     
+                freqD += subChanFreqOffset
                 for w in xrange(feoD.shape[2]):
                     feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
                     
@@ -718,8 +733,8 @@ def main(args):
                     # Validate
                     fd = freqV[goodV] - freqD[goodD]
                     try:
-                        assert(fd.min() >= 0.99*subChanFreqOffset)
-                        assert(fd.max() <= 1.01*subChanFreqOffset)
+                        assert(fd.min() >= -1.01*subChanFreqOffset)
+                        assert(fd.max() <=  1.01*subChanFreqOffset)
                         
                         ## FS = frequency selection
                         tv,tu = bestFreqUnits(freqV[1]-freqV[0])
@@ -751,8 +766,10 @@ def main(args):
             nWin = 1e12
             if nVDIFInputs > 0:
                 nWin = min([nWin, feoV.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV.sum(axis=0)))+1])
             if nDRXInputs > 0:
                 nWin = min([nWin, feoD.shape[2]])
+                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD.sum(axis=0)))+1])
                 
             ### Initialize the intermediate arrays
             try:
@@ -790,13 +807,10 @@ def main(args):
             except NameError:
                 sfreqXX = freqD
                 sfreqYY = freqD
-            svisXX = multirate.xengine(feoX, veoX, feoX, veoX)
-            svisXY = multirate.xengine(feoX, veoX, feoY, veoY)
-            svisYX = multirate.xengine(feoY, veoY, feoX, veoX)
-            svisYY = multirate.xengine(feoY, veoY, feoY, veoY)
+            svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
             
             # Get a most precise representation of the current time
-            mjdi, mjdf, mjdsf = tSubIntB[0].pulsar_mjd
+            mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
             mjdf += mjdsf/86400.0
             
             # Determine the pulsar phase as a function of frequency
@@ -807,6 +821,7 @@ def main(args):
                 currentDM = refSrc.dm*1.0
                 currentDoppler = refSrc.doppler*1.0
                 tDisp = dispDelay(sfreqXX*currentDoppler, currentDM)
+                tDisp += dispDelay(sfreqXX[-1]*currentDoppler, currentDM)
             phaseDispersion = tDisp / currentPeriod
             phaseDispersion %= 1.0
             ## Folding
@@ -935,6 +950,8 @@ if __name__ == "__main__":
                         help='tag to use for the output file')
     parser.add_argument('-j', '--jit', action='store_true', 
                         help='enable experimental just-in-time optimizations')
+    parser.add_argument('--gpu', type=int,
+                        help='enable the experimental GPU X-engine')
     parser.add_argument('-w', '--which', type=int, default=0, 
                         help='for LWA-only observations, which tuning to use for correlation; 0 = auto-select')
     args = parser.parse_args()

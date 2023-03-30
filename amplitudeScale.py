@@ -230,15 +230,15 @@ def main(args):
         ## New Flags
         obsdates.shape = (obsdates.shape[0]//nBL, nBL)
         obstimes.shape = (obstimes.shape[0]//nBL, nBL)
-        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)
+        mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)  # pylint: disable=no-member
         for i in xrange(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
                 print("    Baseline %i of %i" % (i+1, nBL))
                 
             for b,offset in enumerate(fqoffsets):
-                maskXX = mask[:,i,b,:,0]
-                maskYY = mask[:,i,b,:,1]
+                maskXX = mask[:,i,b,:,0]    # pylint: disable=invalid-sequence-index
+                maskYY = mask[:,i,b,:,1]    # pylint: disable=invalid-sequence-index
                 
                 flagsXX, _ = create_flag_groups(obstimes[:,i], freq+offset, maskXX)
                 flagsYY, _ = create_flag_groups(obstimes[:,i], freq+offset, maskYY)
@@ -350,7 +350,7 @@ def main(args):
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the dedispersed data
                 flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
-                flux = flux.view(numpy.float32)
+                flux = flux.view(numpy.float32) # pylint: disable=no-member
                 flux = flux.astype(hdu.data['FLUX'].dtype)
                 flux.shape = hdu.data['FLUX'].shape
                 hdu.data['FLUX'][...] = flux

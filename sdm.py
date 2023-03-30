@@ -345,7 +345,7 @@ def get_switched_power_data(filename):
             ### Unpack and interperate the binary data - this is a fixed
             ### reading scheme that seems to work at least for the data 
             ### we have
-            fields = struct.unpack('>siqqiBiffBiffBiff', row[:64])
+            fields = struct.unpack('>siqqiBiffBiffBiff', row[:64])  # pylint: disable=no-member
             tMid,   tInt   = fields[ 2], fields[ 3]
             psum0,  psum1  = fields[11], fields[12]
             pdiff0, pdiff1 = fields[ 7], fields[ 8]

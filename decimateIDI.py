@@ -90,7 +90,7 @@ def main(args):
         nBL = len(ubls)
         
         # Create a mask of the old flags, if needed
-        mask = numpy.zeros(flux.shape, dtype=numpy.bool)
+        mask = numpy.zeros(flux.shape, dtype=bool)
         if not args.drop and fgdata is not None:
             reltimes = obsdates - obsdates[0] + obstimes
             maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -110,7 +110,7 @@ def main(args):
                 cStart, cStop = row['CHANS']
                 if cStop == 0:
                     cStop = -1
-                pol = row['PFLAGS'].astype(numpy.bool)
+                pol = row['PFLAGS'].astype(bool)
                 
                 if ant1 == 0 and ant2 == 0:
                     btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
@@ -145,7 +145,7 @@ def main(args):
         weight.shape = (weight.shape[0], weight.shape[1], weight.shape[2]//args.decimation, args.decimation, weight.shape[3])
         weight = weight.mean(axis=3)
         mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimation, args.decimation, mask.shape[3])
-        mask = mask.mean(axis=3).astype(numpy.bool)
+        mask = mask.mean(axis=3).astype(bool)
         nFreq = freq.size
         print("  Decimated to %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3))
         

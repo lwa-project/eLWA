@@ -110,7 +110,7 @@ def main(args):
         
     times = numpy.zeros(nInt, dtype=numpy.float64)
     visToPlot = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visToMask = numpy.zeros((nInt,nBL,nchan), dtype=numpy.bool)
+    visToMask = numpy.zeros((nInt,nBL,nchan), dtype=bool)
     
     for i,filename in enumerate(filenames):
         dataDict = numpy.load(filename)
