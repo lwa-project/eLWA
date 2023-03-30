@@ -411,7 +411,7 @@ def main(args):
         while nProfileBins > 64:
             tSub_scale += 1
             nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
-    profileBins = numpy.linspace(1.0/nProfileBins, 1, nProfileBins)
+    profileBins = numpy.linspace(0, 1-1.0/nProfileBins, nProfileBins)
     print("Pulsar frequency: %.6f Hz" % refSrc.frequency)
     print("Pulsar period: %.6s seconds" % pulsarPeriod)
     print("Number of profile bins:  %i" % nProfileBins)

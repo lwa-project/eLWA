@@ -142,7 +142,7 @@ class InterProcessLock(object):
     def lock(self, block=True):	
         while not self.locked:
             try:
-                fcntl.flock(self.fh, fcntl.LOCK_EX)
+                fcntl.flock(self.fh, fcntl.LOCK_EX|fcntl.LOCK_NB)
                 self.locked = True
             except IOError as e:
                 if e.errno != errno.EAGAIN:

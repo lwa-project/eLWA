@@ -6,10 +6,14 @@ on:
     - cron:  '30 5 7 * *'
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ['2.7', '3.6']
+        os: [ubuntu-latest]
+        python-version: ['3.8', '3.10']
+        include:
+          - os: ubuntu-20.04
+            python-version: '3.6'
       fail-fast: false
     steps:
         - name: "Software Install - Ubuntu"
@@ -44,7 +48,6 @@ jobs:
             pip install \
              pylint
         - name: Test
-          continue-on-error: ${{ matrix.python-version == '2.7' }}
           run: |
             cd tests
             python -m unittest discover
