@@ -3,9 +3,6 @@ Utility module for the various scripts needed to correlate LWA and VLA data.
 
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import os
 import re
 import time
@@ -89,11 +86,8 @@ def get_gpu_count():
     # Query nvidia-smi
     smi = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = smi.communicate()
-    try:
-        output = output.decode()
-        error = error.decode()
-    except AttributeError:
-        pass
+    output = output.decode()
+    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes

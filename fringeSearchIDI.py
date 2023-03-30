@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A FITS-IDI compatible version of fringeSearch.py to finding course delays and 
@@ -8,12 +8,6 @@ NOTE:  This script does not try to fringe search only a single source.  Rather,
     it searches the file as a whole.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import numpy
@@ -134,7 +128,7 @@ def main(args):
             
     search_bls = []
     cross = []
-    for i in xrange(len(ubls)):
+    for i in range(len(ubls)):
         bl = ubls[i]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
         if ant1 != ant2:
@@ -143,7 +137,7 @@ def main(args):
     nBL = len(cross)
     
     iTimes = numpy.zeros(times.size-1, dtype=times.dtype)
-    for i in xrange(1, len(times)):
+    for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
@@ -201,7 +195,7 @@ def main(args):
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
-    for i in xrange(smth.size):
+    for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
@@ -229,7 +223,7 @@ def main(args):
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
     
     print("%3s  %9s  %2s  %6s  %9s  %11s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate'))
-    for b in xrange(len(search_bls)):
+    for b in range(len(search_bls)):
         bl = search_bls[b]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
         

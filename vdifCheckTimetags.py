@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Check the time in a VDIF file for flow.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 
@@ -155,6 +149,10 @@ def main(args):
         
     fh = open(filename, 'rb')
     header = vdif.read_guppi_header(fh)
+    if 'OBSFREQ' not in header:
+        header['OBSFREQ'] = 0.0
+    if 'OBSBW' not in header:
+        header['OBSBW'] = 19.6e6
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
     nThreads = get_thread_count(fh)
     nFramesFile = os.path.getsize(filename) // vdif.FRAME_SIZE
@@ -191,10 +189,10 @@ def main(args):
         print("Skipping ahead %i frames (%.6f seconds)" % (int(skip*sample_rate/vdif.DATA_LENGTH)*4, int(skip*sample_rate/vdif.DATA_LENGTH)*vdif.DATA_LENGTH/sample_rate))
         print(" ")
         
-    prevDate = ['' for i in xrange(nThreads)]
-    prevTime = [0 for i in xrange(nThreads)]
-    prevFrame = [0 for i in xrange(nThreads)]
-    for i in xrange(nThreads):
+    prevDate = ['' for i in range(nThreads)]
+    prevTime = [0 for i in range(nThreads)]
+    prevFrame = [0 for i in range(nThreads)]
+    for i in range(nThreads):
         currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         
         station, thread = currFrame.id		

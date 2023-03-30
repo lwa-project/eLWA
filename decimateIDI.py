@@ -1,16 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Frequency decimation script for FITS-IDI files containing eLWA data.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    
 import os
 import git
 import sys
@@ -154,7 +147,7 @@ def main(args):
         ants, times, bands, chans, pols, reas, sevs = [], [], [], [], [], [], []
         ## New Flags
         nBL = len(ubls)
-        for i in xrange(nBL):
+        for i in range(nBL):
             blset = numpy.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
@@ -174,7 +167,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[blset[flag[0]]]+obstimes[blset[flag[0]]]-obsdates[0], 
                                    obsdates[blset[flag[1]]]+obstimes[blset[flag[1]]]-obsdates[0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
                     reas.append( 'DECIMATEIDI.PY' )
@@ -183,7 +176,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
                                    obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
                     reas.append( 'DECIMATEIDI.PY' )
@@ -291,7 +284,7 @@ def main(args):
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
                 

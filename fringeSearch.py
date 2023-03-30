@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a collection of .npz files search for course delays and rates.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import glob
@@ -70,9 +64,9 @@ def main(args):
     bls = []
     l = 0
     cross = []
-    for i in xrange(0, len(antennas), 2):
+    for i in range(0, len(antennas), 2):
         ant1 = antennas[i].stand.id
-        for j in xrange(i, len(antennas), 2):
+        for j in range(i, len(antennas), 2):
             ant2 = antennas[j].stand.id
             if ant1 != ant2:
                 bls.append( (ant1,ant2) )
@@ -128,7 +122,7 @@ def main(args):
     print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
-    for i in xrange(1, len(times)):
+    for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
@@ -186,7 +180,7 @@ def main(args):
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
-    for i in xrange(smth.size):
+    for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
         smth[i] = numpy.median(spec[mn:mx])
@@ -212,7 +206,7 @@ def main(args):
     
     dirName = os.path.basename( os.path.dirname(filenames[0]) )
     print("%3s  %9s  %2s  %6s  %9s  %11s" % ('#', 'BL', 'Pl', 'S/N', 'Delay', 'Rate'))
-    for b in xrange(len(bls)):
+    for b in range(len(bls)):
         ## Skip over baselines that are not in the baseline list (if provided)
         if args.baseline is not None:
             if bls[b] not in args.baseline:

@@ -1,17 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a VDIF file, plot the time averaged spectra for each beam output over some 
 period.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    
 import os
 import sys
 import h5py
@@ -120,7 +113,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     
     # Line up the time tags for the various tunings/polarizations
     timetags = []
-    for i in xrange(16):
+    for i in range(16):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         timetags.append(junkFrame.header.seconds_from_epoch*nFramesSecond + junkFrame.header.frame_in_second)
     fh.seek(-16*vdif.FRAME_SIZE, 1)
@@ -140,7 +133,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     beginDate = junkFrame.time.datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
-    for i in xrange(4):
+    for i in range(4):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         b,p = junkFrame.id
         if p == 0:
@@ -170,7 +163,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     
     data_products = ['XX', 'YY']
     done = False
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -187,7 +180,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
@@ -316,7 +309,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     
     # Line up the time tags for the various tunings/polarizations
     timetags = []
-    for i in xrange(16):
+    for i in range(16):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         timetags.append(junkFrame.header.seconds_from_epoch*nFramesSecond + junkFrame.header.frame_in_second)
     fh.seek(-16*vdif.FRAME_SIZE, 1)
@@ -336,7 +329,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     beginDate = junkFrame.time.datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
-    for i in xrange(4):
+    for i in range(4):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         b,p = junkFrame.id
         if p == 0:
@@ -366,7 +359,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     
     data_products = ['I', 'Q', 'U', 'V']
     done = False
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         # Find out how many frames remain in the file.  If this number is larger
         # than the maximum of frames we can work with at a time (maxFrames),
         # only deal with that chunk
@@ -383,7 +376,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             break
             
         # Inner loop that actually reads the frames into the data array
-        for j in xrange(framesWork):
+        for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
@@ -562,7 +555,7 @@ def main(args):
     beginDate = junkFrame.time.datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
-    for i in xrange(4):
+    for i in range(4):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         b,p = junkFrame.id
         if p == 0:
@@ -595,7 +588,7 @@ def main(args):
         
     # Make the pseudo-antennas for Stokes calculation
     antennas = []
-    for i in xrange(4):
+    for i in range(4):
         if i // 2 == 0:
             newAnt = stations.Antenna(1)
         else:
@@ -615,7 +608,7 @@ def main(args):
     
     if os.path.exists(outname):
         if not args.force:
-            yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
         else:
             yn = 'y'
             

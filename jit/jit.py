@@ -1,9 +1,6 @@
 """
 Module for creating optimized data processing code when it is needed.
 """
-
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
     
 import os
 import imp
@@ -13,10 +10,7 @@ import time
 import numpy
 import shutil
 import importlib
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
 import platform
 import warnings
 import subprocess
@@ -179,18 +173,10 @@ class JustInTimeOptimizer(object):
         try:
             subprocess.check_output(['pkg-config', 'fftw3f', '--exists'])
             flags = subprocess.check_output(['pkg-config', 'fftw3f', '--cflags'])
-            try:
-                flags = flags.decode()
-            except AttributeError:
-                # Python2 catch
-                pass
+            flags = flags.decode()
             cflags.extend( flags.split() )
             flags = subprocess.check_output(['pkg-config', 'fftw3f', '--libs'])
-            try:
-                flags = flags.decode()
-            except AttributeError:
-                # Python2 catch
-                pass
+            flags = flags.decode()
             ldflags.extend( flags.split() )
         except subprocess.CalledProcessError:
             cflags.extend( [] )

@@ -1,15 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-"""
-Run a collection of correlation jobs on the LWAUCF.
-"""
-
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import re
 import sys
@@ -101,11 +91,8 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
         OUT = subprocess.PIPE
     p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
     output, err = p.communicate()
-    try:
-        output = output.decode()
-        err = err.decode()
-    except AttributeError:
-        pass
+    output = output.decode()
+    err = err.decode()
     status = p.returncode
     if quiet:
         DEVNULL.close()
@@ -136,10 +123,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         p = subprocess.Popen(['grep', 'Polyco', configfile], stdout=subprocess.PIPE)
         polyfile, err = p.communicate()
         try:
-            try:
-                polyfile = polyfile.decode(encoding='ascii', errors='ignore')
-            except AttributeError:
-                pass
+            polyfile = polyfile.decode(encoding='ascii', errors='ignore')
             polyfile = polyfile.split(None, 1)[1].strip().rstrip()
             polyfile = os.path.join(os.path.dirname(configfile), polyfile)
         except IndexError:
@@ -302,7 +286,7 @@ def main(args):
     configfiles.sort(key=lambda x:[int(v) if v.isdigit() else v for v in re.findall(r'[^0-9]|[0-9]+', x)])
     ## Threads - processes by nodes so that small jobs are spread across jobs
     threads = OrderedDict()
-    for p in xrange(args.processes_per_node):
+    for p in range(args.processes_per_node):
         for node in args.nodes:
             n = p + 0
             while '%s-%02i' % (node, n) in threads:
