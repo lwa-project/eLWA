@@ -18,3 +18,7 @@ _data.etag
 *.pyc
 *.c
 *.so
+
+# DiFX stuff
+difx/*.o
+difx/convertDRX
