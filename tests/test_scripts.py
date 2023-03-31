@@ -2,12 +2,6 @@
 Unit tests for the various eLWA scripts.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import unittest
 import glob
 import sys
@@ -23,7 +17,7 @@ else:
     
 run_scripts_tests = False
 try:
-    from pylint import epylint as lint
+    from pylint import run_pylint
     if MODULE_BUILD is not None:
         run_scripts_tests = True
         
@@ -97,7 +91,7 @@ def _test_generator(script):
     """
     
     def test(self):
-        out, err = lint.py_run("%s -E --extension-pkg-whitelist=numpy" % script, return_std=True)
+        out, err = run_pylint("%s -E --extension-pkg-whitelist=numpy" % script, return_std=True)
         out_lines = out.read().split('\n')
         err_lines = err.read().split('\n')
         out.close()
