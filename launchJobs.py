@@ -415,7 +415,7 @@ if __name__ == "__main__":
                         help='comma seperated lists of nodes to use')
     parser.add_argument('--gpu', action='store_true',
                         help='enable the experimental GPU X-engine')
-    parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1 -j",
+    parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1",
                         help='correlator options to use')
     parser.add_argument('-b', '--both-tunings', action='store_true',
                         help='for LWA-only configuration files, process both tunings')
