@@ -65,13 +65,9 @@ def getSourceName(src):
     count) name within 2" of the provided position.
     """
     
-    try:
-        from urllib import quote_plus
-        from urllib2 import urlopen
-    except ImportError:
-        from urllib.parse import quote_plus
-        from urllib.request import urlopen
-        
+    from urllib.parse import quote_plus
+    from urllib.request import urlopen
+    
     # Pull out what we know about the source
     name = src.name
     ra = str(src._ra)

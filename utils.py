@@ -50,11 +50,8 @@ def get_numa_node_count():
     # Query lscpu
     lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, error = lscpu.communicate()
-    try:
-        output = output.decode()
-        error = error.decode()
-    except AttributeError:
-        pass
+    output = output.decode()
+    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes
@@ -70,10 +67,9 @@ def get_numa_support():
     nn = get_numa_node_count()
             
     # Check for the numactl utility
-    devnull = open('/dev/null',  'wb')
-    numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
-    devnull.close()
-    
+    with open('/dev/null',  'wb') as devnull:
+        numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
+        
     # If we have more than one NUMA node and numactl we are good to go
     status = False
     if numactl == 0 and nn > 1:
