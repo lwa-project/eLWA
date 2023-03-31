@@ -39,6 +39,7 @@ from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
 from lsl.misc.dedispersion import delay as dispDelay
 
 import jones
+import multirate
 from utils import *
 
 
@@ -78,12 +79,6 @@ def bestFreqUnits(freq):
 
 
 def main(args):
-    # Select the multirate module to use
-    if args.jit:
-        from jit import multirate
-    else:
-        import multirate
-        
     # Build up the station
     site = stations.lwa1
     ## Updated 2018/3/8 with solutions from the 2018 Feb 28 eLWA
@@ -387,7 +382,7 @@ def main(args):
     
     if args.gpu is not None:
         try:
-            from jit import xcupy
+            import xcupy
             xcupy.select_gpu(args.gpu)
             xcupy.set_memory_usage_limit(1.5*1024**3)
             multirate.xengine = xcupy.xengine
@@ -948,8 +943,6 @@ if __name__ == "__main__":
                         help='duration in seconds of the file to correlate; 0 = everything')
     parser.add_argument('-g', '--tag', type=str, 
                         help='tag to use for the output file')
-    parser.add_argument('-j', '--jit', action='store_true', 
-                        help='enable experimental just-in-time optimizations')
     parser.add_argument('--gpu', type=int,
                         help='enable the experimental GPU X-engine')
     parser.add_argument('-w', '--which', type=int, default=0, 

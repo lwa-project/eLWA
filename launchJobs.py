@@ -150,7 +150,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     # Copy the software over
     if softwareDir is None:
         softwareDir = os.path.dirname(__file__)
-    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'jit', 'mini_presto']:
+    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'mini_presto']:
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
