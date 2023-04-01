@@ -2,11 +2,17 @@
 Module that provides GPU-based X-engines built using cupy.
 """
 
+<<<<<<<< HEAD:gpu/xcupy.py
 # Python2 compatibility
 from __future__ import print_function, division
 
 import cupy as cp
 import numpy as np
+========
+import cupy
+import time
+import numpy
+>>>>>>>> main:xcupy.py
 
 from .cache import get_from_shape, get_from_ndarray, copy_using_cache
 
