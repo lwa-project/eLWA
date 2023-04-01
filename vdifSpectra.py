@@ -1,11 +1,6 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import numpy
@@ -30,10 +25,18 @@ def main(args):
     
     fh = open(filename, 'rb')
     header = vdif.read_guppi_header(fh)
+    if 'OBSFREQ' not in header:
+        header['OBSFREQ'] = 0.0
+    if 'OBSBW' not in header:
+        header['OBSBW'] = 19.6e6
     vdif.FRAME_SIZE = vdif.get_frame_size(fh)
     nFramesFile = os.path.getsize(filename) // vdif.FRAME_SIZE
     
-    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    is_complex = False
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
+    if junkFrame.payload.data.dtype in (numpy.complex64, numpy.complex128):
+        is_complex = True
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
     srate = junkFrame.sample_rate
     vdif.DATA_LENGTH = junkFrame.payload.data.size
     beam, pol = junkFrame.id
@@ -46,7 +49,7 @@ def main(args):
         
         offset = int(args.skip*srate / vdif.DATA_LENGTH)
         fh.seek(beampols*vdif.FRAME_SIZE*offset, 1)
-        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
         fh.seek(-vdif.FRAME_SIZE, 1)
         
         print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
@@ -54,8 +57,8 @@ def main(args):
         
     # Get the frequencies
     cFreq = 0.0
-    for j in xrange(4):
-        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    for j in range(4):
+        junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
         s,p = junkFrame.id
         if p == 0:
             cFreq = junkFrame.central_freq
@@ -71,7 +74,7 @@ def main(args):
     tFile = nFramesFile / beampols * vdif.DATA_LENGTH / srate
     
     # Date
-    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+    junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
     fh.seek(-vdif.FRAME_SIZE, 1)
     beginDate = junkFrame.time.datetime
         
@@ -88,10 +91,10 @@ def main(args):
 
     # Go!
     data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
-    count = [0 for i in xrange(data.shape[0])]
-    for i in xrange(beampols*nFrames):
+    count = [0 for i in range(data.shape[0])]
+    for i in range(beampols*nFrames):
         try:
-            cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+            cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
         except errors.SyncError:
             print("Error @ %i" % i)
             fh.seek(vdif.FRAME_SIZE, 1)
@@ -103,13 +106,14 @@ def main(args):
         count[sid] += 1
         
     # Transform and trim off the negative frequencies
-    freq, psd = fxc.SpecMaster(data, LFFT=2*LFFT, sample_rate=srate, central_freq=header['OBSFREQ']-srate/4)
-    freq, psd = freq[LFFT:], psd[:,LFFT:]
-    
+    freq, psd = fxc.SpecMaster(data, LFFT=(2-is_complex)*LFFT, sample_rate=srate, central_freq=header['OBSFREQ']-(1-is_complex)*srate/4)
+    if not is_complex:
+        freq, psd = freq[LFFT:], psd[:,LFFT:]
+        
     # Plot
     fig = plt.figure()
     ax = fig.gca()
-    for i in xrange(psd.shape[0]):
+    for i in range(psd.shape[0]):
         ax.plot(freq/1e6, numpy.log10(psd[i,:])*10, label='%i' % i)
     ax.set_title('%i' % beam)
     ax.set_xlabel('Frequency [MHz]')

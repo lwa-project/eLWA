@@ -1,15 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Run through a VDIF file and determine if it is bad or not.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
+
 import os
 import sys
 import numpy
@@ -41,7 +36,7 @@ def main(args):
     
     # Get the frequencies
     cFreq = 0.0
-    for j in xrange(4):
+    for j in range(4):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         s,p = junkFrame.id
         if p == 0:
@@ -99,7 +94,7 @@ def main(args):
     while True:
         count = {0:0, 1:0}
         data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH//tunepols), dtype=numpy.float32)
-        for j in xrange(chunkLength):
+        for j in range(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
                 cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
@@ -130,7 +125,7 @@ def main(args):
             clipFraction.append( numpy.zeros(2) )
             meanPower.append( data.mean(axis=1) )
             meanRMS.append( rms )
-            for j in xrange(2):
+            for j in range(2):
                 bad = numpy.nonzero(data[j,:] > args.trim_level)[0]
                 clipFraction[-1][j] = 1.0*len(bad) / data.shape[1]
                 

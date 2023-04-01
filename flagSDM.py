@@ -1,16 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 RFI flagger for FITS-IDI files containing eLWA data.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    
 import os
 import git
 import sys
@@ -131,7 +124,7 @@ def main(args):
             tStop  = min([flag['endTime']   - obsdates[0,0], obstimes[-1,0]])
             ants.append( (ant1,0) )
             times.append( (tStart, tStop) )
-            bands.append( [1 for j in xrange(nBand)] )
+            bands.append( [1 for j in range(nBand)] )
             chans.append( (1, 0) )
             pols.append( (1, 1, 1, 1) )
             reas.append( 'FLAGSDM.PY' )
@@ -214,7 +207,7 @@ def main(args):
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
                 

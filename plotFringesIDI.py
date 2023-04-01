@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A FITS-IDI compatible version of plotFringes2.py.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import numpy
@@ -163,7 +157,7 @@ def main(args):
                 
     plot_bls = []
     cross = []
-    for i in xrange(len(ubls)):
+    for i in range(len(ubls)):
         bl = ubls[i]
         ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
         if args.include_auto or ant1 != ant2:
@@ -199,7 +193,7 @@ def main(args):
     
     # NOTE: Assumes that the Stokes parameters increment by -1
     namMapper = {}
-    for i in xrange(nStk):
+    for i in range(nStk):
         stk = stk0 - i
         namMapper[i] = NUMERIC_STOKES[stk]
     polMapper = {'XX':0, 'YY':1, 'XY':2, 'YX':3}
@@ -213,7 +207,7 @@ def main(args):
     k = 0
     nRow = int(numpy.sqrt( len(plot_bls) ))
     nCol = int(numpy.ceil(len(plot_bls)*1.0/nRow))
-    for b in xrange(len(plot_bls)):
+    for b in range(len(plot_bls)):
         bl = plot_bls[b]
         valid = numpy.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF

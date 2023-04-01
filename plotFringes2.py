@@ -1,16 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 A fancier version of plotFringes.py that makes waterfall-like plots from .npz
 files created by the next generation of correlator.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import glob
@@ -80,9 +74,9 @@ def main(args):
     bls = []
     l = 0
     cross = []
-    for i in xrange(0, len(antennas), 2):
+    for i in range(0, len(antennas), 2):
         ant1 = antennas[i].stand.id
-        for j in xrange(i, len(antennas), 2):
+        for j in range(i, len(antennas), 2):
             ant2 = antennas[j].stand.id
             if args.include_auto or ant1 != ant2:
                 if args.baseline is not None:
@@ -141,8 +135,8 @@ def main(args):
             except KeyError:
                 delayStepApplied = [False for ant in antennas if ant.pol == 0]
             delayStepAppliedBL = []
-            for j in xrange(len(delayStepApplied)):
-                for k in xrange(j, len(delayStepApplied)):
+            for j in range(len(delayStepApplied)):
+                for k in range(j, len(delayStepApplied)):
                     delayStepAppliedBL.append( delayStepApplied[j] or delayStepApplied[k] )
                     
             visToMask[i,:,:] = [[delayStepAppliedBL[c],] for c in cross]
@@ -154,7 +148,7 @@ def main(args):
     print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
-    for i in xrange(1, len(times)):
+    for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
     
@@ -176,7 +170,7 @@ def main(args):
     k = 0
     nRow = int(numpy.sqrt( len(bls) ))
     nCol = int(numpy.ceil(len(bls)*1.0/nRow))
-    for b in xrange(len(bls)):
+    for b in range(len(bls)):
         i,j = bls[b]
         vis = numpy.ma.array(visToPlot[:,b,:], mask=visToMask[:,b,:])
         

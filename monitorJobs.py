@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Monitor jobs launch on the LWAUCF by launchJobs.py.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import re
 import sys
@@ -50,10 +44,7 @@ def get_directories(node):
     if status != 0:
         dirnames = []
     else:
-        try:
-            dirnames = dirnames.decode(encoding='ascii', errors='ignore')
-        except AttributeError:
-            pass
+        dirnames = dirnames.decode(encoding='ascii', errors='ignore')
         dirnames = dirnames.split('\n')[:-1]
         dirnames = [dirname.strip().rstrip() for dirname in dirnames]
     return dirnames
@@ -64,10 +55,7 @@ def get_processes(node):
     if status != 0:
         processes = []
     else:
-        try:
-            processes = processes.decode(encoding='ascii', errors='ignore')
-        except AttributeError:
-            pass
+        processes = processes.decode(encoding='ascii', errors='ignore')
         processes = processes.split('\n')[:-1]
         processes = [process.strip().rstrip() for process in processes]
     return processes
@@ -78,10 +66,7 @@ def get_directory_contents(node, dirname):
     if status != 0:
         filenames = []
     else:
-        try:
-            filenames = filenames.decode(encoding='ascii', errors='ignore')
-        except AttributeError:
-            pass
+        filenames = filenames.decode(encoding='ascii', errors='ignore')
         filenames = filenames.split('\n')[:-1]
         filenames = [filename.strip().rstrip() for filename in filenames]
     return filenames

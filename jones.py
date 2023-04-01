@@ -2,9 +2,6 @@
 Module for working with polarization to get LWA and VLA into the same frame.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import os
 import sys
 import time

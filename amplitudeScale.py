@@ -1,17 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Apply an amplitude scaling based on the VLA's switched power system 
 to FITS-IDI files containing eLWA data.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    
 import os
 import sys
 import time
@@ -65,7 +58,7 @@ def main(args):
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
-        for i in xrange(uvdata.header['NO_STKD']):
+        for i in range(uvdata.header['NO_STKD']):
             stk = uvdata.header['STK_1'] - i
             polMapper[i] = NUMERIC_STOKES[stk]
             
@@ -120,7 +113,7 @@ def main(args):
             last_pdiff_idx[an.replace('LWA0', 'EA')] = 0
             
         print("  Scaling")
-        for i in xrange(nBL_Ints):
+        for i in range(nBL_Ints):
             if i % 10000 == 0 or i+1 == nBL_Ints:
                 print("    Baseline/integration %i of %i" % (i+1, nBL_Ints))
                 
@@ -150,7 +143,7 @@ def main(args):
             ## Get the switched power difference value
             pdiff0, pdiff1 = None, None
             try:
-                for j in xrange(last_pdiff_idx[ant0], len(sub_pdiffs[ant0])):
+                for j in range(last_pdiff_idx[ant0], len(sub_pdiffs[ant0])):
                     pdiff = sub_pdiffs[ant0][j]
                     if intdate >= pdiff[0] and intdate < pdiff[1]:
                         pdiff0 = pdiff[2:]
@@ -159,7 +152,7 @@ def main(args):
             except KeyError:
                 pass
             try:
-                for j in xrange(last_pdiff_idx[ant1], len(sub_pdiffs[ant1])):
+                for j in range(last_pdiff_idx[ant1], len(sub_pdiffs[ant1])):
                     pdiff = sub_pdiffs[ant1][j]
                     if intdate >= pdiff[0] and intdate < pdiff[1]:
                         pdiff1 = pdiff[2:]
@@ -231,7 +224,7 @@ def main(args):
         obsdates.shape = (obsdates.shape[0]//nBL, nBL)
         obstimes.shape = (obstimes.shape[0]//nBL, nBL)
         mask.shape = (mask.shape[0]//nBL, nBL, nBand, nFreq, nStk)  # pylint: disable=no-member
-        for i in xrange(nBL):
+        for i in range(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
                 print("    Baseline %i of %i" % (i+1, nBL))
@@ -247,7 +240,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
                                    obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
                     reas.append( 'AMPLITUDESCALE.PY' )
@@ -256,7 +249,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[flag[0],i]+obstimes[flag[0],i]-obsdates[0,0], 
                                    obsdates[flag[1],i]+obstimes[flag[1],i]-obsdates[0,0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
                     reas.append( 'AMPLITUDESCALE.PY' )
@@ -320,7 +313,7 @@ def main(args):
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
                 
