@@ -259,36 +259,39 @@ PyDoc_STRVAR(cDoc, \
   Module Setup - Initialization
 */
 
-MOD_INIT({{module}}) {
+PyMODINIT_FUNC PyInit_{{module}}(void) {
     char filename[256];
     PyObject *m, *all, *pModule, *pDataPath;
 
     // Module definitions and functions
-    MOD_DEF(m, "{{module}}", cMethods, cDoc);
+    static struct PyModuleDef moduledef = {
+  		 PyModuleDef_HEAD_INIT, "{{module}}", cDoc, -1, cMethods
+  	};
+  	m  = PyModule_Create(&moduledef);
     if( m == NULL ) {
-        return MOD_ERROR_VAL;
+        return NULL;
     }
     import_array();
     
     // Function listings
 	all = PyList_New(0);
-	PyList_Append(all, PyString_FromString("specS"));
-	PyList_Append(all, PyString_FromString("specF"));
-	PyList_Append(all, PyString_FromString("specL"));
-	PyList_Append(all, PyString_FromString("FEngine"));
-	PyList_Append(all, PyString_FromString("PFBEngine"));
-	PyList_Append(all, PyString_FromString("XEngine2"));
-	PyList_Append(all, PyString_FromString("XEngine3"));
+	PyList_Append(all, PyUnicode_FromString("specS"));
+	PyList_Append(all, PyUnicode_FromString("specF"));
+	PyList_Append(all, PyUnicode_FromString("specL"));
+	PyList_Append(all, PyUnicode_FromString("FEngine"));
+	PyList_Append(all, PyUnicode_FromString("PFBEngine"));
+	PyList_Append(all, PyUnicode_FromString("XEngine2"));
+	PyList_Append(all, PyUnicode_FromString("XEngine3"));
     PyModule_AddObject(m, "__all__", all);
     
     // LSL FFTW Wisdom
     pModule = PyImport_ImportModule("lsl.common.paths");
     if( pModule != NULL ) {
         pDataPath = PyObject_GetAttrString(pModule, "DATA");
-        sprintf(filename, "%s/fftwf_wisdom.txt", PyString_AsString(pDataPath));
+        sprintf(filename, "%s/fftwf_wisdom.txt", PyUnicode_AsString(pDataPath));
         read_wisdom(filename, m);
     } else {
         PyErr_Warn(PyExc_RuntimeWarning, "Cannot load the LSL FFTWF wisdom");
     }
-    return MOD_SUCCESS_VAL(m);
+    return m;
 }

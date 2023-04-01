@@ -2,17 +2,12 @@
 Unit tests for the a small LWA correlation job.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import unittest
 unittest.TestLoader.sortTestMethodsUsing = None
 
 import os
 import re
+import sys
 import glob
 import numpy
 from astropy.io import fits as astrofits

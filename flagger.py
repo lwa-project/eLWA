@@ -2,16 +2,10 @@
 RFI flagging module for use with eLWA data.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
-
 import sys
 import time
 import numpy
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from io import StringIO
     
 from lsl.common.stations import lwa1
 from lsl.statistics import robust

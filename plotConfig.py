@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Small script to plot up the configuration in a file.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import numpy
@@ -45,8 +39,8 @@ def main(args):
     # Get the baseline lengths for zenith
     bl = []
     blLength = []
-    for i in xrange(data.shape[0]):
-        for j in xrange(i+1, data.shape[0]):
+    for i in range(data.shape[0]):
+        for j in range(i+1, data.shape[0]):
             bl.append( (i,j) )
             blLength.append( numpy.sqrt( ((data[i,:]-data[j,:])**2).sum() ) )
     blLength = numpy.array(blLength) / 1e3
@@ -91,7 +85,7 @@ def main(args):
     
     # Add in the labels, if requested
     if args.label:
-        for i in xrange(len(names)):
+        for i in range(len(names)):
             ax1.annotate(names[i], xy=(data[i,0]/1e3, data[i,1]/1e3))
             
     # Add and elevation colorbar to the right-hand side of the figure

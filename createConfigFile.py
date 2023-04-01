@@ -1,16 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Simple script to take in a collection of observation files and build up a 
 superCorrelator.py configuration script.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import re
 import git
@@ -258,7 +252,7 @@ def main(args):
                 enz[1] *= -1
                 
                 ## Read in the first few frames to get the start time
-                frames = [drx.read_frame(fh) for i in xrange(1024)]
+                frames = [drx.read_frame(fh) for i in range(1024)]
                 streams = []
                 freq1, freq2 = 0.0, 0.0
                 for frame in frames:
@@ -290,7 +284,7 @@ def main(args):
                     except errors.SyncError:
                         backed += 1
                         fh.seek(-drx.FRAME_SIZE-1, 1)
-                for i in xrange(32):
+                for i in range(32):
                     try:
                         frame = drx.read_frame(fh)
                         beam, tune, _ = frame.id
@@ -635,7 +629,7 @@ if __name__ == "__main__":
         
     # Cleanup the command line since argparse has a problem with the negative 
     # clock offsets
-    for i in xrange(len(sys.argv)):
+    for i in range(len(sys.argv)):
         if sys.argv[i][0] == '-':
             try:
                 time_string(sys.argv[i])

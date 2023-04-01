@@ -1,14 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Correlator for LWA and/or VLA data.
 """
-
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
 
 import os
 import re
@@ -184,7 +178,7 @@ def main(args):
         # Get the frequencies
         cFreq1 = 0.0
         cFreq2 = 0.0
-        for j in xrange(64):
+        for j in range(64):
             if readers[i] is vdif:
                 junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                 s,p = junkFrame.id
@@ -214,11 +208,11 @@ def main(args):
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
             buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
-    for i in xrange(len(filenames)):
+    for i in range(len(filenames)):
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
             timetags = []
-            for k in xrange(16):
+            for k in range(16):
                 junkFrame = readers[i].read_frame(fh[i])
                 timetags.append(junkFrame.header.frame_in_second)
             fh[i].seek(-16*readers[i].FRAME_SIZE, 1)
@@ -243,7 +237,7 @@ def main(args):
         j = 0
         while junkFrame.time + grossOffsets[i] < max(tStart):
             if readers[i] is vdif:
-                for k in xrange(beampols[i]):
+                for k in range(beampols[i]):
                     try:
                         junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                     except errors.SyncError:
@@ -251,7 +245,7 @@ def main(args):
                         fh[i].seek(readers[i].FRAME_SIZE, 1)
                         continue
             else:
-                for k in xrange(beampols[i]):
+                for k in range(beampols[i]):
                     junkFrame = readers[i].read_frame(fh[i])
             j += beampols[i]
             
@@ -285,7 +279,7 @@ def main(args):
     # Date
     beginMJDs = []
     beginDates = []
-    for i in xrange(len(filenames)):
+    for i in range(len(filenames)):
         if readers[i] is vdif:
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         else:
@@ -303,7 +297,7 @@ def main(args):
         outbase = args.tag
         
     # Report
-    for i in xrange(len(filenames)):
+    for i in range(len(filenames)):
         print("Filename: %s" % os.path.basename(filenames[i]))
         print("  Type/Reader: %s" % readers[i].__name__)
         print("  Date of First Frame: %s" % beginDates[i])
@@ -393,16 +387,16 @@ def main(args):
     fileCount   = 0
     wallStart = time.time()
     done = False
-    oldStartRel = [0 for i in xrange(nVDIFInputs+nDRXInputs)]
+    oldStartRel = [0 for i in range(nVDIFInputs+nDRXInputs)]
     username = getpass.getuser()
-    for i in xrange(nChunks):
+    for i in range(nChunks):
         wallTime = time.time()
         
         tStart = []
         tStartB = []
         
-        vdifRef = [0 for j in xrange(nVDIFInputs*2)]
-        drxRef  = [0 for j in xrange(nDRXInputs*2) ]
+        vdifRef = [0 for j in range(nVDIFInputs*2)]
+        drxRef  = [0 for j in range(nDRXInputs*2) ]
         
         # Read in the data
         with InterProcessLock('/dev/shm/sc-reader-%s' % username) as lock:
@@ -515,7 +509,7 @@ def main(args):
         
         ## Sample offsets between the streams
         offsets = []
-        for j in xrange(nVDIFInputs+nDRXInputs):
+        for j in range(nVDIFInputs+nDRXInputs):
             offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
         if args.verbose:
             print('TT - Offsets', offsets)
@@ -553,7 +547,7 @@ def main(args):
         tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
         if args.verbose:
             print('TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel])
-        for k in xrange(len(tStartRel)):
+        for k in range(len(tStartRel)):
             antennas[2*k+0].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
             antennas[2*k+1].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
         oldStartRel = tStartRel
@@ -568,7 +562,7 @@ def main(args):
             tD = i*tRead + numpy.arange(dataD.shape[1]-max(drxOffsets), dtype=numpy.float64)/srate[-1]
             
         # Loop over sub-integrations
-        for j in xrange(nSub):
+        for j in range(nSub):
             ## Select the data to work with
             tSubInt = tStart[0] + (j+1)*nSampV/srate[0] - nSampV//2/srate[0]
             #tVSub    = tV[j*nSampV:(j+1)*nSampV]
@@ -630,7 +624,7 @@ def main(args):
                     print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
                     
                 freqD += subChanFreqOffset
-                for w in xrange(feoD.shape[2]):
+                for w in range(feoD.shape[2]):
                     feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
                     
             ## Sort out what goes where (channels and antennas) if we don't already know
@@ -741,12 +735,12 @@ def main(args):
                 veoD = veoD[:,:nWin]
                 
             ## Sort it all out by polarization
-            for k in xrange(nVDIFInputs):
+            for k in range(nVDIFInputs):
                 feoX[k,:,:] = feoV[aXV[k],:,:]
                 feoY[k,:,:] = feoV[aYV[k],:,:]
                 veoX[k,:] = veoV[aXV[k],:]
                 veoY[k,:] = veoV[aYV[k],:]
-            for k in xrange(nDRXInputs):
+            for k in range(nDRXInputs):
                 feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]
                 feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]
                 veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]

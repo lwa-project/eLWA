@@ -2,9 +2,6 @@
 Module that provide the multi-rate F-engine needed to correlate data at 
 different sample rates.
 """
-
-# Python2 compatibility
-from __future__ import print_function, division, absolute_import
     
 import ephem
 import numpy

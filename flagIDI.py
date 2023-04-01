@@ -1,16 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 RFI flagger for FITS-IDI files containing eLWA data.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    
 import os
 import git
 import sys
@@ -51,7 +44,7 @@ def main(args):
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
-        for i in xrange(uvdata.header['NO_STKD']):
+        for i in range(uvdata.header['NO_STKD']):
             stk = uvdata.header['STK_1'] - i
             polMapper[i] = NUMERIC_STOKES[stk]
             
@@ -145,7 +138,7 @@ def main(args):
                     continue
                     
                 antennas = []
-                for j in xrange(nBL):
+                for j in range(nBL):
                     ant1, ant2 = (bbls[j]>>8)&0xFF, bbls[j]&0xFF
                     if ant1 not in antennas:
                         antennas.append(ant1)
@@ -161,7 +154,7 @@ def main(args):
                 
                 if args.scf_passes > 0:
                     print('      Flagging spurious correlations')
-                    for p in xrange(args.scf_passes):
+                    for p in range(args.scf_passes):
                         print('        Pass #%i' % (p+1,))
                         visXX.mask = mask_spurious(antennas, times, crd, freq+offset, visXX)
                         visYY.mask = mask_spurious(antennas, times, crd, freq+offset, visYY)
@@ -203,7 +196,7 @@ def main(args):
                     sevs.append( row['SEVERITY'] )
         ## New Flags
         nBL = len(ubls)
-        for i in xrange(nBL):
+        for i in range(nBL):
             blset = numpy.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
@@ -223,7 +216,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[blset[flag[0]]]+obstimes[blset[flag[0]]]-obsdates[0], 
                                    obsdates[blset[flag[1]]]+obstimes[blset[flag[1]]]-obsdates[0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (1, 0, 1, 1) )
                     reas.append( 'FLAGIDI.PY' )
@@ -232,7 +225,7 @@ def main(args):
                     ants.append( (ant1,ant2) )
                     times.append( (obsdates[blset[flag[0]]]+obstimes[blset[flag[0]]]-obsdates[0], 
                                    obsdates[blset[flag[1]]]+obstimes[blset[flag[1]]]-obsdates[0]) )
-                    bands.append( [1 if j == b else 0 for j in xrange(nBand)] )
+                    bands.append( [1 if j == b else 0 for j in range(nBand)] )
                     chans.append( (flag[2]+1, flag[3]+1) )
                     pols.append( (0, 1, 1, 1) )
                     reas.append( 'FLAGIDI.PY' )
@@ -313,7 +306,7 @@ def main(args):
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
             else:
                 yn = 'y'
                 
