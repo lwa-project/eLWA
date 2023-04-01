@@ -1,11 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import numpy
@@ -51,7 +45,7 @@ def main(args):
         
     # Get the frequencies
     cFreq = 0.0
-    for j in xrange(4):
+    for j in range(4):
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         s,p = junkFrame.id
         if p == 0:
@@ -85,8 +79,8 @@ def main(args):
 
     # Go!
     data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
-    count = [0 for i in xrange(data.shape[0])]
-    for i in xrange(beampols*nFrames):
+    count = [0 for i in range(data.shape[0])]
+    for i in range(beampols*nFrames):
         try:
             cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         except errors.SyncError:

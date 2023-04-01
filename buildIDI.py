@@ -1,18 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a collection of .npz files create a FITS-IDI file that can be read in by
 AIPS.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    raw_input = input
-    from functools import cmp_to_key
-    
 import os
 import re
 import git
@@ -24,6 +16,7 @@ import numpy
 import argparse
 import tempfile
 import warnings
+from functools import cmp_to_key
 from datetime import datetime, timedelta, tzinfo
 
 from astropy.constants import c as vLight
@@ -72,13 +65,9 @@ def getSourceName(src):
     count) name within 2" of the provided position.
     """
     
-    try:
-        from urllib import quote_plus
-        from urllib2 import urlopen
-    except ImportError:
-        from urllib.parse import quote_plus
-        from urllib.request import urlopen
-        
+    from urllib.parse import quote_plus
+    from urllib.request import urlopen
+    
     # Pull out what we know about the source
     name = src.name
     ra = str(src._ra)
@@ -353,7 +342,7 @@ def main(args):
             ### Does it already exist or not
             if os.path.exists(outname):
                 if not args.force:
-                    yn = raw_input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                    yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
                 else:
                     yn = 'y'
                     

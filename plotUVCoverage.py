@@ -1,11 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import numpy
@@ -112,7 +106,7 @@ def main(args):
     # Plot
     fig = plt.figure()
     ax = fig.gca()
-    for i in xrange(uvw.shape[0]):
+    for i in range(uvw.shape[0]):
         l, = ax.plot(uvw[i,:,0], uvw[i,:,1], linestyle='', marker='o', ms=3.0, alpha=0.2)
         ax.plot(-uvw[i,:,0], -uvw[i,:,1], linestyle='', marker='o', ms=3.0, alpha=0.2, color=l.get_color())
     ax.set_xlabel('u [$k\\lambda$]')

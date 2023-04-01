@@ -1,15 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Given a collection of .npz files search for course delays and rates.
 """
 
-# Python3 compatibility
-from __future__ import print_function, division, absolute_import
-import sys
-if sys.version_info > (3,):
-    xrange = range
-    
 import os
 import sys
 import glob
@@ -179,7 +173,7 @@ def main(args):
                     
         plot_bls = []
         cross = []
-        for i in xrange(len(ubls)):
+        for i in range(len(ubls)):
             bl = ubls[i]
             ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
             if ant1 != ant2:
@@ -274,7 +268,7 @@ def main(args):
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
-        for i in xrange(smth.size):
+        for i in range(smth.size):
             mn = max([0, i-winSize//2])
             mx = min([i+winSize, smth.size])
             smth[i] = numpy.median(spec[mn:mx])
@@ -288,7 +282,7 @@ def main(args):
         freq2.shape += (1,)
         
         dirName = os.path.basename( filename )
-        for b in xrange(len(plot_bls)):
+        for b in range(len(plot_bls)):
             bl = plot_bls[b]
             valid = numpy.where( bls == bl )[0]
             i,j = (bl>>8)&0xFF, bl&0xFF
@@ -335,7 +329,7 @@ def main(args):
             markers = {'XX':'s', 'YY':'o', 'XY':'v', 'YX':'^'}
             
             for pol,vis in zip(polToUse, visToUse):
-                for i in xrange(iCount):
+                for i in range(iCount):
                     subStart, subStop = dTimes[iSize*i], dTimes[iSize*(i+1)-1]
                     if (subStop - subStart) > 1.1*args.interval:
                         continue
