@@ -7,6 +7,7 @@ unittest.TestLoader.sortTestMethodsUsing = None
 
 import os
 import re
+import sys
 import glob
 import numpy
 from astropy.io import fits as astrofits

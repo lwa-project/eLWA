@@ -5,6 +5,7 @@ Unit tests for the a small eLWA correlation job.
 import unittest
 import os
 import re
+import sys
 import glob
 import numpy
 from astropy.io import fits as astrofits
