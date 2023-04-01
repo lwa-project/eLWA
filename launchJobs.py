@@ -134,7 +134,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     # Copy the software over
     if softwareDir is None:
         softwareDir = os.path.dirname(__file__)
-    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'jit', 'mini_presto']:
+    for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'mini_presto']:
         filename = os.path.join(softwareDir, filename)
         code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
     if code != 0:
@@ -399,7 +399,7 @@ if __name__ == "__main__":
                         help='comma seperated lists of nodes to use')
     parser.add_argument('--gpu', action='store_true',
                         help='enable the experimental GPU X-engine')
-    parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1 -j",
+    parser.add_argument('-o', '--options', type=str, default="-l 256 -t 1",
                         help='correlator options to use')
     parser.add_argument('-b', '--both-tunings', action='store_true',
                         help='for LWA-only configuration files, process both tunings')
