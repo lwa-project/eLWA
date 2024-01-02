@@ -268,9 +268,9 @@ def main(args):
                     
                 best = numpy.where( amp == amp.max() )
                 if amp.max() > 0:
-                    bsnr = (amp[best]-amp.mean())[0]/amp.std()
-                    bdly = delay[best[0][0]]*1e6
-                    brat = drate[best[1][0]]*1e3
+                    bsnr = (amp[best]-amp.mean())/amp.std()
+                    bdly = delay[best[0]]*1e6
+                    brat = drate[best[1]]*1e3
                     
                     axR.plot(subTime-ref_time, brat, linestyle='', marker=markers[pol], color='k')
                     axD.plot(subTime-ref_time, bdly, linestyle='', marker=markers[pol], color='k')
