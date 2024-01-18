@@ -508,6 +508,8 @@ def _read_correlator_configuration(filename):
             aid = 51
         elif name.lower() in ('lwasv', 'lwa-sv'):
             aid = 52
+        elif name.lower() in ('lwana', 'lwa-na'):
+            aid = 53
         else:
             for j in range(len(name)):
                 try:
