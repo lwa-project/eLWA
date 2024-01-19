@@ -92,15 +92,17 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
         ERR = subprocess.PIPE
     p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
     output, err = p.communicate()
-    if not quiet:
-        output = output.decode()
-        err = err.decode()
     status = p.returncode
+    
     if quiet:
         DEVNULL.close()
         
     if return_output:
         status = (status, output)
+        if not quiet:
+            output = output.decode()
+            err = err.decode()
+
     return status
 
 
