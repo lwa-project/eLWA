@@ -66,6 +66,9 @@ def configfile_is_lwa_only(configfile, quiet=True):
 
 
 def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quiet=False):
+    if return_output and quiet:
+        raise RuntimeError("Cannot be both quiet and return output")
+        
     if node is None:
         if type(cmd) is list:
             pcmd = cmd
@@ -98,11 +101,10 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
         DEVNULL.close()
         
     if return_output:
+        output = output.decode()
+        err = err.decode()
         status = (status, output)
-        if not quiet:
-            output = output.decode()
-            err = err.decode()
-
+        
     return status
 
 
