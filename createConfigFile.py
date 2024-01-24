@@ -200,7 +200,7 @@ def main(args):
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
-                ## Figure out LWA1 vs LWA-SV
+                ## Figure out LWA1 vs LWA-SV vs LWA-NA?
                 try:
                     cs = metabundle.get_command_script(filename)
                     for c in cs:
@@ -209,6 +209,9 @@ def main(args):
                             break
                         elif c['subsystem_id'] == 'ADP':
                             site = 'LWA-SV'
+                            break
+                        elif c['subsystem_id'] == 'NDP':
+                            site = 'LWA-NA'
                             break
                 except (RuntimeError, ValueError):
                     site = 'LWA-SV'
