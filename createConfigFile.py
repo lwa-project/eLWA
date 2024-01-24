@@ -44,6 +44,18 @@ LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(
                          [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
                          [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
 
+## Derived from the center of array position
+## taken from the North Arm Site survey on 
+## 3/16/2015 by van Gulick Surveying. 
+## To be replaced with astronomical calibration 
+## during ongoing station commissioning.
+
+LWANA_ECEF = numpy.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
+LWANA_LAT =  34.24700067428984 * numpy.pi/180
+LWANA_LON = -107.64040447014175 * numpy.pi/180
+LWANA_ROT = numpy.array([[ numpy.sin(LWANA_LAT)*numpy.cos(LWANA_LON), numpy.sin(LWANA_LAT)*numpy.sin(LWANA_LON), -numpy.cos(LWANA_LAT)], 
+                         [-numpy.sin(LWANA_LON),                      numpy.cos(LWANA_LON),                       0                   ],
+                         [ numpy.cos(LWANA_LAT)*numpy.cos(LWANA_LON), numpy.cos(LWANA_LAT)*numpy.sin(LWANA_LON),  numpy.sin(LWANA_LAT)]])
 
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
@@ -241,6 +253,9 @@ def main(args):
                 elif sitename == 'LWA-SV':
                     xyz = LWASV_ECEF
                     off = args.lwasv_offset
+                elif sitename == 'LWA-NA':
+                    xyz = LWANA_ECEF
+                    off = args.lwana_offset
                 else:
                     raise RuntimeError("Unknown LWA site '%s'" % site)
                     
@@ -442,9 +457,9 @@ def main(args):
         del corrConfig['inputs'][corrConfig['inputs'].index(cinp)]
         
     # Sort the inputs based on the antenna name - this puts LWA1 first, 
-    # LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
+    # LWA-SV second, LWA-NA third, and the VLA at the end in 'EA' antenna order, i.e., 
     # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else int(x['antenna'][2:], 10)))
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (1 if x['antenna'] == 'LWA-NA' else int(x['antenna'][2:], 10)))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
@@ -652,6 +667,8 @@ if __name__ == "__main__":
                         help='LWA1 clock offset')
     parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 
                         help='LWA-SV clock offset')
+    parser.add_argument('-a', '--lwana-offset', type=time_string, default='0.0',
+                        help='LWA-NA clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
     parser.add_argument('-m', '--minimum-scan-length', type=float, default=-numpy.inf,
