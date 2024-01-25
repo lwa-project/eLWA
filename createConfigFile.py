@@ -458,7 +458,7 @@ def main(args):
     # Sort the inputs based on the antenna name - this puts LWA1 first, 
     # LWA-SV second, LWA-NA third, and the VLA at the end in 'EA' antenna order, i.e., 
     # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else int(x['antenna'][2:], 10)))
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else int(x['antenna'][2:], 10))))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
