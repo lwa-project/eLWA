@@ -203,18 +203,14 @@ def main(args):
                 ## Figure out LWA1 vs LWA-SV vs LWA-NA?
                 try:
                     cs = metabundle.get_command_script(filename)
-                    for c in cs:
-                        if c['subsystem_id'] == 'DP':
-                            site = 'LWA1'
-                            break
-                        elif c['subsystem_id'] == 'ADP':
-                            site = 'LWA-SV'
-                            break
-                        elif c['subsystem_id'] == 'NDP':
-                            site = 'LWA-NA'
-                            break
+                    site = 'LWA1'
                 except (RuntimeError, ValueError):
-                    site = 'LWA-SV'
+                    try:
+                        cs = metabundleADP.get_command_script(filename)
+                        site = 'LWA-SV'
+                    except (RuntimeError, ValueError):
+                        site = 'LWA-NA'
+ 
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
