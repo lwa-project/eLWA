@@ -16,6 +16,7 @@ def main(args):
     # Parse the config files to pull out filenames and associated start/stop times
     lwa1 = {}
     lwasv = {}
+    lwana = {}
     vla = {}
     for filename in args.filename:
         with open(filename, 'r') as fh:
@@ -24,7 +25,7 @@ def main(args):
             
             for i,line in enumerate(lines):
                 ## A LWA1 or LWA-SV Type TabNine::no_sem to suppress this message.?
-                if line.find('LWA1') != -1 or line.find('LWA-SV') != -1:
+                if line.find('LWA1') != -1 or line.find('LWA-SV') != -1 or line.find('LWA-NA') != -1:
                     start = lines[i-8].rsplit('is ', 1)[1]
                     stop = lines[i-7].rsplit('is ', 1)[1]
                     filename = lines[i-3].rsplit(None, 1)[1]
@@ -37,8 +38,10 @@ def main(args):
                     if line.find('LWA1') != -1:
                         lwa1[filename] = (start,stop)
                     elif line.find('LWA-SV') != -1:
-                        lwasv[filename] = (start,stop)
-                        
+                        lwasv[filename] = (start,stop)                      
+                    elif line.find('LWA-NA') != -1:
+                        lwana[filename] = (start,stop)
+
                 ## A VLA entry?
                 if line.find('AC-0') != -1 or line.find('BD-0') != -1:
                     start = lines[i-4].rsplit('is ', 1)[1]
@@ -57,7 +60,7 @@ def main(args):
                     
     # Find the first scan in the set
     ref = None
-    for site in (lwa1, lwasv, vla):
+    for site in (lwa1, lwasv, lwana, vla):
         for filename in site:
             if ref is None or site[filename][0] < ref:
                 ref = site[filename][0]
@@ -67,7 +70,7 @@ def main(args):
     fig = plt.figure()
     ax = fig.gca()
     #ax2 = ax.twiny()
-    for offset,site in enumerate((vla,lwa1,lwasv)):
+    for offset,site in enumerate((vla,lwa1,lwasv,lwana)):
         for filename in site:
             start, stop = site[filename]
             

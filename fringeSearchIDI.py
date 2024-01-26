@@ -242,7 +242,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if ant1 not in (51, 52) and ant2 not in (51, 52):
+        if ant1 not in (51, 52, 53) and ant2 not in (51, 52, 53):
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'YY')
         else:

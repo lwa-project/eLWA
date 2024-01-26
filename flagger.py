@@ -259,7 +259,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     # Build the exclusion list
     exclude = ()
     if not includeLWA:
-        exclude = (51, 52)
+        exclude = (51, 52, 53)
         
     # Load up the lists of baselines
     try:

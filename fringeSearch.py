@@ -222,7 +222,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if bls[b][0] not in (51, 52) and bls[b][1] not in (51, 52):
+        if bls[b][0] not in (51, 52, 53) and bls[b][1] not in (51, 52, 53):
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'YY')
             visToUse = (visXX, visYY)
