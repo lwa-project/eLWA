@@ -38,24 +38,13 @@ LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA
 ## with LWA1 and LWA-SV.  This also includes the shift detailed
 ## above for LWA1
 LWASV_ECEF = numpy.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
-#LWASV_LAT =   34.34841153053564 * numpy.pi/180
-#LWASV_LON = -106.88582216960029 * numpy.pi/180
-#LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
-#                        [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
-#                         [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
 
 ## Derived from the center of array position
 ## taken from the North Arm Site survey on 
 ## 3/16/2015 by van Gulick Surveying. 
 ## To be replaced with astronomical calibration 
 ## during ongoing station commissioning.
-
 LWANA_ECEF = numpy.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
-#LWANA_LAT =  34.24700067428984 * numpy.pi/180
-#LWANA_LON = -107.64040447014175 * numpy.pi/180
-#LWANA_ROT = numpy.array([[ numpy.sin(LWANA_LAT)*numpy.cos(LWANA_LON), numpy.sin(LWANA_LAT)*numpy.sin(LWANA_LON), -numpy.cos(LWANA_LAT)], 
-#                         [-numpy.sin(LWANA_LON),                      numpy.cos(LWANA_LON),                       0                   ],
-#                         [ numpy.cos(LWANA_LAT)*numpy.cos(LWANA_LON), numpy.cos(LWANA_LAT)*numpy.sin(LWANA_LON),  numpy.sin(LWANA_LAT)]])
 
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
