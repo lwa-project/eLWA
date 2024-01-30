@@ -7,10 +7,9 @@ Correlator for LWA and/or VLA data.
 import os
 import re
 import sys
-import math
 import time
 import ephem
-import numpy
+import numpy as np
 import getpass
 import argparse
 from datetime import datetime
@@ -37,48 +36,13 @@ import multirate
 from utils import *
 
 
-def bestFreqUnits(freq):
-    """Given a numpy array of frequencies in Hz, return a new array with the
-    frequencies in the best units possible (kHz, MHz, etc.)."""
-    
-    # Figure out how large the data are
-    try:
-        scale = int(math.log10(max(freq)))
-    except TypeError:
-        scale = int(math.log10(freq))
-    if scale >= 9:
-        divis = 1e9
-        units = 'GHz'
-    elif scale >= 6:
-        divis = 1e6
-        units = 'MHz'
-    elif scale >= 3:
-        divis = 1e3
-        units = 'kHz'
-    elif scale >= 0:
-        divis = 1
-        units = 'Hz'
-    elif scale >= -3:
-        divis = 1e-3
-        units = 'mHz'
-    else:
-        divis = 1e-6
-        units = 'uHz'
-        
-    # Convert the frequency
-    newFreq = freq / divis
-    
-    # Return units and freq
-    return (newFreq, units)
-
-
 def main(args):
     # Build up the station
     site = stations.lwa1
     ## Updated 2018/3/8 with solutions from the 2018 Feb 28 eLWA
     ## run.  See createConfigFile.py for details.
-    site.lat = 34.068956328 * numpy.pi/180
-    site.long = -107.628103026 * numpy.pi/180
+    site.lat = 34.068956328 * np.pi/180
+    site.long = -107.628103026 * np.pi/180
     site.elev = 2132.96837346
     observer = site.get_observer()
     
@@ -87,7 +51,7 @@ def main(args):
     try:
         args.fft_length = config['channels']
         args.dump_time = config['inttime']
-        print("NOTE: Set FFT length to %i and dump time to %.3f s per user defined configuration" % (args.fft_length, args.dump_time))
+        print(f"NOTE: Set FFT length to {args.fft_length} and dump time to {args.dump_time:.3f} s per user defined configuration")
     except (TypeError, KeyError):
         pass
     if args.duration == 0.0:
@@ -98,19 +62,17 @@ def main(args):
     LFFT = args.fft_length
     
     # Get the raw configuration
-    fh = open(args.filename, 'r')
-    rawConfig = fh.readlines()
-    fh.close()
-    
+    with open(args.filename, 'r') as fh:
+        rawConfig = fh.readlines()
+        
     # Get the raw polycos
-    fh = open(refSrc._polycos.filename, 'r')
-    rawPolycos = fh.readlines()
-    fh.close()
-    
+    with open(refSrc._polycos.filename, 'r') as fh:
+        rawPolycos = fh.readlines()
+        
     # Antenna report
     print("Antennas:")
     for ant in antennas:
-        print("  Antenna %i: Stand %i, Pol. %i (%.3f us offset)" % (ant.id, ant.stand.id, ant.pol, ant.cable.clock_offset*1e6))
+        print(f"  Antenna {ant.id}: Stand {ant.stand.id}, Pol. {ant.pol} ({ant.cable.clock_offset*1e6:.3f} us offset)")
         
     # Open and align the files
     fh = []
@@ -127,14 +89,14 @@ def main(args):
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
-        go = numpy.int32(antennas[2*i].cable.clock_offset)
+        go = np.int32(antennas[2*i].cable.clock_offset)
         antennas[2*i+0].cable.clock_offset -= go
         antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( go )
         if go != 0:
-            print("Correcting time tags for gross offset of %i s" % grossOffsets[i])
-            print("  Antenna clock offsets are now at %.3f us, %.3f us" % (antennas[2*i+0].cable.clock_offset*1e6, antennas[2*i+1].cable.clock_offset*1e6))
-        
+            print(f"Correcting time tags for gross offset of {grossOffsets[i]} s")
+            print(f"  Antenna clock offsets are now at {antennas[2*i+0].cable.clock_offset*1e6:.3f} us, {antennas[2*i+1].cable.clock_offset*1e6:.3f} us")
+            
         if readers[i] is vdif:
             header = vdif.read_guppi_header(fh[i])
             readers[i].FRAME_SIZE = readers[i].get_frame_size(fh[i])
@@ -163,8 +125,8 @@ def main(args):
             
         skip = args.skip + foffset
         if skip != 0:
-            print("Skipping forward %.3f s" % skip)
-            print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
+            print(f"Skipping forward {skip:.3f} s")
+            print(f"-> {junkFrame.time:%.6f} ({junkFrame.time.datetime})")
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -174,7 +136,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print("-> %.6f (%s)" % (junkFrame.time, junkFrame.time.datetime))
+            print(f"-> {junkFrame.time:.6f} ({junkFrame.time.datetime})")
             
         tStart.append( junkFrame.time + grossOffsets[i] )
         
@@ -244,7 +206,7 @@ def main(args):
                     try:
                         junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                     except errors.SyncError:
-                        print("Error - VDIF @ %i" % (i,))
+                        print(f"Error - VDIF @ {i}")
                         fh[i].seek(readers[i].FRAME_SIZE, 1)
                         continue
             else:
@@ -253,7 +215,7 @@ def main(args):
             j += beampols[i]
             
         jTime = j*readers[i].DATA_LENGTH/srate[i]/beampols[i]
-        print("Shifted beam %i data by %i frames (%.4f s)" % (beams[i], j, jTime))
+        print(f"Shifted beam {beams[i]} data by {j} frames ({jTime:.4f} s)")
         
     # Set integration time
     tRead = 1.0
@@ -301,26 +263,26 @@ def main(args):
         
     # Report
     for i in range(len(filenames)):
-        print("Filename: %s" % os.path.basename(filenames[i]))
-        print("  Type/Reader: %s" % readers[i].__name__)
-        print("  Date of First Frame: %s" % beginDates[i])
-        print("  Sample Rate: %i Hz" % srate[i])
-        print("  Tuning 1: %.3f Hz" % cFreqs[i][0])
-        print("  Tuning 2: %.3f Hz" % cFreqs[i][1])
-        print("  Bit Depth: %i" % bitDepths[i])
+        print(f"Filename: {os.path.basename(filenames[i])}")
+        print(f"  Type/Reader: {readers[i].__name__}")
+        print(f"  Date of First Frame: {beginDates[i]}")
+        print(f"  Sample Rate: {srate[i]} Hz")
+        print(f"  Tuning 1: {cFreqs[i][0]:.3f} Hz")
+        print(f"  Tuning 2: {cFreqs[i][1]:.3f} Hz")
+        print(f"  Bit Depth: {bitDepths[i]}")
     print("  ===")
     print("  Phase Center:")
-    print("    Name: %s" % refSrc.name)
-    print("    RA: %s" % refSrc._ra)
-    print("    Dec: %s" % refSrc._dec)
+    print(f"    Name: {refSrc.name}")
+    print(f"    RA: {str(refSrc._ra)}")
+    print(f"    Dec: {str(refSrc._dec)}")
     print("  ===")
-    print("  Data Read Time: %.3f s" % tRead)
-    print("  Data Reads in File: %i" % int(tFile/tRead))
+    print(f"  Data Read Time: {tRead:.3f} s")
+    print(f"  Data Reads in File: {int(tFile/tRead)}")
     print(" ")
     
     nVDIFInputs = sum([1 for reader in readers if reader is vdif])
     nDRXInputs = sum([1 for reader in readers if reader is drx])
-    print("Processing %i VDIF and %i DRX input streams" % (nVDIFInputs, nDRXInputs))
+    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX input streams")
     print(" ")
     
     nFramesV = int(round(tRead*srate[0]/readers[0].DATA_LENGTH))
@@ -328,14 +290,14 @@ def main(args):
     nFramesB = nFrames
     framesPerSecondB = srate[-1] / readers[-1].DATA_LENGTH
     if nVDIFInputs:
-        print("VDIF Frames/s: %.6f" % framesPerSecondV)
-        print("VDIF Frames/Integration: %i" % nFramesV)
+        print(f"VDIF Frames/s: {framesPerSecondV:.6f}")
+        print(f"VDIF Frames/Integration: {nFramesV}")
     if nDRXInputs:
-        print("DRX Frames/s: %.6f" % framesPerSecondB)
-        print("DRX Frames/Integration: %i" % nFramesB)
+        print(f"DRX Frames/s: {framesPerSecondB:.6f}")
+        print(f"DRX Frames/Integration: {nFramesB}")
     if nVDIFInputs*nDRXInputs:
-        print("Sample Count Ratio: %.6f" % (1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096),))
-        print("Sample Rate Ratio: %.6f" % (srate[0]/srate[-1],))
+        print(f"Sample Count Ratio: {(1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
+        print(f"Sample Rate Ratio: {srate[0]/srate[-1]:.6f}")
     print(" ")
     
     vdifLFFT = LFFT * (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
@@ -346,9 +308,9 @@ def main(args):
     vdifLFFT = vdifLFFT // (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = int(drxLFFT)
     if nVDIFInputs:
-        print("VDIF Transform Size: %i" % vdifLFFT)
+        print(f"VDIF Transform Size: {vdifLFFT}")
     if nDRXInputs:
-        print("DRX Transform Size: %i" % drxLFFT)
+        print(f"DRX Transform Size: {drxLFFT}")
     print(" ")
     
     vdifPivot = 1
@@ -357,9 +319,9 @@ def main(args):
     if nVDIFInputs == 0 and args.which != 0:
         vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
-        print("VDIF appears to correspond to tuning #%i in DRX" % vdifPivot)
+        print(f"VDIF appears to correspond to tuning #{vdifPivot} in DRX")
     elif nDRXInputs:
-        print("Correlating DRX tuning #%i" % vdifPivot)
+        print(f"Correlating DRX tuning #{vdifPivot}")
     print(" ")
     
     nChunks = int(tFile/tRead)
@@ -370,8 +332,8 @@ def main(args):
     nDump = int(tDump / tSub)
     tDump = nDump * tSub
     nInt = int((nChunks*tRead) / tDump)
-    print("Sub-integration time is: %.3f s" % tSub)
-    print("Integration (dump) time is: %.3f s" % tDump)
+    print(f"Sub-integration time is: {tSub:.3f} s")
+    print(f"Integration (dump) time is: {tDump:.3f} s")
     print(" ")
     
     if args.gpu is not None:
@@ -381,7 +343,7 @@ def main(args):
             xcupy.set_memory_usage_limit(1.5*1024**3)
             multirate.xengine = xcupy.xengine
             multirate.xengine_full = xcupy.xengine_full
-            print("Loaded GPU X-engine support on GPU #%i with %.2f GB of device memory" % (args.gpu, xcupy.get_memory_usage_limit()/1024.0**3))
+            print(f"Loaded GPU X-engine support on GPU #{args.gpu} with {xcupy.get_memory_usage_limit()/1024.0**3:.2f} GB of device memory")
         except ImportError as e:
             pass
             
@@ -396,27 +358,27 @@ def main(args):
         while nProfileBins > 64:
             tSub_scale += 1
             nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
-    profileBins = numpy.linspace(0, 1-1.0/nProfileBins, nProfileBins)
-    print("Pulsar frequency: %.6f Hz" % refSrc.frequency)
-    print("Pulsar period: %.6s seconds" % pulsarPeriod)
-    print("Number of profile bins:  %i" % nProfileBins)
-    print("Phase coverage per bin: %.3f" % (profileBins[1]-profileBins[0],))
+    profileBins = np.linspace(0, 1-1.0/nProfileBins, nProfileBins)
+    print(f"Pulsar frequency: {refSrc.frequency:.6f} Hz")
+    print(f"Pulsar period: {pulsarPeriod:.6f} s")
+    print(f"Number of profile bins: {nProfileBins}")
+    print(f"Phase coverage per bin: {profileBins[1]-profileBins[0]:.3f}")
     if pulsarPeriod >= tDump:
         print("WARNING:  Pulsar period is longer than the integration time!")
     print(" ")
     
     pulsarDM, pulsarDoppler = refSrc.dm, refSrc.doppler
-    oFreq = numpy.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
-    oFreq = numpy.fft.fftshift(oFreq)*pulsarDoppler
+    oFreq = np.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
+    oFreq = np.fft.fftshift(oFreq)*pulsarDoppler
     tDelay = dispDelay(oFreq, pulsarDM)
-    tDiff = numpy.diff(tDelay)
+    tDiff = np.diff(tDelay)
     while abs(tDiff.max()) > tSub:
         vdifLFFT *= 2
         drxLFFT *= 2
-        oFreq = numpy.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
-        oFreq = numpy.fft.fftshift(oFreq)*pulsarDoppler
+        oFreq = np.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
+        oFreq = np.fft.fftshift(oFreq)*pulsarDoppler
         tDelay = dispDelay(oFreq, pulsarDM)
-        tDiff = numpy.diff(tDelay)
+        tDiff = np.diff(tDelay)
         
     subIntTimes = [[] for i in range(nProfileBins)]
     subIntCount = [0 for i in range(nProfileBins)]
@@ -441,13 +403,13 @@ def main(args):
         drxRef  = [0 for j in range(nDRXInputs*2) ]
         
         # Read in the data
-        with InterProcessLock('/dev/shm/sc-reader-%s' % username) as lock:
+        with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
                 dataV *= 0.0
                 dataD *= 0.0
             except NameError:
-                dataV = numpy.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=numpy.float32)
-                dataD = numpy.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=numpy.complex64)
+                dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.float32)
+                dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=np.complex64)
             for j,f in enumerate(fh):
                 if readers[j] is vdif:
                     ## VDIF
@@ -457,7 +419,7 @@ def main(args):
                             cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
-                            print("Error - VDIF @ %i, %i" % (i, j))
+                            print(f"Error - VDIF @ {i}, {j}")
                             f.seek(readers[j].FRAME_SIZE, 1)
                             continue
                         except errors.EOFError:
@@ -495,7 +457,7 @@ def main(args):
                             cFrame = readers[j].read_frame(f)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
-                            print("Error - DRX @ %i, %i" % (i, j))
+                            print(f"Error - DRX @ {i}, {j}")
                             continue
                         except errors.EOFError:
                             done = True
@@ -535,7 +497,7 @@ def main(args):
                                 k = beampols[j]*nFramesD
                                 break
                                 
-        print('RR - Read finished in %.3f s for %.3fs of data' % (time.time()-wallTime, tRead))
+        print(f"RR - Read finished in {time.time()-wallTime:.3f} s for {tRead:.3f} s of data")
         
         # Figure out which DRX tuning corresponds to the VDIF data
         if nDRXInputs > 0:
@@ -565,8 +527,8 @@ def main(args):
                     idx1 = 2*j + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    dataV[idx0,:] = numpy.roll(dataV[idx0,:], -offset)
-                    dataV[idx1,:] = numpy.roll(dataV[idx1,:], -offset)
+                    dataV[idx0,:] = np.roll(dataV[idx0,:], -offset)
+                    dataV[idx1,:] = np.roll(dataV[idx1,:], -offset)
                     
             else:
                 if offset != 0:
@@ -574,8 +536,8 @@ def main(args):
                     idx1 = 2*(j - nVDIFInputs) + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    dataD[idx0,:] = numpy.roll(dataD[idx0,:], -offset)
-                    dataD[idx1,:] = numpy.roll(dataD[idx1,:], -offset)
+                    dataD[idx0,:] = np.roll(dataD[idx0,:], -offset)
+                    dataD[idx1,:] = np.roll(dataD[idx1,:], -offset)
                     
         vdifOffsets = offsets[:nVDIFInputs]
         drxOffsets = offsets[nVDIFInputs:]
@@ -599,9 +561,9 @@ def main(args):
         nSampV = int(srate[ 0]*tSub)
         nSampD = int(srate[-1]*tSub)
         
-        #tV = i*tRead + numpy.arange(dataV.shape[1]-max(vdifOffsets), dtype=numpy.float64)/srate[ 0]
+        #tV = i*tRead + np.arange(dataV.shape[1]-max(vdifOffsets), dtype=np.float64)/srate[ 0]
         if nDRXInputs > 0:
-            tD = i*tRead + numpy.arange(dataD.shape[1]-max(drxOffsets), dtype=numpy.float64)/srate[-1]
+            tD = i*tRead + np.arange(dataD.shape[1]-max(drxOffsets), dtype=np.float64)/srate[-1]
             
         # Loop over sub-integrations
         for j in range(nSub):
@@ -630,15 +592,15 @@ def main(args):
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
                 dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
-                dataDSub[0::2,:] /= numpy.sqrt(dipoleX)
-                dataDSub[1::2,:] /= numpy.sqrt(dipoleY)
+                dataDSub[0::2,:] /= np.sqrt(dipoleX)
+                dataDSub[1::2,:] /= np.sqrt(dipoleY)
                 
             ## Get the Jones matrices and apply
             ## NOTE: This moves the LWA into the frame of the VLA
             if nVDIFInputs*nDRXInputs > 0:
                 lwaToSky = jones.get_matrix_lwa(observer, refSrc)
                 skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
-                dataDSub = jones.apply_matrix(dataDSub, numpy.matrix(skyToVLA)*numpy.matrix(lwaToSky))
+                dataDSub = jones.apply_matrix(dataDSub, np.matrix(skyToVLA)*np.matrix(lwaToSky))
                 
             ## Correlate
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
@@ -663,21 +625,21 @@ def main(args):
                 
                 if i == 0 and j == 0:
                     ## FC = frequency correction
-                    tv,tu = bestFreqUnits(subChanFreqOffset)
-                    print("FC - Applying fringe rotation rate of %.3f %s to the DRX data" % (tv,tu))
+                    tv,tu = best_freq_units(subChanFreqOffset)
+                    print(f"FC - Applying fringe rotation rate of {tv:.3f} {tu} to the DRX data")
                     
                 freqD += subChanFreqOffset
                 for w in range(feoD.shape[2]):
-                    feoD[:,:,w] *= numpy.exp(-2j*numpy.pi*subChanFreqOffset*tDSub[w*drxLFFT])
+                    feoD[:,:,w] *= np.exp(-2j*np.pi*subChanFreqOffset*tDSub[w*drxLFFT])
                     
             ## Sort out what goes where (channels and antennas) if we don't already know
             try:
                 if nVDIFInputs > 0:
                     freqV = freqV[goodV]
-                    feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
                 if nDRXInputs > 0:
                     freqD = freqD[goodD]
-                    feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
+                    feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
                     
             except NameError:
                 ### Frequency overlap
@@ -689,11 +651,11 @@ def main(args):
                     
                 ### Channels and antennas (X vs. Y)
                 if nVDIFInputs > 0:
-                    goodV = numpy.where( (freqV >= fMin) & (freqV <= fMax) )[0]
+                    goodV = np.where( (freqV >= fMin) & (freqV <= fMax) )[0]
                     aXV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
                     aYV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
                 if nDRXInputs > 0:
-                    goodD = numpy.where( (freqD >= fMin) & (freqD <= fMax) )[0]
+                    goodD = np.where( (freqD >= fMin) & (freqD <= fMax) )[0]
                     aXD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
                     aYD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
                     
@@ -726,22 +688,22 @@ def main(args):
                         assert(fd.max() <=  1.01*subChanFreqOffset)
                         
                         ## FS = frequency selection
-                        tv,tu = bestFreqUnits(freqV[1]-freqV[0])
-                        print("FS - Found %i, %.3f %s overalapping channels" % (len(goodV), tv, tu))
-                        tv,tu = bestFreqUnits(freqV[goodV[-1]]-freqV[goodV[0]])
-                        print("FS - Bandwidth is %.3f %s" % (tv, tu))
-                        print("FS - Channels span %.3f MHz to %.3f MHz" % (freqV[goodV[0]]/1e6, freqV[goodV[-1]]/1e6))
+                        tv,tu = best_freq_units(freqV[1]-freqV[0])
+                        print(f"FS - Found {len(goodV)}, {tv:.3f} {tu} overalapping channels")
+                        tv,tu = best_freq_units(freqV[goodV[-1]]-freqV[goodV[0]])
+                        print(f"FS - Bandwidth is {tv:.3f} {tu}")
+                        print(f"FS - Channels span {freqV[goodV[0]]/1e6:.3f} MHz to {freqV[goodV[-1]]/1e6:.3f} MHz")
                             
                     except AssertionError:
-                        raise RuntimeError("Cannot find a common frequency set between the input data: offsets range between %.3f Hz and %.3f Hz, expected %.3f Hz" % (fd.min(), fd.max(), subChanFreqOffset))
+                        raise RuntimeError(f"Cannot find a common frequency set between the input data: offsets range between {fd.min():.3f} Hz and {fd.max():.3f} Hz, expected {subChanFreqOffset:.3f} Hz")
                         
                 ### Apply
                 if nVDIFInputs > 0:
                     freqV = freqV[goodV]
-                    feoV = numpy.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
                 if nDRXInputs > 0:
                     freqD = freqD[goodD]
-                    feoD = numpy.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
+                    feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
             try:
                 nchan = freqV.size
                 fdt = feoV.dtype
@@ -755,19 +717,19 @@ def main(args):
             nWin = 1e12
             if nVDIFInputs > 0:
                 nWin = min([nWin, feoV.shape[2]])
-                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoV.sum(axis=0)))+1])
+                nWin = min([nWin, np.argmax(np.cumsum(veoV.sum(axis=0)))+1])
             if nDRXInputs > 0:
                 nWin = min([nWin, feoD.shape[2]])
-                nWin = min([nWin, numpy.argmax(numpy.cumsum(veoD.sum(axis=0)))+1])
+                nWin = min([nWin, np.argmax(np.cumsum(veoD.sum(axis=0)))+1])
                 
             ### Initialize the intermediate arrays
             try:
                 assert(feoX.shape[2] == nWin)
             except (NameError, AssertionError):
-                feoX = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                feoY = numpy.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                veoX = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-                veoY = numpy.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+                feoX = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
+                feoY = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
+                veoX = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+                veoY = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
                 
             ### Trim
             if nVDIFInputs > 0:
@@ -821,7 +783,7 @@ def main(args):
             ## Map the phases to bins
             bestBins = {}
             for b,phs in enumerate(profilePhase):
-                bestBin = numpy.where( phs >= profileBins )[0][-1] % nProfileBins
+                bestBin = np.where( phs >= profileBins )[0][-1] % nProfileBins
                 try:
                     bestBins[bestBin].append( b )
                 except KeyError:
@@ -840,10 +802,10 @@ def main(args):
                     freqXX = sfreqXX
                     freqYY = sfreqYY
                     try:
-                        okToZero = numpy.where( subIntWeight[bestBin] ==  subIntWeight[bestBin].max() )[0]
+                        okToZero = np.where( subIntWeight[bestBin] ==  subIntWeight[bestBin].max() )[0]
                         subIntWeight[bestBin] *= 0
                     except AttributeError:
-                        subIntWeight[bestBin] = numpy.zeros(freqXX.size)
+                        subIntWeight[bestBin] = np.zeros(freqXX.size)
                         
                     visXX[bestBin] = svisXX*0.0
                     visXY[bestBin] = svisXY*0.0
@@ -876,17 +838,17 @@ def main(args):
                     try:
                         tDumpAct
                     except NameError:
-                        tDumpAct = numpy.median(subIntWeight[bestBin]) * tSub
+                        tDumpAct = np.median(subIntWeight[bestBin]) * tSub
                         
                     ### CD = correlator dump
-                    outfile = "%s-vis2-bin%03i-%05i.npz" % (outbase, bestBin, fileCount[bestBin])
-                    numpy.savez(outfile, config=rawConfig, polycos=rawPolycos, 
+                    outfile = f"{outbase}-vis2-bin{bestBin:03d}-{fileCount[bestBin]:05d}.npz"
+                    np.savez(outfile, config=rawConfig, polycos=rawPolycos, 
                                 srate=srate[0]/2.0, freq1=freqXX, 
                                 vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
                                 vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
-                                tStart=numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64)), tInt=tDumpAct)
+                                tStart=np.mean(np.array(subIntTimes[bestBin], dtype=np.float64)), tInt=tDumpAct)
                     anyFilesSaved = True
-                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, numpy.mean(numpy.array(subIntTimes[bestBin], dtype=numpy.float64))))
+                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, np.mean(np.array(subIntTimes[bestBin], dtype=np.float64))))
                     if bestBin == 0:
                         if fileCount[0] == 1:
                             print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
@@ -908,7 +870,7 @@ def main(args):
     etm = int(etc/60.0) % 60
     ets = etc % 60
     print("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))
-    print("Average time per integration was %.3f s" % (etc/max(fileCount),))
+    print(f"Average time per integration was {etc/max(fileCount):.3f} s")
     for f in fh:
         f.close()
 
