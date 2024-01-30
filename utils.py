@@ -9,7 +9,7 @@ import time
 import ephem
 import errno
 import fcntl
-import numpy
+import numpy as np
 import shutil
 import tempfile
 import subprocess
@@ -566,13 +566,13 @@ def read_correlator_configuration(filename_or_npz):
     """
     
     # Sort out what to do depending on what we were given
-    if isinstance(filename_or_npz, numpy.lib.npyio.NpzFile):
+    if isinstance(filename_or_npz, np.lib.npyio.NpzFile):
         ## An open .npz file, just work with it
         dataDict = filename_or_npz
         to_close = False
     elif os.path.splitext(filename_or_npz)[1] == '.npz':
         ## A .npz file, open and and then work with it
-        dataDict = numpy.load(filename_or_npz)
+        dataDict = np.load(filename_or_npz)
         to_close = True
     else:
         ## Something else, just try some stuff
