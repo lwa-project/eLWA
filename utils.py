@@ -5,6 +5,7 @@ Utility module for the various scripts needed to correlate LWA and VLA data.
 
 import os
 import re
+import math
 import time
 import ephem
 import errno
@@ -25,12 +26,12 @@ from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '1.1'
+__version__ = '1.2'
 __all__ = ['get_numa_node_count', 'get_numa_support', 'get_gpu_count',
            'get_gpu_support', 'InterProcessLock', 'EnhancedFixedBody',
            'EnhancedSun', 'EnhancedJupiter', 'multi_column_print',
-           'parse_time_string', 'nsround', 'read_correlator_configuration',
-           'get_better_time', 'PolyCos']
+           'best_freq_units', 'parse_time_string', 'nsround',
+           'read_correlator_configuration', 'get_better_time', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -304,6 +305,41 @@ def multi_column_print(items, sep=';  ', width=86):
             out += sep
         ## Print
         print(out)
+
+
+def best_freq_units(freq):
+    """Given a numpy array of frequencies in Hz, return a new array with the
+    frequencies in the best units possible (kHz, MHz, etc.)."""
+    
+    # Figure out how large the data are
+    try:
+        scale = int(math.log10(max(freq)))
+    except TypeError:
+        scale = int(math.log10(freq))
+    if scale >= 9:
+        divis = 1e9
+        units = 'GHz'
+    elif scale >= 6:
+        divis = 1e6
+        units = 'MHz'
+    elif scale >= 3:
+        divis = 1e3
+        units = 'kHz'
+    elif scale >= 0:
+        divis = 1
+        units = 'Hz'
+    elif scale >= -3:
+        divis = 1e-3
+        units = 'mHz'
+    else:
+        divis = 1e-6
+        units = 'uHz'
+        
+    # Convert the frequency
+    newFreq = freq / divis
+    
+    # Return units and freq
+    return (newFreq, units)
 
 
 _timeRE = re.compile('^[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>(([kmun]?s)|h|m))?[ \t]*$')
