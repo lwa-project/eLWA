@@ -116,7 +116,7 @@ def get_gpu_support():
 class InterProcessLock(object):
     def __init__(self, name):
         self.name = name
-        self.fh = open("%s.lock" % self.name, 'w+')
+        self.fh = open(f"{self.name}.lock", 'w+')
         self.locked = False
         
     def __del__(self):
@@ -327,7 +327,7 @@ def parse_time_string(value):
     except ValueError:
         mtch = _timeRE.match(value)
         if mtch is None:
-            raise ValueError("Invalid literal for parse_time_string(): %s" % value)
+            raise ValueError(f"Invalid literal for parse_time_string(): {value}")
         value = float(mtch.group('value'))
         unit = mtch.group('unit')
         if unit is not None:
@@ -464,7 +464,7 @@ def _read_correlator_configuration(filename):
                 refSource = srcs[i]
                 break
         if refSource is None:
-            raise ValueError("Unknown source '%s'" % sources[0]['name'])
+            raise ValueError(f"Unknown source '{sources[0]['name']}'")
     refSource.intent = sources[0]['intent']
     refSource.duration = sources[0]['duration']
     try:
@@ -528,7 +528,7 @@ def _read_correlator_configuration(filename):
         clock_offsets = block['clockOffset']
         
         if aid is None:
-            raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
+            raise RuntimeError(f"Cannot convert antenna name '{name}' to a number")
             
         stand = stations.Stand(aid, *location)
         try:
