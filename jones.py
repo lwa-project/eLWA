@@ -88,10 +88,10 @@ def get_matrix_lwa(site, src, inverse=False):
     # The matrix
     if not inverse:
         matrix = np.array([[cosGA, -sinGA], 
-                              [sinGB,  cosGB]])
+                           [sinGB,  cosGB]])
     else:
         matrix = np.array([[ cosGB, sinGA],
-                              [-sinGB, cosGA]])
+                           [-sinGB, cosGA]])
         matrix /= cosGA*cosGB + sinGA*sinGB
         
     # Done
@@ -124,10 +124,10 @@ def get_matrix_vla(site, src, inverse=False, feedRotation=ephem.degrees('0:00:00
     # The matrix
     if not inverse:
         matrix = np.array([[cosGA, -sinGA], 
-                              [sinGB,  cosGB]])
+                           [sinGB,  cosGB]])
     else:
         matrix = np.array([[ cosGB, sinGA],
-                              [-sinGB, cosGA]])
+                           [-sinGB, cosGA]])
         matrix /= cosGA*cosGB + sinGA*sinGB
         
     # Done
