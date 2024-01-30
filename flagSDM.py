@@ -8,7 +8,7 @@ import os
 import git
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -65,22 +65,22 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
         except KeyError:
             u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-        uvw = numpy.array([u, v, w]).T
+        uvw = np.array([u, v, w]).T
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
@@ -151,16 +151,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',           array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',           array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',          array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -241,7 +241,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     parser = argparse.ArgumentParser(
         description='Flag FITS-IDI files using the flags contained in a VLA SDM', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -256,4 +256,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    
