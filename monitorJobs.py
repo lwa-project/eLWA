@@ -35,6 +35,9 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
     status = p.returncode
     if quiet:
         outdev.close()
+    else:
+        stdout = stdout.decode()
+        stderr = stderr.decode()
         
     return status, stdout, stderr
 
