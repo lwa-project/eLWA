@@ -641,15 +641,9 @@ def get_better_time(frame):
         # HACK - What should T_NOM really be at LWA1???
         tt = frame.payload.timetag
         to = 6660 if frame.header.time_offset else 0
-        btt = list(base.FrameTimestamp.from_dp_timetag(tt, to))
+        return list(base.FrameTimestamp.from_dp_timetag(tt, to))
     else:
-        btt = list(frame.time)
-        
-    # Make sure the fractional part of the timetag is [0,1)
-    while btt[1] >= 1:
-        btt[0] += 1
-        btt[1] -= 1
-    return btt
+        return list(frame.time)
 
 
 class PolyCos(object):
