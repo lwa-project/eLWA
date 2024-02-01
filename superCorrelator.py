@@ -518,6 +518,9 @@ def main(args):
                     idx1 = 2*j + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
+                    if tStartB[j][1] >= 1.0:
+                        tStartB[j][0] += 1
+                        tStartB[j][1] -= 1
                     dataV[idx0,:] = numpy.roll(dataV[idx0,:], -offset)
                     dataV[idx1,:] = numpy.roll(dataV[idx1,:], -offset)
                     
@@ -527,6 +530,9 @@ def main(args):
                     idx1 = 2*(j - nVDIFInputs) + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
+                    if tStartB[j][1] >= 1.0:
+                        tStartB[j][0] += 1
+                        tStartB[j][1] -= 1
                     dataD[idx0,:] = numpy.roll(dataD[idx0,:], -offset)
                     dataD[idx1,:] = numpy.roll(dataD[idx1,:], -offset)
                     
