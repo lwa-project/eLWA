@@ -644,6 +644,8 @@ def get_better_time(frame):
         btt = list(base.FrameTimestamp.from_dp_timetag(tt, to))
     else:
         btt = list(frame.time)
+        
+    # Make sure the fractional part of the timetag is [0,1)
     while btt[1] >= 1:
         btt[0] += 1
         btt[1] -= 1
