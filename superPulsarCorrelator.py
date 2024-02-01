@@ -657,12 +657,18 @@ def main(args):
                                                             pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
+                if feoV.shape[2] == 0:
+                    continue
+                    
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                             sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
                                                             pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
+                if feoD.shape[2] == 0:
+                    continue
+                    
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
             if nDRXInputs*nVDIFInputs > 0:
                 subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
