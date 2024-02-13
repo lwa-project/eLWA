@@ -50,9 +50,8 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 def get_numa_node_count():
     # Query lscpu
     lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, error = lscpu.communicate()
+    output, _ = lscpu.communicate()
     output = output.decode()
-    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes
@@ -68,9 +67,8 @@ def get_numa_support():
     nn = get_numa_node_count()
             
     # Check for the numactl utility
-    with open('/dev/null',  'wb') as devnull:
-        numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
-        
+    numactl = subprocess.call(['which', 'numactl'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
     # If we have more than one NUMA node and numactl we are good to go
     status = False
     if numactl == 0 and nn > 1:
@@ -82,9 +80,8 @@ def get_numa_support():
 def get_gpu_count():
     # Query nvidia-smi
     smi = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, error = smi.communicate()
+    output, _ = smi.communicate()
     output = output.decode()
-    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes

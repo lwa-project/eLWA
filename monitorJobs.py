@@ -29,13 +29,12 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
         
     outdev = subprocess.PIPE
     if quiet:
-        outdev = open(os.devnull, 'wb')
+        outdev = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, stdout=outdev, stderr=outdev)
     stdout, stderr = p.communicate()
-    status = p.returncode
-    if quiet:
-        outdev.close()
-        
+    stdout = stdout.decode('ascii', errors='ignore')
+    stderr = stderr.decode('ascii', errors='ignore')
+    
     return status, stdout, stderr
 
 
@@ -44,7 +43,6 @@ def get_directories(node):
     if status != 0:
         dirnames = []
     else:
-        dirnames = dirnames.decode(encoding='ascii', errors='ignore')
         dirnames = dirnames.split('\n')[:-1]
         dirnames = [dirname.strip().rstrip() for dirname in dirnames]
     return dirnames
@@ -55,7 +53,6 @@ def get_processes(node):
     if status != 0:
         processes = []
     else:
-        processes = processes.decode(encoding='ascii', errors='ignore')
         processes = processes.split('\n')[:-1]
         processes = [process.strip().rstrip() for process in processes]
     return processes
@@ -66,7 +63,6 @@ def get_directory_contents(node, dirname):
     if status != 0:
         filenames = []
     else:
-        filenames = filenames.decode(encoding='ascii', errors='ignore')
         filenames = filenames.split('\n')[:-1]
         filenames = [filename.strip().rstrip() for filename in filenames]
     return filenames

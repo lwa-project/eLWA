@@ -25,7 +25,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -38,9 +38,9 @@ def main(args):
         
         # Verify we can flag this data
         if uvdata.header['STK_1'] > 0:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
@@ -104,7 +104,7 @@ def main(args):
         mask = np.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
-            print('  Working on scan %i of %i' % (i+1, len(blocks)))
+            print(f"  Working on scan {i+1} of {len(blocks)}")
             match = range(block[0],block[1]+1)
             
             bbls = np.unique(bls[match])
@@ -114,7 +114,7 @@ def main(args):
             print('    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S')))
             
             for b,offset in enumerate(fqoffsets):
-                print('    IF #%i' % (b+1,))
+                print(f"    IF #{b+1}")
                 visXX = flux[match,b,:,0]
                 visYY = flux[match,b,:,1]
                 
@@ -172,7 +172,7 @@ def main(args):
             blset = np.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             if len(blset) == 0:
                 continue
@@ -265,7 +265,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -274,18 +274,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_flagged%s' % (outname, outext)
+        outname = f"{outname}_flagged{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =	astrofits.PrimaryHDU()
@@ -307,7 +307,7 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Flagged FITS IDI file is '%s'" % outname)
+        print(f"  -> Flagged FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 

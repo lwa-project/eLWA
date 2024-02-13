@@ -111,4 +111,3 @@ if __name__ == "__main__":
                         help='configuration file to parse')
     args = parser.parse_args()
     main(args)
-    

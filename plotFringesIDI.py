@@ -39,7 +39,7 @@ def main(args):
         args.polToPlot = 'YY'
     filename = args.filename
     
-    print("Working on '%s'" % os.path.basename(filename))
+    print(f"Working on '{os.path.basename(filename)}'")
     # Open the FITS IDI file and access the UV_DATA extension
     hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
@@ -177,7 +177,7 @@ def main(args):
     # Decimation, if needed
     if args.decimate > 1:
         if nFreq % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+            raise RuntimeError(f"Invalid freqeunce decimation factor:  {nFreq} % {args.decimate} = {nFreq%args.decimate}")
 
         nFreq //= args.decimate
         freq.shape = (freq.size//args.decimate, args.decimate)
@@ -226,7 +226,7 @@ def main(args):
             ax1.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax1.set_ylabel('Elapsed Time [s]')
-            ax1.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax1.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
             ax1.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax1.set_ylim((dTimes[0], dTimes[-1]))
             
@@ -238,7 +238,7 @@ def main(args):
             ax2.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax2.set_ylabel('Elapsed Time [s]')
-            ax2.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax2.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
             ax2.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax2.set_ylim((dTimes[0], dTimes[-1]))
                     
@@ -247,7 +247,7 @@ def main(args):
             ax3.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax3.set_ylabel('Mean Vis. Amp. [lin.]')
-            ax3.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax3.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
             ax3.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             
             ax4 = fig4.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax4)
@@ -256,7 +256,7 @@ def main(args):
             ax4.set_xlabel('Mean Vis. Phase [deg]')
             if band == 0:
                 ax4.set_ylabel('Elapsed Time [s]')
-            ax4.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax4.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
             ax4.set_ylim((dTimes[0], dTimes[-1]))
             
             ax5 = fig5.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax5)
@@ -264,7 +264,7 @@ def main(args):
             ax5.set_xlabel('Mean Vis. Amp. [lin.]')
             if band == 0:
                 ax5.set_ylabel('Elapsed Time [s]')
-            ax5.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax5.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
             ax5.set_ylim((dTimes[0], dTimes[-1]))
             
             if band > 0:
@@ -313,4 +313,3 @@ if __name__ == "__main__":
                         help='frequency decimation factor')
     args = parser.parse_args()
     main(args)
-    

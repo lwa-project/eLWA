@@ -28,12 +28,10 @@ def check_for_other_instances(quiet=True):
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, shell=True, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return True if status == 0 else False
 
 
@@ -42,12 +40,10 @@ def configfile_is_pulsar(configfile, quiet=True):
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return True if status == 0 else False
 
 
@@ -56,12 +52,10 @@ def configfile_is_lwa_only(configfile, quiet=True):
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return False if status == 0 else True
 
 
@@ -87,9 +81,8 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
         
     OUT, ERR = None, None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
-        OUT = DEVNULL
-        ERR = DEVNULL
+        OUT = subprocess.DEVNULL
+        ERR = subprocess.DEVNULL
     if return_output:
         OUT = subprocess.PIPE
         ERR = subprocess.PIPE
@@ -97,12 +90,9 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
     output, err = p.communicate()
     status = p.returncode
     
-    if quiet:
-        DEVNULL.close()
-        
     if return_output:
-        output = output.decode()
-        err = err.decode()
+        output = output.decode('ascii', errors='ignore')
+        err = err.decode('ascii', errors='ignore')
         status = (status, output)
         
     return status

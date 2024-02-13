@@ -45,7 +45,7 @@ def main(args):
     figs = {}
     first = True
     for filename in args.filename:
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -183,7 +183,7 @@ def main(args):
         # Decimation, if needed
         if args.decimate > 1:
             if nFreq % args.decimate != 0:
-                raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+                raise RuntimeError(f"Invalid freqeunce decimation factor:  {nFreq} % {args.decimate} = {nFreq%args.decimate}")
 
             nFreq //= args.decimate
             freq.shape = (freq.size//args.decimate, args.decimate)
@@ -217,13 +217,13 @@ def main(args):
             
             for p in plot_pols:
                 blName = (i, j)
-                blName = '%s-%s - %s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
-                                         'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50),
+                blName = '%s-%s - %s' % (f"EA{blName[0]:02d}" if blName[0] < 51 else f"LWA{blName[0]-50}", 
+                                         f"EA{blName[1]:02d}" if blName[1] < 51 else f"LWA{blName[1]-50}",
                                          namMapper[polMapper[p]])
                 
                 if first or blName not in figs:
                     fig = plt.figure()
-                    fig.suptitle('%s' % blName)
+                    fig.suptitle(blName)
                     fig.subplots_adjust(hspace=0.001)
                     axA = fig.add_subplot(1, 2, 1)
                     axP = fig.add_subplot(1, 2, 2)
@@ -294,4 +294,3 @@ if __name__ == "__main__":
     if not args.xx and not args.xy and not args.yx and not args.yy:
         raise RuntimeError("Must specify at least one polarization to plot")
     main(args)
-    

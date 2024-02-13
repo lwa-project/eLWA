@@ -32,7 +32,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -45,9 +45,9 @@ def main(args):
         
         # Verify we can flag this data - only linear for now
         if uvdata.header['STK_1'] > -5:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
@@ -115,7 +115,7 @@ def main(args):
         print("  Scaling")
         for i in range(nBL_Ints):
             if i % 10000 == 0 or i+1 == nBL_Ints:
-                print("    Baseline/integration %i of %i" % (i+1, nBL_Ints))
+                print(f"    Baseline/integration {i+1} of {nBL_Ints}")
                 
             intbl = bls[i]
             ant0, ant1 = sdmLookup[(intbl >> 8) & 0xFF], sdmLookup[intbl & 0xFF]
@@ -227,7 +227,7 @@ def main(args):
         for i in range(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             for b,offset in enumerate(fqoffsets):
                 maskXX = mask[:,i,b,:,0]    # pylint: disable=invalid-sequence-index
@@ -259,16 +259,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=numpy.array(ants, dtype=numpy.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=numpy.zeros((nFlags,), dtype=numpy.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=numpy.array(times, dtype=numpy.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=numpy.array(bands, dtype=numpy.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=numpy.array(chans, dtype=numpy.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=numpy.array(pols, dtype=numpy.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=numpy.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=numpy.array(sevs, dtype=numpy.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -300,7 +300,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -309,18 +309,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_scaled%s' % (outname, outext)
+        outname = f"{outname}_scaled{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =   astrofits.PrimaryHDU()
@@ -335,7 +335,7 @@ def main(args):
             else:
                 primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
         primary.header['HISTORY'] = 'Amplitude scale with %s, revision $Rev$' % os.path.basename(__file__)
-        primary.header['HISTORY'] = 'Switched power values from %s' % os.path.basename(os.path.abspath(args.sdm))
+        primary.header['HISTORY'] = f"Switched power values from {os.path.basename(os.path.abspath(args.sdm))}"
         hdulist2.append(primary)
         hdulist2.flush()
         ## Copy the extensions over to the new file
@@ -352,7 +352,7 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Amplitude scaled FITS IDI file is '%s'" % outname)
+        print(f"  -> Amplitude scaled FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 

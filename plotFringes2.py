@@ -69,7 +69,7 @@ def main(args):
                 found = True
                 break
         if not found:
-            raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
+            raise RuntimeError(f"Cannot file reference antenna {args.ref_ant} in the data")
             
     bls = []
     l = 0
@@ -96,7 +96,7 @@ def main(args):
     
     if args.decimate > 1:
         if nchan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
+            raise RuntimeError(f"Invalid freqeunce decimation factor:  {nchan} % {args.decimate} = {nchan%args.decimate}")
 
         nchan //= args.decimate
         freq.shape = (freq.size//args.decimate, args.decimate)
@@ -150,9 +150,9 @@ def main(args):
     iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
+    print(" -> Interval: {iTimes.mean():.3f} +/- {iTimes.std():.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
     
-    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
+    print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")
 
     dTimes = times - times[0]
     
@@ -179,7 +179,7 @@ def main(args):
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
@@ -190,7 +190,7 @@ def main(args):
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
@@ -198,7 +198,7 @@ def main(args):
         ax.plot(freq/1e6, numpy.ma.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
@@ -206,14 +206,14 @@ def main(args):
         ax.set_xlim((-180, 180))
         ax.set_xlabel('Mean Vis. Phase [deg]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         ax = fig5.add_subplot(nRow, nCol, k+1)
         ax.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
         ax.set_xlabel('Mean Vis. Amp. [lin.]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title("%i,%i - %s" % (i,j,args.polToPlot))
+        ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         k += 1
@@ -258,4 +258,3 @@ if __name__ == "__main__":
                         help='frequency decimation factor')
     args = parser.parse_args()
     main(args)
-    

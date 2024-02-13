@@ -30,9 +30,9 @@ def main(args):
         if ant.stand.id not in processed:
             data.append( [ant.stand.x, ant.stand.y, ant.stand.z] )
             if ant.stand.id < 51:
-                names.append( 'EA%02i' % ant.stand.id )
+                names.append( f"EA{ant.stand.id:02d}" )
             else:
-                names.append( 'LWA%i' % (ant.stand.id-50) )
+                names.append( f"LWA{ant.stand.id-50}" )
             processed.append( ant.stand.id )
     data = numpy.array(data)
     
@@ -74,7 +74,7 @@ def main(args):
     c = ax1.scatter(data[:,0]/1e3, data[:,1]/1e3, c=color, s=40.0, alpha=0.50)	
     ax1.set_xlabel('$\Delta$X [E-W; km]')
     ax1.set_ylabel('$\Delta$Y [N-S; km]')
-    fig.suptitle("%s - %s" % (os.path.basename(args.filename), refSrc.name))
+    fig.suptitle(f"{os.path.basename(args.filename)} - {refSrc.name}")
     
     ax2.scatter(data[:,0]/1e3, data[:,2], c=color, s=40.0)
     ax2.xaxis.set_major_formatter( NullFormatter() )
@@ -110,4 +110,3 @@ if __name__ == "__main__":
                         help='label the stands with their IDs')
     args = parser.parse_args()
     main(args)
-    

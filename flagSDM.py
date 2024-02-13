@@ -31,7 +31,7 @@ def main(args):
             
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -44,9 +44,9 @@ def main(args):
         
         # Verify we can flag this data
         if uvdata.header['STK_1'] > 0:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
@@ -114,7 +114,7 @@ def main(args):
         nSubSDM = len(sub_sdm_flags)
         for i,flag in enumerate(sub_sdm_flags):
             if i % 100 == 0 or i+1 == nSubSDM:
-                print("    SDM %i of %i" % (i+1, nSubSDM))
+                print(f"    SDM {i+1} of {nSubSDM}")
                 
             try:
                 ant1 = antLookup[flag['antennaId']]
@@ -151,16 +151,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=np.array(ants, dtype=np.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=np.zeros((nFlags,), dtype=np.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=np.array(times, dtype=np.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=np.array(bands, dtype=np.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=np.array(chans, dtype=np.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=np.array(pols, dtype=np.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=np.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=np.array(sevs, dtype=np.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -176,7 +176,7 @@ def main(args):
                 pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
         if args.sdm is not None:
-            flags.header['HISTORY'] = 'SDM flags from %s' % os.path.basename(os.path.abspath(args.sdm))
+            flags.header['HISTORY'] = f"SDM flags from {os.path.basename(os.path.abspath(args.sdm))}"
         
         # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
         if args.drop:
@@ -194,7 +194,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -203,18 +203,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_flagged%s' % (outname, outext)
+        outname = f"{outname}_flagged{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =	astrofits.PrimaryHDU()
@@ -236,7 +236,7 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Flagged FITS IDI file is '%s'" % outname)
+        print(f"  -> Flagged FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 

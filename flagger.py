@@ -4,7 +4,7 @@ RFI flagging module for use with eLWA data.
 
 import sys
 import time
-import numpy
+import numpy as np
 from io import StringIO
     
 from lsl.common.stations import lwa1
@@ -23,14 +23,14 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     
     # Ready the frequency range flagger
     if freq_range is None:
-        freq_range = [numpy.inf, -numpy.inf]
+        freq_range = [np.inf, -np.inf]
         
     # Create the median bandpass and setup the median smoothed bandpass model
     if data.dtype.kind == 'c':
-        spec = numpy.abs(data)
+        spec = np.abs(data)
     else:
         spec = data
-    spec = numpy.median(spec, axis=0)
+    spec = np.median(spec, axis=0)
     smth = spec*0.0
     
     # Calculate the median window size - the target is determined from the 
@@ -42,13 +42,13 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
-        smth[i] = numpy.median(spec[mn:mx])
+        smth[i] = np.median(spec[mn:mx])
     try:
         scl = robust.mean(smth)
         smth /= robust.mean(smth)
     except ValueError:
-        scl = numpy.mean(smth)
-        smth /= numpy.mean(smth)
+        scl = np.mean(smth)
+        smth /= np.mean(smth)
         
     # Apply the model and find deviant channels
     bp = spec / smth
@@ -56,31 +56,31 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
         dm = robust.mean(bp)
         ds = robust.std(bp)
     except ValueError:
-        dm = numpy.mean(bp)
-        ds = numpy.std(bp)
-    fmask = numpy.zeros(freq.size, dtype=bool)
-    fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
+        dm = np.mean(bp)
+        ds = np.std(bp)
+    fmask = np.zeros(freq.size, dtype=bool)
+    fmask[np.where( (np.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
     if isinstance(freq_range[0], (tuple, list)):
         for section in freq_range:
-            fmask[numpy.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+            fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
     else:
-        fmask[numpy.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
-    bad = numpy.where(fmask == True)[0]
+        fmask[np.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
+    bad = np.where(fmask == True)[0]
     
     # Make sure we have flagged appropriately and revert the flags as needed.  We
     # specifically need this when we have flagged everything because the bandpass 
     # is very smooth, i.e., LWA-SV and some of the LWA1-LWA-SV data
     if len(bad) == bp.size and ds < 1e-6 and spec.mean() > 1e-6:
-        dm = numpy.mean(bp)
-        ds = numpy.std(bp)
-        fmask = numpy.zeros(freq.size, dtype=bool)
-        fmask[numpy.where( (numpy.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
+        dm = np.mean(bp)
+        ds = np.std(bp)
+        fmask = np.zeros(freq.size, dtype=bool)
+        fmask[np.where( (np.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
         if isinstance(freq_range[0], (tuple, list)):
             for section in freq_range:
-                fmask[numpy.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+                fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
         else:
-            fmask[numpy.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
-        bad = numpy.where(fmask == True)[0]
+            fmask[np.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
+        bad = np.where(fmask == True)[0]
         
     if grow:
         try:
@@ -98,9 +98,9 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
                 start -= 1
                 stop += 1
                 if start > 0 and start not in bad:
-                    bad = numpy.append(bad, start)
+                    bad = np.append(bad, start)
                 if stop < bp.size and stop not in bad:
-                    bad = numpy.append(bad, stop)
+                    bad = np.append(bad, stop)
         except IndexError:
             pass
             
@@ -117,14 +117,14 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0, time_range=None):
     
     # Ready the frequency range flagger
     if time_range is None:
-        time_range = [numpy.inf, -numpy.inf]
+        time_range = [np.inf, -np.inf]
         
     # Create the median drift and setup the median smoothed drift model
     if data.dtype.kind == 'c':
-        drift = numpy.abs(data)
+        drift = np.abs(data)
     else:
         drift = data
-    drift = numpy.median(drift, axis=1)
+    drift = np.median(drift, axis=1)
     smth = drift*0.0
     
     # Calculate the median window size - the target is determined from the 
@@ -136,13 +136,13 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0, time_range=None):
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
-        smth[i] = numpy.median(drift[mn:mx])
+        smth[i] = np.median(drift[mn:mx])
     try:
         scl = robust.mean(smth)
         smth /= robust.mean(smth)
     except ValueError:
-        scl = numpy.mean(smth)
-        smth /= numpy.mean(smth)
+        scl = np.mean(smth)
+        smth /= np.mean(smth)
         
     # Apply the model and find deviant times
     bp = drift / smth
@@ -150,10 +150,10 @@ def flag_bandpass_time(times, data, width=30.0, clip=3.0, time_range=None):
         dm = robust.mean(bp)
         ds = robust.std(bp)
     except ValueError:
-        dm = numpy.mean(bp)
-        ds = numpy.std(bp)
-    bad = numpy.where( (numpy.abs(bp-dm) > clip*ds) \
-                       | ((times >= time_range[0]) & (times <= time_range[1])) )[0]
+        dm = np.mean(bp)
+        ds = np.std(bp)
+    bad = np.where( (np.abs(bp-dm) > clip*ds) \
+                   | ((times >= time_range[0]) & (times <= time_range[1])) )[0]
     
     # Done
     return drift, bad
@@ -178,11 +178,11 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
-    power = numpy.abs(data)
+    power = np.abs(data)
     try:
         mask = data.mask
     except AttributeError:
-        mask = numpy.zeros(data.shape, dtype=bool)
+        mask = np.zeros(data.shape, dtype=bool)
         
     # Loop over baselines
     for i,bl in enumerate(blList):
@@ -198,7 +198,7 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         if subpower.sum() == 0.0:
             mask[:,i,:] = True
             if verbose:
-                print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
+                print(f"Flagging {100.0*subpower.mask.sum()/subpower.mask.size:6.1f}% on baseline {ant1:2d}, {ant2:2d}")
             continue
             
         ##
@@ -209,12 +209,12 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
         drift, flagsT = flag_bandpass_time(times, subpower, width=width_time, clip=clip,
                                            time_range=time_range)
         
-        ## Build up a numpy.ma version of the data using the flags we just found
+        ## Build up a np.ma version of the data using the flags we just found
         try:
             subpower.mask
-            subpower = numpy.ma.array(subpower.data, mask=mask[:,i,:])
+            subpower = np.ma.array(subpower.data, mask=mask[:,i,:])
         except AttributeError:
-            subpower = numpy.ma.array(subpower, mask=mask[:,i,:])
+            subpower = np.ma.array(subpower, mask=mask[:,i,:])
         subpower.mask[flagsT,:] = True
         subpower.mask[:,flagsF] = True
         
@@ -232,14 +232,14 @@ def mask_bandpass(antennas, times, freq, data, width_time=30.0, width_freq=250e3
             dm = robust.mean(subpower)
             ds = robust.std(subpower)
         except ValueError:
-            dm = numpy.mean(subpower)
-            ds = numpy.std(subpower)
-        bad = numpy.where( (numpy.abs(subpower-dm) > clip*ds) )
+            dm = np.mean(subpower)
+            ds = np.std(subpower)
+        bad = np.where( (np.abs(subpower-dm) > clip*ds) )
         subpower.mask[bad] = True
         
         ## Report, if requested
         if verbose:
-            print("Flagging %6.1f%% on baseline %2i, %2i" % (100.0*subpower.mask.sum()/subpower.mask.size, ant1, ant2))
+            print(f"Flagging {100.0*subpower.mask.sum()/subpower.mask.size:6.1f}% on baseline {ant1:2d}, {ant2:2d}")
             
         ## Update the global mask
         mask[:,i,:] = subpower.mask
@@ -259,7 +259,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     # Build the exclusion list
     exclude = ()
     if not includeLWA:
-        exclude = (51, 52)
+        exclude = (51, 52, 53)
         
     # Load up the lists of baselines
     try:
@@ -268,11 +268,11 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         blList = uvutils.get_baselines(antennas, include_auto=True)
         
     # Get the initial power and mask
-    power = numpy.abs(data)
+    power = np.abs(data)
     try:
         mask = data.mask
     except AttributeError:
-        mask = numpy.zeros(data.shape, dtype=bool)
+        mask = np.zeros(data.shape, dtype=bool)
         
     # Setup StringIO so that we can deal with the annoying
     # 'Warning: converting a masked element to nan.' messages.
@@ -293,12 +293,12 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
             ant1, ant2 = bl
             
         if ant1 == ant2:
-            auto[bl[0]] = numpy.ma.median(power[:,i,:])
+            auto[bl[0]] = np.ma.median(power[:,i,:])
         elif ant1 not in exclude and ant2 not in exclude:
             cross.append(i)
             
     # Average the power over frequency
-    power = numpy.ma.mean(power, axis=2)
+    power = np.ma.mean(power, axis=2)
 
     # Average the uvw coordinates over time and frequency
     uvw = uvw.mean(axis=0).mean(axis=1)
@@ -319,25 +319,25 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
         ## Compute the distance to all other baselines and select the
         ## nearest 'nearest' non-auto-correlation points.
         dist = (uvw[cross,0]-uvw[i,0])**2 + (uvw[cross,1]-uvw[i,1])**2
-        closest = [cross[j] for j in numpy.argsort(dist)[1:nearest+1]]
+        closest = [cross[j] for j in np.argsort(dist)[1:nearest+1]]
         
         ## Compute the relative gain corrections from the auto-correlations
-        cgain = [numpy.sqrt(auto[blList[j][0]]*auto[blList[j][1]]) for j in closest]
-        bgain = numpy.sqrt(auto[bl[0]]*auto[bl[1]])
+        cgain = [np.sqrt(auto[blList[j][0]]*auto[blList[j][1]]) for j in closest]
+        bgain = np.sqrt(auto[bl[0]]*auto[bl[1]])
         
         ## Flag deviant times
         try:
             dm = robust.mean(power[:,closest] / cgain)
             ds = robust.std(power[:,closest] / cgain)
         except ValueError:
-            dm = numpy.mean(power[:,closest] / cgain)
-            ds = numpy.std(power[:,closest] / cgain)
-        bad = numpy.where( numpy.abs(power[:,i] / bgain - dm) > clip*ds )[0]
+            dm = np.mean(power[:,closest] / cgain)
+            ds = np.std(power[:,closest] / cgain)
+        bad = np.where( np.abs(power[:,i] / bgain - dm) > clip*ds )[0]
         mask[bad,i,:] = True
         
         ## Report, if requested
         if len(bad) > 0 and verbose:
-            print("Flagging %3i integrations on baseline %2i, %2i" % (len(bad), ant1, ant2))
+            print(f"Flagging {len(bad):3d} integrations on baseline {ant1:2d}, {ant2:2d}")
             
     # Cleanup the StringIO instance
     sys.stderr.close()
@@ -349,7 +349,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
 
 def cleanup_mask(mask, max_frac=0.75):
     """
-    Given a 3-D (times by baseline by frequency) numpy.ma array mask, look 
+    Given a 3-D (times by baseline by frequency) np.ma array mask, look 
     for dimensions with high flagging.  Completely mask those with more than
     'max_frac' flagged.
     """
@@ -414,16 +414,16 @@ def summarize_mask(antennas, times, freq, mask):
                 antennaFracs[ant2] = [frac,]
                 
         ## Baseline report
-        print("  %3i) Flagged %.1f%% on baseline %2i, %2i" % (i+1, frac, ant1, ant2))
+        print(f"  {i+1:3d}) Flagged {frac:.1f}% on baseline {ant1:2d}, {ant2:2d}")
         
     frac = 100.0*mask.sum() / mask.size
     print("Global Statistics:")
-    print("  Flagged %.1f%% globally" % frac)
+    print(f"  Flagged {frac:.1f}% globally")
     print("  Antenna Breakdown:")
     for ant in sorted(antennaFracs.keys()):
         fracs = antennaFracs[ant]
         frac = 1.0 * sum(fracs) / len(fracs)
-        print("    %2i flagged %.1f%% on average" % (ant, frac))
+        print(f"    {ant:2d} flagged {frac:.1f}% on average")
 
 
 def create_flag_groups(times, freq, mask):
@@ -446,8 +446,8 @@ def create_flag_groups(times, freq, mask):
         
     flagsD = []
     flagsP = []
-    claimed = numpy.zeros(mask.shape, dtype=bool)
-    group = numpy.where( mask )
+    claimed = np.zeros(mask.shape, dtype=bool)
+    group = np.where( mask )
     for l in range(len(group[0])):
         i, j = group[0][l], group[1][l]
         if claimed[i,j]:
