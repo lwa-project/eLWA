@@ -200,7 +200,7 @@ def main(args):
             blset = np.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print(f"    Baseline {i+1} of {nBL}"
+                print(f"    Baseline {i+1} of {nBL}")
                 
             if len(blset) == 0:
                 continue
