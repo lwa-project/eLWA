@@ -10,7 +10,7 @@ import re
 import git
 import sys
 import ephem
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime, timedelta
 
@@ -22,27 +22,27 @@ from utils import *
 from get_vla_ant_pos import database
 
 
-VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9)) 
+VLA_ECEF = np.array((-1601185.4, -5041977.5, 3554875.9)) 
 
 
 ## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
 ## with LWA1 and EA03/EA01
-LWA1_ECEF = numpy.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
-LWA1_LAT =   34.068956328 * numpy.pi/180
-LWA1_LON = -107.628103026 * numpy.pi/180
-LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
-                        [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
-                        [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
+LWA1_ECEF = np.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
+LWA1_LAT =   34.068956328 * np.pi/180
+LWA1_LON = -107.628103026 * np.pi/180
+LWA1_ROT = np.array([[ np.sin(LWA1_LAT)*np.cos(LWA1_LON), np.sin(LWA1_LAT)*np.sin(LWA1_LON), -np.cos(LWA1_LAT)], 
+                     [-np.sin(LWA1_LON),                  np.cos(LWA1_LON),                   0               ],
+                     [ np.cos(LWA1_LAT)*np.cos(LWA1_LON), np.cos(LWA1_LAT)*np.sin(LWA1_LON),  np.sin(LWA1_LAT)]])
 
 ## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
 ## with LWA1 and LWA-SV.  This also includes the shift detailed
 ## above for LWA1
-LWASV_ECEF = numpy.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
-LWASV_LAT =   34.34841153053564 * numpy.pi/180
-LWASV_LON = -106.88582216960029 * numpy.pi/180
-LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
-                         [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
-                         [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
+LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
+LWASV_LAT =   34.34841153053564 * np.pi/180
+LWASV_LON = -106.88582216960029 * np.pi/180
+LWASV_ROT = np.array([[ np.sin(LWASV_LAT)*np.cos(LWASV_LON), np.sin(LWASV_LAT)*np.sin(LWASV_LON), -np.cos(LWASV_LAT)], 
+                      [-np.sin(LWASV_LON),                   np.cos(LWASV_LON),                    0                ],
+                      [ np.cos(LWASV_LAT)*np.cos(LWASV_LON), np.cos(LWASV_LAT)*np.sin(LWASV_LON),  np.sin(LWASV_LAT)]])
 
 
 ## Correlator configuration regexs
@@ -75,7 +75,7 @@ def main(args):
     try:
         db = database('params')
     except Exception as e:
-        sys.stderr.write("WARNING: %s" % str(e))
+        sys.stderr.write(f"WARNING: {str(e)}")
         sys.stderr.flush()
         db = None
         
@@ -204,7 +204,7 @@ def main(args):
                     lwasite[fileInfo[obsID]['tag']] = site
                     
             except Exception as e:
-                sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
                 sys.stderr.flush()
                 
     # Setup what we need to write out a configuration file
@@ -242,12 +242,12 @@ def main(args):
                     xyz = LWASV_ECEF
                     off = args.lwasv_offset
                 else:
-                    raise RuntimeError("Unknown LWA site '%s'" % site)
+                    raise RuntimeError(f"Unknown LWA site '{site}'")
                     
                 ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
+                sez = np.dot(LWA1_ROT, rho)
                 enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
@@ -267,7 +267,7 @@ def main(args):
                 tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
-                    sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))
+                    sys.stderr.write(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
                     sys.stderr.flush()
                     tStart = tStartAlt
                 ### ^ Adjustment to the start time to deal with occasional problems
@@ -304,7 +304,7 @@ def main(args):
                                               'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
                                         
             except Exception as e:
-                sys.stderr.write("ERROR reading DRX file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading DRX file: {str(e)}\n")
                 sys.stderr.flush()
                 
         elif ext == '.vdif':
@@ -333,18 +333,18 @@ def main(args):
                         break
                         
                 ## Find the antenna location
-                pad, edate = db.get_pad('EA%02i' % antID, tStart)
+                pad, edate = db.get_pad(f"EA{antID:02d}", tStart)
                 x,y,z = db.get_xyz(pad, tStart)
                 #print("  Pad: %s" % pad)
                 #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF
-                xyz = numpy.array([x,y,z])
+                xyz = np.array([x,y,z])
                 xyz += VLA_ECEF
                 ### ECEF to LWA1
                 rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
+                sez = np.dot(LWA1_ROT, rho)
                 enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                 enz[1] *= -1
                 
@@ -353,7 +353,7 @@ def main(args):
                 if args.no_vla_delay_model:
                     apparent_xyz = VLA_ECEF
                     apparent_rho = apparent_xyz - LWA1_ECEF
-                    apparent_sez = numpy.dot(LWA1_ROT, apparent_rho)
+                    apparent_sez = np.dot(LWA1_ROT, apparent_rho)
                     apparent_enz = apparent_sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
                     apparent_enz[1] *= -1
                     
@@ -381,7 +381,7 @@ def main(args):
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
-                sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading VDIF file: {str(e)}\n")
                 sys.stderr.flush()
                 
         elif ext == '.tgz':
@@ -393,7 +393,7 @@ def main(args):
                     metadata[fileInfo[obsID]['tag']] = filename
                     
             except Exception as e:
-                sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
                 sys.stderr.flush()
                 
         # Done
@@ -459,7 +459,7 @@ def main(args):
             antCounts[cinp['antenna']] = 1
     for ant in antCounts.keys():
         if antCounts[ant] != 1:
-            sys.stderr.write("WARNING: Antenna '%s' is defined %i times" % (ant, antCounts[ant]))
+            sys.stderr.write(f"WARNING: Antenna '{ant}' is defined {antCounts[ant]} times")
             
     # Update the file offsets to get things lined up better
     tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
@@ -654,10 +654,9 @@ if __name__ == "__main__":
                         help='LWA-SV clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
-    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-numpy.inf,
+    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-np.inf,
                         help='minimum scan length in seconds to write a configuration file for')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
     args = parser.parse_args()
     main(args)
-    
