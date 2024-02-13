@@ -2,7 +2,7 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 import tempfile
 from datetime import datetime
@@ -22,7 +22,7 @@ def main(args):
     observer = site.get_observer()
     
     # Load in the file file to figure out what to do
-    dataDict = numpy.load(args.filename[0])
+    dataDict = np.load(args.filename[0])
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
     freq = dataDict['freq1']
@@ -40,7 +40,7 @@ def main(args):
     uvw = []
     for filename in args.filename:
         ## Load in the integration
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
         
         tStart = dataDict['tStart'].item()
         tInt = dataDict['tInt'].item()
@@ -50,16 +50,16 @@ def main(args):
         ## Update the observation
         observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
         refSrc.compute(observer)
-        HA = (observer.sidereal_time() - refSrc.ra) * 12/numpy.pi
-        dec = refSrc.dec * 180/numpy.pi
+        HA = (observer.sidereal_time() - refSrc.ra) * 12/np.pi
+        dec = refSrc.dec * 180/np.pi
         
         ## Compute u, v, and w
         t.append( datetime.utcfromtimestamp(tStart) )
         uvw.append( uvutils.compute_uvw(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
-    uvw = numpy.array(uvw) / 1e3
+    uvw = np.array(uvw) / 1e3
     
     # Compute the baseline lengths
-    blLength = numpy.sqrt( (uvw**2).sum(axis=2) )
+    blLength = np.sqrt( (uvw**2).sum(axis=2) )
     print(len(blList), uvw.shape, blLength.shape)
     
     # Report
@@ -74,34 +74,34 @@ def main(args):
     print("Baselines:")
     print("  Total: %i" % (uvw.shape[0]*uvw.shape[1]))
     ## Minimum basline length
-    m = numpy.argmin(blLength)
+    m = np.argmin(blLength)
     b = m % uvw.shape[1]
     bl0 = blList[b][0].stand.id
     if bl0 < 50:
-        bl0 = 'EA%02i' % bl0
+        bl0 = f"EA{bl0:02d}"
     else:
-        bl0 = 'LWA%i' % (bl0-50)
+        bl0 = f"LWA{bl0-50}"
     bl1 = blList[b][1].stand.id
     if bl1 < 50:
-        bl1 = 'EA%02i' % bl1
+        bl1 = f"EA{bl1:02d}"
     else:
-        bl1 = 'LWA%i' % (bl1-50)
-    print("  Minimum: %.2f klambda (%s <-> %s)" % (blLength.min(), bl0, bl1))
-    print("  Median: %.2f klambda" % numpy.median(blLength))
+        bl1 = f"LWA{bl1-50}"
+    print(f"  Minimum: {blLength.min():.2f} klambda ({bl0} <-> {bl1})")
+    print(f"  Median: {np.median(blLength):.2f} klambda")
     ## Maximum baseline length
-    m = numpy.argmax(blLength)
+    m = np.argmax(blLength)
     b = m % uvw.shape[1]
     bl0 = blList[b][0].stand.id
     if bl0 < 50:
-        bl0 = 'EA%02i' % bl0
+        bl0 = f"EA{bl0:02d}"
     else:
-        bl0 = 'LWA%i' % (bl0-50)
+        bl0 = f"LWA{bl0-50}"
     bl1 = blList[b][1].stand.id
     if bl1 < 50:
-        bl1 = 'EA%02i' % bl1
+        bl1 = f"EA{bl1:02d}"
     else:
-        bl1 = 'LWA%i' % (bl1-50)
-    print("  Maximum %.2f klambda (%s <-> %s)" % (blLength.max(), bl0, bl1))
+        bl1 = f"LWA{bl1-50}"
+    print(f"  Maximum {blLength.max():.2f} klambda ({bl0} <-> {bl1})")
     
     # Plot
     fig = plt.figure()
@@ -124,4 +124,3 @@ if __name__ == "__main__":
                         help='filename to plot')
     args = parser.parse_args()
     main(args)
-    

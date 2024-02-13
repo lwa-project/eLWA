@@ -8,7 +8,7 @@ import os
 import git
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -24,7 +24,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -37,9 +37,9 @@ def main(args):
         
         # Verify we can flag this data
         if uvdata.header['STK_1'] > 0:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
@@ -59,17 +59,17 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
-        weight = uvdata.data['WEIGHT'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
+        weight = uvdata.data['WEIGHT'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
@@ -77,13 +77,13 @@ def main(args):
         weight.shape = (weight.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
+        ubls = np.unique(bls)
+        utimes = np.unique(obstimes)
+        usrc = np.unique(srcs)
         nBL = len(ubls)
         
         # Create a mask of the old flags, if needed
-        mask = numpy.zeros(flux.shape, dtype=bool)
+        mask = np.zeros(flux.shape, dtype=bool)
         if not args.drop and fgdata is not None:
             reltimes = obsdates - obsdates[0] + obstimes
             maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -106,14 +106,14 @@ def main(args):
                 pol = row['PFLAGS'].astype(bool)
                 
                 if ant1 == 0 and ant2 == 0:
-                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 elif ant1 == 0 or ant2 == 0:
                     ant1 = max([ant1, ant2])
-                    btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
-                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 else:
-                    btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
-                                        & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 for b,v in enumerate(band):
                     if not v:
                         continue
@@ -121,7 +121,7 @@ def main(args):
                         
         # Decimate
         ## Setup
-        print("  Found %i channels, each %.3f kHz wide" % (nFreq, (freq[1]-freq[0])/1e3))
+        print(f"  Found {nFreq} channels, each {freq[1]-freq[0])/1e3:.3f} kHz wide")
         if freq.size % args.decimation != 0:
             to_trim = (freq.size/args.decimation)*args.decimation
             to_drop = freq.size - to_trim
@@ -148,10 +148,10 @@ def main(args):
         ## New Flags
         nBL = len(ubls)
         for i in range(nBL):
-            blset = numpy.where( bls == ubls[i] )[0]
+            blset = np.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             if len(blset) == 0:
                 continue
@@ -203,16 +203,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -244,7 +244,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         else:
             for hdu in hdulist:
                 try: 
@@ -256,9 +256,9 @@ def main(args):
                 scl = 1.0 / args.decimation
                 chans = hdu.data['CHANS']
                 chans = chans * scl
-                chans = numpy.clip(chans, 1, nFreq)
+                chans = np.clip(chans, 1, nFreq)
                 hdu.data['CHANS'][...] = chans.astype(hdu.data['CHANS'].dtype)
-                hdu.header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (hdu.header['NO_CHAN'], nFreq)
+                hdu.header['HISTORY'] = f"Scaled channel flag value range from [1, {hdu.header['NO_CHAN']}] to [1, {nFreq}]"
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -280,18 +280,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_decim%s' % (outname, outext)
+        outname = f"{outname}_decim{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =	astrofits.PrimaryHDU()
@@ -369,7 +369,7 @@ def main(args):
                         ## Why?
                         temp = temp.ravel()
                     elif col.name == 'FLUX':
-                        temp = flux.view(numpy.float32)
+                        temp = flux.view(np.float32)
                         temp = temp.astype(hdu.data[col.name].dtype)
                         temp.shape = (temp.shape[0], temp.shape[1]*temp.shape[2]*temp.shape[3])
                         fmt = '%i%s' % (2*nStk*nFreq*nBand, col.format[-1])
@@ -397,12 +397,12 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Decimated FITS IDI file is '%s'" % outname)
+        print(f"  -> Decimated FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     parser = argparse.ArgumentParser(
         description='Decimate the number of spectral channels in FITS-IDI files', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -417,4 +417,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    
