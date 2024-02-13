@@ -14,6 +14,8 @@ import numpy as np
 import argparse
 from datetime import datetime, timedelta
 
+from astropy.coordinates import EarthLocation, AltAz, ITRF
+
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
 from lsl.common.mcs import mjdmpm_to_datetime
@@ -28,21 +30,11 @@ VLA_ECEF = np.array((-1601185.4, -5041977.5, 3554875.9))
 ## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
 ## with LWA1 and EA03/EA01
 LWA1_ECEF = np.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
-LWA1_LAT =   34.068956328 * np.pi/180
-LWA1_LON = -107.628103026 * np.pi/180
-LWA1_ROT = np.array([[ np.sin(LWA1_LAT)*np.cos(LWA1_LON), np.sin(LWA1_LAT)*np.sin(LWA1_LON), -np.cos(LWA1_LAT)], 
-                     [-np.sin(LWA1_LON),                  np.cos(LWA1_LON),                   0               ],
-                     [ np.cos(LWA1_LAT)*np.cos(LWA1_LON), np.cos(LWA1_LAT)*np.sin(LWA1_LON),  np.sin(LWA1_LAT)]])
 
 ## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
 ## with LWA1 and LWA-SV.  This also includes the shift detailed
 ## above for LWA1
 LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
-LWASV_LAT =   34.34841153053564 * np.pi/180
-LWASV_LON = -106.88582216960029 * np.pi/180
-LWASV_ROT = np.array([[ np.sin(LWASV_LAT)*np.cos(LWASV_LON), np.sin(LWASV_LAT)*np.sin(LWASV_LON), -np.cos(LWASV_LAT)], 
-                      [-np.sin(LWASV_LON),                   np.cos(LWASV_LON),                    0                ],
-                      [ np.cos(LWASV_LAT)*np.cos(LWASV_LON), np.cos(LWASV_LAT)*np.sin(LWASV_LON),  np.sin(LWASV_LAT)]])
 
 
 ## Correlator configuration regexs
@@ -56,6 +48,21 @@ ALT_TARGET = re.compile('alttarget(?P<id>\d+):(?P<target>.*);;')
 ALT_INTENT = re.compile('altintent(?P<id>\d+):(?P<intent>.*);;')
 ALT_RA = re.compile('altra(?P<id>\d+):(?P<ra>\d+(.\d*)?)')
 ALT_DEC = re.compile('altdec(?P<id>\d+):(?P<dec>[-+]?\d+(.\d*)?)')
+
+
+def get_enz_offset(ecef_from, ecef_to):
+    """
+    Given two geocentric positions in m, find the east-north-zenith
+    offset needed to go from the first position to the second.
+    """
+    
+    ecef_from = EarthLocation.from_geocentric(*ecef_from, unit='m')
+    ecef_to = EarthLocation.from_geocentric(*ecef_to, unit='m')
+    aa = AltAz(location=ecef_from.itrs, obstime=ecef_to.itrs.obstime, pressure=0)
+    pd = ecef_to.itrs.transform_to(aa)
+    return np.array([np.sin(pd.az.rad)*np.cos(pd.alt.rad),
+                     np.cos(pd.az.rad)*np.cos(pd.alt.rad),
+                     np.sin(pd.alt.rad)])*pd.distance.to('m').value
 
 
 def main(args):
@@ -246,10 +253,7 @@ def main(args):
                     
                 ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = np.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                enz[1] *= -1
+                enz = get_enz_offset(LWA1_ECEF, xyz)
                 
                 ## Read in the first few frames to get the start time
                 frames = [drx.read_frame(fh) for i in range(1024)]
@@ -343,19 +347,13 @@ def main(args):
                 xyz = np.array([x,y,z])
                 xyz += VLA_ECEF
                 ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = np.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                enz[1] *= -1
+                enz = get_enz_offset(LWA1_ECEF, xyz)
                 
                 ## Set an apparent position if WiDAR is already applying a delay model
                 apparent_enz = (None, None, None)
                 if args.no_vla_delay_model:
                     apparent_xyz = VLA_ECEF
-                    apparent_rho = apparent_xyz - LWA1_ECEF
-                    apparent_sez = np.dot(LWA1_ROT, apparent_rho)
-                    apparent_enz = apparent_sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                    apparent_enz[1] *= -1
+                    apparent_enz = get_enz_offset(LWA1_ECEF, apparent_xyz)
                     
                 ## VLA time offset
                 off = args.vla_offset
