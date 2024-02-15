@@ -298,7 +298,7 @@ def main(args):
                     tStart = tStartAlt
                 ### ^ Adjustment to the start time to deal with occasional problems
                 ###   with stale data in the DR buffers at LWA-SV
-                    
+                
                 ## Read in the last few frames to find the end time
                 fh.seek(os.path.getsize(filename) - 1024*drx.FRAME_SIZE)
                 backed = 0
