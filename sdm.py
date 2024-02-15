@@ -3,6 +3,7 @@ Module for working with VLA SDM files for flagging purposes.
 """
 
 import os
+import sys
 import numpy as np
 import struct
 from functools import reduce
@@ -491,8 +492,6 @@ def filter_requantizer_gains(gains, startJD, stopJD):
 
 
 if __name__ == "__main__":
-    import sys
-    import numpy
     gains = get_requantizer_gains(sys.argv[1])
     
     import pylab
@@ -506,4 +505,3 @@ if __name__ == "__main__":
         pylab.plot(gain[:,0]-gain[0,0], gain[:,2]/norm)
         pylab.plot(gain[:,0]-gain[0,0], gain[:,3]/norm)
     pylab.show()
-    
