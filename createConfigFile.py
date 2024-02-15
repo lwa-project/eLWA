@@ -14,6 +14,7 @@ import numpy as np
 import argparse
 from datetime import datetime, timedelta
 
+from astropy import units as astrounits
 from astropy.coordinates import EarthLocation, AltAz, ITRF
 
 from lsl.reader import drx, vdif, errors
@@ -196,17 +197,24 @@ def main(args):
                     metadata[fileInfo[obsID]['tag']] = filename
                     
                 ## Figure out LWA1 vs LWA-SV
-                try:
-                    cs = metabundle.get_command_script(filename)
-                    for c in cs:
-                        if c['subsystem_id'] == 'DP':
-                            site = 'LWA1'
-                            break
-                        elif c['subsystem_id'] == 'ADP':
-                            site = 'LWA-SV'
-                            break
-                except (RuntimeError, ValueError):
-                    site = 'LWA-SV'
+                sta = metabundle.get_station(filename)
+                if sta is not None:
+                    sta = EarthLocation.from_geodetic(sta.long*astrounits.rad, sta.lat*astrounits.rad,
+                                                      height=sta.elev*astrounits.m,
+                                                      ellipsoid='WGS84')
+                    site = np.array([sta.x.to('m').value, sta.y.to('m').value, sta.z.to('m').value])
+                else:
+                    try:
+                        cs = metabundle.get_command_script(filename)
+                        for c in cs:
+                            if c['subsystem_id'] == 'DP':
+                                site = 'LWA1'
+                                break
+                            elif c['subsystem_id'] == 'ADP':
+                                site = 'LWA-SV'
+                                break
+                    except (RuntimeError, ValueError):
+                        site = 'LWA-SV'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
@@ -242,14 +250,28 @@ def main(args):
                     sitename = 'LWA1'
                     
                 ## Get the location so that we can set site-specific parameters
-                if sitename == 'LWA1':
-                    xyz = LWA1_ECEF
-                    off = args.lwa1_offset
-                elif sitename == 'LWA-SV':
-                    xyz = LWASV_ECEF
-                    off = args.lwasv_offset
+                if isinstance(sitename, np.ndarray):
+                    found_site = False
+                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF), (args.lwa1_offset, args.lwasv_offset)):
+                        d = np.sqrt(((sitename - ref_pos)^2).sum())
+                        if d < 200:
+                            found_site = True
+                            xyz = sitename
+                            off = ref_off
+                            break
+                            
+                    if not found_site:
+                        sys.stderr.write(f"WARNING: Unknown LWA site '{sitename}', no clock offset applied")
+                        
                 else:
-                    raise RuntimeError(f"Unknown LWA site '{site}'")
+                    if sitename == 'LWA1':
+                        xyz = LWA1_ECEF
+                        off = args.lwa1_offset
+                    elif sitename == 'LWA-SV':
+                        xyz = LWASV_ECEF
+                        off = args.lwasv_offset
+                    else:
+                        raise RuntimeError(f"Unknown LWA site '{sitename}'")
                     
                 ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
