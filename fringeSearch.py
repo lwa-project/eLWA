@@ -7,7 +7,7 @@ Given a collection of .npz files search for course delays and rates.
 import os
 import sys
 import glob
-import numpy
+import numpy as np
 import argparse
 import tempfile
 
@@ -42,7 +42,7 @@ def main(args):
         
     nInt = len(filenames)
     
-    dataDict = numpy.load(filenames[0])
+    dataDict = np.load(filenames[0])
     tInt = dataDict['tInt']
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
@@ -82,15 +82,15 @@ def main(args):
         freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-    times = numpy.zeros(nInt, dtype=numpy.float64)
-    visXX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    times = np.zeros(nInt, dtype=np.float64)
+    visXX = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
     if not args.y_only:
-        visXY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visYX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visYY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+        visXY = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
+    visYX = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
+    visYY = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
 
     for i,filename in enumerate(filenames):
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
 
         tStart = dataDict['tStart']
         
@@ -121,7 +121,7 @@ def main(args):
             
     print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
-    iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
+    iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
@@ -167,33 +167,33 @@ def main(args):
     print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
     print(" ")
     
-    delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
-    drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
+    delay = np.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+    drate = np.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
     
     # Find RFI and trim it out.  This is done by computing average visibility 
     # amplitudes (a "spectrum") and running a median filter in frequency to extract
     # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
     # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
     # value are also masked.
-    spec  = numpy.median(numpy.abs(visXX.mean(axis=0)), axis=0)
-    spec += numpy.median(numpy.abs(visYY.mean(axis=0)), axis=0)
+    spec  = np.median(np.abs(visXX.mean(axis=0)), axis=0)
+    spec += np.median(np.abs(visYY.mean(axis=0)), axis=0)
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
-        smth[i] = numpy.median(spec[mn:mx])
+        smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nchan - len(good)
     print("Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan))
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()
-        ax.plot(freq/1e6, numpy.log10(spec)*10)
-        ax.plot(freq[good]/1e6, numpy.log10(spec[good])*10)
+        ax.plot(freq/1e6, np.log10(spec)*10)
+        ax.plot(freq[good]/1e6, np.log10(spec[good])*10)
         ax.set_title('Mean Visibility Amplitude')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('PSD [arb. dB]')
@@ -247,10 +247,10 @@ def main(args):
             subData = vis[:,b,good]*1.0
             if doConj:
                 subData = subData.conj()
-            subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+            subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
             subData /= freq2[good,:].size
-            amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
-            amp = numpy.abs(amp / dTimes2.size)
+            amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+            amp = np.abs(amp / dTimes2.size)
             
             blName = bls[b]
             if doConj:
@@ -258,7 +258,7 @@ def main(args):
             blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
                         'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
                         
-            best = numpy.where( amp == amp.max() )
+            best = np.where( amp == amp.max() )
             if amp.max() > 0:
                 bsnr = (amp[best]-amp.mean())[0]/amp.std()
                 bdly = delay[best[0][0]]*1e6

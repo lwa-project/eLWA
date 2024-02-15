@@ -6,7 +6,7 @@ Small script to plot up the configuration in a file.
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 import tempfile
 
@@ -34,7 +34,7 @@ def main(args):
             else:
                 names.append( f"LWA{ant.stand.id-50}" )
             processed.append( ant.stand.id )
-    data = numpy.array(data)
+    data = np.array(data)
     
     # Get the baseline lengths for zenith
     bl = []
@@ -42,8 +42,8 @@ def main(args):
     for i in range(data.shape[0]):
         for j in range(i+1, data.shape[0]):
             bl.append( (i,j) )
-            blLength.append( numpy.sqrt( ((data[i,:]-data[j,:])**2).sum() ) )
-    blLength = numpy.array(blLength) / 1e3
+            blLength.append( np.sqrt( ((data[i,:]-data[j,:])**2).sum() ) )
+    blLength = np.array(blLength) / 1e3
     
     # Report
     print("Filename: %s" % os.path.basename(args.filename))
@@ -57,9 +57,9 @@ def main(args):
     print("    DRX: %i" % sum([1 for rdr in readers if rdr is drx]))
     print("  Baselines:")
     print("    Total: %i" % len(bl))
-    print("    Minimum: %.2f km (%s <-> %s)" % (blLength.min(), names[bl[numpy.argmin(blLength)][0]], names[bl[numpy.argmin(blLength)][1]]))
-    print("    Median: %.2f km" % numpy.median(blLength))
-    print("    Maximum %.2f km (%s <-> %s)" % (blLength.max(), names[bl[numpy.argmax(blLength)][0]], names[bl[numpy.argmax(blLength)][1]]))
+    print("    Minimum: %.2f km (%s <-> %s)" % (blLength.min(), names[bl[np.argmin(blLength)][0]], names[bl[np.argmin(blLength)][1]]))
+    print("    Median: %.2f km" % np.median(blLength))
+    print("    Maximum %.2f km (%s <-> %s)" % (blLength.max(), names[bl[np.argmax(blLength)][0]], names[bl[np.argmax(blLength)][1]]))
     
     # Color-code the stands by their elevation
     color = data[:,2]

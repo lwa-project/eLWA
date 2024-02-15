@@ -10,7 +10,7 @@ NOTE:  This script does not try to fringe search only a single source.  Rather,
 
 import os
 import sys
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -67,40 +67,40 @@ def main(args):
     ## Band information
     fqoffsets = fqdata.data['BANDFREQ'].ravel()
     ## Frequency channels
-    freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+    freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
     freq += uvdata.header['CRVAL3']
     ## UVW coordinates
     try:
         u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
     except KeyError:
         u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-    uvw = numpy.array([u, v, w]).T
+    uvw = np.array([u, v, w]).T
     ## The actual visibility data
-    flux = uvdata.data['FLUX'].astype(numpy.float32)
+    flux = uvdata.data['FLUX'].astype(np.float32)
     
     # Convert the visibilities to something that we can easily work with
     nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
-        flux = flux.view(numpy.complex64)
+        flux = flux.view(np.complex64)
     else:
         ## Case 2) - Real, imaginary data + weights (drop the weights)
         flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
     flux.shape = (flux.shape[0], nBand, nFreq, nStk)
     
     # Find unique baselines, times, and sources to work with
-    ubls = numpy.unique(bls)
-    utimes = numpy.unique(obstimes)
-    usrc = numpy.unique(srcs)
+    ubls = np.unique(bls)
+    utimes = np.unique(obstimes)
+    usrc = np.unique(srcs)
     
     # Convert times to real times
     times = utcjd_to_unix(obsdates + obstimes)
-    times = numpy.unique(times)
+    times = np.unique(times)
     
     # Find unique scans to work on, making sure that there are no large gaps
     blocks = []
     for src in usrc:
-        valid = numpy.where( src == srcs )[0]
+        valid = np.where( src == srcs )[0]
         
         blocks.append( [valid[0],valid[0]] )
         for v in valid[1:]:
@@ -136,7 +136,7 @@ def main(args):
             cross.append( i )
     nBL = len(cross)
     
-    iTimes = numpy.zeros(times.size-1, dtype=times.dtype)
+    iTimes = np.zeros(times.size-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
@@ -182,33 +182,33 @@ def main(args):
     print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
     print(" ")
     
-    delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
-    drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
+    delay = np.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+    drate = np.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
     
     # Find RFI and trim it out.  This is done by computing average visibility 
     # amplitudes (a "spectrum") and running a median filter in frequency to extract
     # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
     # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
     # value are also masked.
-    spec  = numpy.median(numpy.abs(flux[:,0,:,0]), axis=0)
-    spec += numpy.median(numpy.abs(flux[:,0,:,1]), axis=0)
+    spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
+    spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
-        smth[i] = numpy.median(spec[mn:mx])
+        smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nFreq - len(good)
     print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()
-        ax.plot(freq/1e6, numpy.log10(spec)*10)
-        ax.plot(freq[good]/1e6, numpy.log10(spec[good])*10)
+        ax.plot(freq/1e6, np.log10(spec)*10)
+        ax.plot(freq[good]/1e6, np.log10(spec[good])*10)
         ax.set_title('Mean Visibility Amplitude')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('PSD [arb. dB]')
@@ -260,16 +260,16 @@ def main(args):
             axs['XY'] = fig.add_subplot(2, 2, 3)
             axs['YX'] = fig.add_subplot(2, 2, 4)
             
-        valid = numpy.where( bls == bl )[0]
+        valid = np.where( bls == bl )[0]
         for pol in polToUse:
             subData = flux[valid,0,:,polMapper[pol]]*1.0
             subData = subData[:,good]
             if doConj:
                 subData = subData.conj()
-            subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+            subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
             subData /= freq2[good,:].size
-            amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
-            amp = numpy.abs(amp / dTimes2.size)
+            amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+            amp = np.abs(amp / dTimes2.size)
             
             blName = (ant1, ant2)
             if doConj:
@@ -277,7 +277,7 @@ def main(args):
             blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
                         'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
                         
-            best = numpy.where( amp == amp.max() )
+            best = np.where( amp == amp.max() )
             if amp.max() > 0:
                 bsnr = (amp[best]-amp.mean())[0]/amp.std()
                 bdly = delay[best[0][0]]*1e6
