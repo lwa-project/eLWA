@@ -8,7 +8,7 @@ files created by the next generation of correlator.
 import os
 import sys
 import glob
-import numpy
+import numpy as np
 import argparse
 import tempfile
 from datetime import datetime
@@ -54,7 +54,7 @@ def main(args):
         
     nInt = len(filenames)
     
-    dataDict = numpy.load(filenames[0])
+    dataDict = np.load(filenames[0])
     tInt = dataDict['tInt']
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
@@ -102,12 +102,12 @@ def main(args):
         freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-    times = numpy.zeros(nInt, dtype=numpy.float64)
-    visToPlot = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visToMask = numpy.zeros((nInt,nBL,nchan), dtype=bool)
+    times = np.zeros(nInt, dtype=np.float64)
+    visToPlot = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
+    visToMask = np.zeros((nInt,nBL,nchan), dtype=bool)
     
     for i,filename in enumerate(filenames):
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
         
         tStart = dataDict['tStart']
         
@@ -147,7 +147,7 @@ def main(args):
             
     print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
-    iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
+    iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: {iTimes.mean():.3f} +/- {iTimes.std():.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
@@ -156,10 +156,10 @@ def main(args):
 
     dTimes = times - times[0]
     
-    delay = numpy.linspace(-350e-6, 350e-6, 301)		# s
-    drate = numpy.linspace(-150e-3, 150e-3, 301)		# Hz
+    delay = np.linspace(-350e-6, 350e-6, 301)		# s
+    drate = np.linspace(-150e-3, 150e-3, 301)		# Hz
     
-    good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
+    good = np.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
     
     fig1 = plt.figure()
     fig2 = plt.figure()
@@ -168,14 +168,14 @@ def main(args):
     fig5 = plt.figure()
     
     k = 0
-    nRow = int(numpy.sqrt( len(bls) ))
-    nCol = int(numpy.ceil(len(bls)*1.0/nRow))
+    nRow = int(np.sqrt( len(bls) ))
+    nCol = int(np.ceil(len(bls)*1.0/nRow))
     for b in range(len(bls)):
         i,j = bls[b]
-        vis = numpy.ma.array(visToPlot[:,b,:], mask=visToMask[:,b,:])
+        vis = np.ma.array(visToPlot[:,b,:], mask=visToMask[:,b,:])
         
         ax = fig1.add_subplot(nRow, nCol, k+1)
-        ax.imshow(numpy.ma.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+        ax.imshow(np.ma.angle(vis), extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-np.pi, vmax=np.pi, interpolation='nearest')
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
@@ -184,7 +184,7 @@ def main(args):
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         ax = fig2.add_subplot(nRow, nCol, k+1)
-        amp = numpy.ma.abs(vis)
+        amp = np.ma.abs(vis)
         vmin, vmax = percentile(amp, 1), percentile(amp, 99)
         ax.imshow(amp, extent=(freq[0]/1e6, freq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
         ax.axis('auto')
@@ -195,14 +195,14 @@ def main(args):
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
         ax = fig3.add_subplot(nRow, nCol, k+1)
-        ax.plot(freq/1e6, numpy.ma.abs(vis.mean(axis=0)))
+        ax.plot(freq/1e6, np.ma.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
         ax.set_title(f"{i},{j} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
-        ax.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+        ax.plot(np.ma.angle(vis[:,good].mean(axis=1))*180/np.pi, dTimes, linestyle='', marker='+')
         ax.set_xlim((-180, 180))
         ax.set_xlabel('Mean Vis. Phase [deg]')
         ax.set_ylabel('Elapsed Time [s]')
@@ -210,7 +210,7 @@ def main(args):
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         ax = fig5.add_subplot(nRow, nCol, k+1)
-        ax.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+        ax.plot(np.ma.abs(vis[:,good].mean(axis=1))*180/np.pi, dTimes, linestyle='', marker='+')
         ax.set_xlabel('Mean Vis. Amp. [lin.]')
         ax.set_ylabel('Elapsed Time [s]')
         ax.set_title(f"{i},{j} - {args.polToPlot}")

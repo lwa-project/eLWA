@@ -7,7 +7,7 @@ plots.
 
 import os
 import sys
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -75,38 +75,38 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
         except KeyError:
             u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-        uvw = numpy.array([u, v, w]).T
+        uvw = np.array([u, v, w]).T
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
+        ubls = np.unique(bls)
+        utimes = np.unique(obstimes)
+        usrc = np.unique(srcs)
         
         # Convert times to real times
         times = utcjd_to_unix(obsdates + obstimes)
-        times = numpy.unique(times)
+        times = np.unique(times)
         
         # Build a mask
-        mask = numpy.zeros(flux.shape, dtype=bool)
+        mask = np.zeros(flux.shape, dtype=bool)
         if fgdata is not None and not args.drop:
             reltimes = obsdates - obsdates[0] + obstimes
             maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -148,14 +148,14 @@ def main(args):
                 pol = row['PFLAGS'].astype(bool)
                 
                 if ant1 == 0 and ant2 == 0:
-                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 elif ant1 == 0 or ant2 == 0:
                     ant1 = max([ant1, ant2])
-                    btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
-                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 else:
-                    btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
-                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 for b,v in enumerate(band):
                     if not v:
                         continue
@@ -195,7 +195,7 @@ def main(args):
             mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
             mask = mask.mean(axis=3)
             
-        good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
+        good = np.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
 
         if first:
             ref_time = obsdates[0] + obstimes[0]
@@ -209,7 +209,7 @@ def main(args):
         
         for b in range(len(plot_bls)):
             bl = plot_bls[b]
-            valid = numpy.where( bls == bl )[0]
+            valid = np.where( bls == bl )[0]
             i,j = (bl>>8)&0xFF, bl&0xFF
             dTimes = obsdates[valid] + obstimes[valid]
             dTimes -= ref_time
@@ -232,13 +232,13 @@ def main(args):
                 
                 for band,offset in enumerate(fqoffsets):
                     frq = freq + offset
-                    vis = numpy.ma.array(flux[valid,band,:,polMapper[p]], mask=mask[valid,band,:,polMapper[p]])
+                    vis = np.ma.array(flux[valid,band,:,polMapper[p]], mask=mask[valid,band,:,polMapper[p]])
                     
-                    amp = numpy.ma.abs(vis)
+                    amp = np.ma.abs(vis)
                     vmin, vmax = percentile(amp, 1), percentile(amp, 99)
                     axA.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
                     
-                    axP.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+                    axP.imshow(np.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-np.pi, vmax=np.pi, interpolation='nearest')
                     
         first = False
 
