@@ -12,7 +12,7 @@ import sys
 import glob
 import time
 import ephem
-import numpy
+import numpy as np
 import argparse
 import tempfile
 import warnings
@@ -41,7 +41,7 @@ def cmpNPZ(x, y):
     try:
         xT = _CMP_CACHE[x]
     except KeyError:
-        xDD = numpy.load(x)
+        xDD = np.load(x)
         _CMP_CACHE[x] = xDD['tStart'].item()
         xDD.close()
         xT = _CMP_CACHE[x]
@@ -49,7 +49,7 @@ def cmpNPZ(x, y):
     try:
         yT = _CMP_CACHE[y]
     except KeyError:
-        yDD = numpy.load(y)
+        yDD = np.load(y)
         _CMP_CACHE[y] = yDD['tStart'].item()
         yDD.close()
         yT = _CMP_CACHE[y]
@@ -157,7 +157,7 @@ def main(args):
     observer = site.get_observer()
     
     # Load in the file file to figure out what to do
-    dataDict = numpy.load(lownames[0])
+    dataDict = np.load(lownames[0])
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
     
@@ -182,13 +182,13 @@ def main(args):
     except (TypeError, KeyError):
         pass
         
-    visXX = dataDict['vis1XX'].astype(numpy.complex64)
-    visXY = dataDict['vis1XY'].astype(numpy.complex64)
-    visYX = dataDict['vis1YX'].astype(numpy.complex64)
-    visYY = dataDict['vis1YY'].astype(numpy.complex64)
+    visXX = dataDict['vis1XX'].astype(np.complex64)
+    visXY = dataDict['vis1XY'].astype(np.complex64)
+    visYX = dataDict['vis1YX'].astype(np.complex64)
+    visYY = dataDict['vis1YY'].astype(np.complex64)
     dataDict.close()
     
-    dataDict = numpy.load(highnames[0])
+    dataDict = np.load(highnames[0])
     freqH = dataDict['freq1']
     dataDict.close()
     
@@ -207,7 +207,7 @@ def main(args):
     for filename in filenames:
         group = os.path.basename(filename).split('-vis2', 1)[0]
         if group not in obs_groups:
-            dataDict = numpy.load(filename)
+            dataDict = np.load(filename)
             config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
             del dataDict
             
@@ -266,7 +266,7 @@ def main(args):
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
         group = os.path.basename(filename).split('-vis2', 1)[0]
-        dataDict = numpy.load(lowname)
+        dataDict = np.load(lowname)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
@@ -300,16 +300,16 @@ def main(args):
                 
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()
-        visXXL = dataDict['vis1XX'].astype(numpy.complex64)
-        visXYL = dataDict['vis1XY'].astype(numpy.complex64)
-        visYXL = dataDict['vis1YX'].astype(numpy.complex64)
-        visYYL = dataDict['vis1YY'].astype(numpy.complex64)
+        visXXL = dataDict['vis1XX'].astype(np.complex64)
+        visXYL = dataDict['vis1XY'].astype(np.complex64)
+        visYXL = dataDict['vis1YX'].astype(np.complex64)
+        visYYL = dataDict['vis1YY'].astype(np.complex64)
         
         dataDict.close()
         
         ## Load in the integration - upper band
         group = os.path.basename(filename).split('-vis2', 1)[0]
-        dataDict = numpy.load(highname)
+        dataDict = np.load(highname)
         
         ## Make sure the frequencies are compatible - upper band
         cFreq = dataDict['freq1']
@@ -332,20 +332,20 @@ def main(args):
                 
         tStartH = dataDict['tStart'].item()
         tIntH = dataDict['tInt'].item()
-        visXXH = dataDict['vis1XX'].astype(numpy.complex64)
-        visXYH = dataDict['vis1XY'].astype(numpy.complex64)
-        visYXH = dataDict['vis1YX'].astype(numpy.complex64)
-        visYYH = dataDict['vis1YY'].astype(numpy.complex64)
+        visXXH = dataDict['vis1XX'].astype(np.complex64)
+        visXYH = dataDict['vis1XY'].astype(np.complex64)
+        visYXH = dataDict['vis1YX'].astype(np.complex64)
+        visYYH = dataDict['vis1YY'].astype(np.complex64)
         
         dataDict.close()
         
         ## Combine
         tStart = tStartL
         tInt = tIntL
-        visXX = numpy.concatenate([visXXL, visXXH], axis=1)
-        visXY = numpy.concatenate([visXYL, visXYH], axis=1)
-        visYX = numpy.concatenate([visYXL, visYXH], axis=1)
-        visYY = numpy.concatenate([visYYL, visYYH], axis=1)
+        visXX = np.concatenate([visXXL, visXXH], axis=1)
+        visXY = np.concatenate([visXYL, visXYH], axis=1)
+        visYX = np.concatenate([visYXL, visYXH], axis=1)
+        visYY = np.concatenate([visYYL, visYYH], axis=1)
         
         if args.decimate > 1:
             if to_drop != 0:

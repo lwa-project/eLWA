@@ -12,7 +12,7 @@ import sys
 import glob
 import time
 import ephem
-import numpy
+import numpy as np
 import argparse
 import tempfile
 import warnings
@@ -41,7 +41,7 @@ def cmpNPZ(x, y):
     try:
         xT = _CMP_CACHE[x]
     except KeyError:
-        xDD = numpy.load(x)
+        xDD = np.load(x)
         _CMP_CACHE[x] = xDD['tStart'].item()
         xDD.close()
         xT = _CMP_CACHE[x]
@@ -49,7 +49,7 @@ def cmpNPZ(x, y):
     try:
         yT = _CMP_CACHE[y]
     except KeyError:
-        yDD = numpy.load(y)
+        yDD = np.load(y)
         _CMP_CACHE[y] = yDD['tStart'].item()
         yDD.close()
         yT = _CMP_CACHE[y]
@@ -154,7 +154,7 @@ def main(args):
     observer = site.get_observer()
     
     # Load in the file file to figure out what to do
-    dataDict = numpy.load(filenames[0])
+    dataDict = np.load(filenames[0])
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
     
@@ -178,10 +178,10 @@ def main(args):
     except (TypeError, KeyError):
         pass
         
-    visXX = dataDict['vis1XX'].astype(numpy.complex64)
-    visXY = dataDict['vis1XY'].astype(numpy.complex64)
-    visYX = dataDict['vis1YX'].astype(numpy.complex64)
-    visYY = dataDict['vis1YY'].astype(numpy.complex64)
+    visXX = dataDict['vis1XX'].astype(np.complex64)
+    visXY = dataDict['vis1XY'].astype(np.complex64)
+    visYX = dataDict['vis1YX'].astype(np.complex64)
+    visYY = dataDict['vis1YY'].astype(np.complex64)
     dataDict.close()
     
     # Build up the master list of antennas and report
@@ -190,7 +190,7 @@ def main(args):
     for filename in filenames:
         group = os.path.basename(filename).split('-vis2', 1)[0]
         if group not in obs_groups:
-            dataDict = numpy.load(filename)
+            dataDict = np.load(filename)
             config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
             del dataDict
             
@@ -249,7 +249,7 @@ def main(args):
     for i,filename in enumerate(filenames):
         ## Load in the integration
         group = os.path.basename(filename).split('-vis2', 1)[0]
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
@@ -283,10 +283,10 @@ def main(args):
                 
         tStart = dataDict['tStart'].item()
         tInt = dataDict['tInt'].item()
-        visXX = dataDict['vis1XX'].astype(numpy.complex64)
-        visXY = dataDict['vis1XY'].astype(numpy.complex64)
-        visYX = dataDict['vis1YX'].astype(numpy.complex64)
-        visYY = dataDict['vis1YY'].astype(numpy.complex64)
+        visXX = dataDict['vis1XX'].astype(np.complex64)
+        visXY = dataDict['vis1XY'].astype(np.complex64)
+        visYX = dataDict['vis1YX'].astype(np.complex64)
+        visYY = dataDict['vis1YY'].astype(np.complex64)
         
         dataDict.close()
         
