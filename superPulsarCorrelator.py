@@ -126,7 +126,7 @@ def main(args):
         skip = args.skip + foffset
         if skip != 0:
             print(f"Skipping forward {skip:.3f} s")
-            print(f"-> {junkFrame.time:%.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -136,7 +136,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print(f"-> {junkFrame.time:.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
             
         tStart.append( junkFrame.time + grossOffsets[i] )
         

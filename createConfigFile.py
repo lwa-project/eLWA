@@ -15,7 +15,7 @@ import argparse
 from datetime import datetime, timedelta
 
 from astropy import units as astrounits
-from astropy.coordinates import EarthLocation, AltAz, ITRF
+from astropy.coordinates import EarthLocation, AltAz, ITRS
 
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP

@@ -119,7 +119,7 @@ def main(args):
         skip = args.skip + foffset
         if skip != 0:
             print(f"Skipping forward {skip:.3f} s")
-            print(f"-> {junkFrame.time:%.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -129,7 +129,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print(f"-> {junkFrame.time:.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
             
         tStart.append( junkFrame.time + grossOffsets[i] )
         
@@ -289,7 +289,7 @@ def main(args):
         print(f"DRX Frames/s: {framesPerSecondB:.6f}")
         print(f"DRX Frames/Integration: {nFramesB}")
     if nVDIFInputs*nDRXInputs:
-        print(f"Sample Count Ratio: {(1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
+        print(f"Sample Count Ratio: {1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
         print(f"Sample Rate Ratio: {srate[0]/srate[-1]:.6f}")
     print(" ")
     
