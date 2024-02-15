@@ -178,7 +178,7 @@ def main(args):
             args.linear = False
             args.circular = False
             args.stokes = True
-        print("NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis'])
+        print(f"NOTE:  Set output polarization basis to \'{config['basis']}\' per user defined configuration")
     except (TypeError, KeyError):
         pass
         
@@ -222,7 +222,7 @@ def main(args):
         
     print("Antennas:")
     for ant in master_antennas:
-        print("  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol))
+        print(f"  Antenna {ant.id}: Stand {ant.stand.id}, Pol. {ant.pol}")
         
     nchan = visXX.shape[1]
     master_blList = uvutils.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
@@ -281,8 +281,7 @@ def main(args):
         ## Make sure the frequencies are compatible - lower band
         cFreq = dataDict['freq1']
         if cFreq.size != freqL.size:
-            error_msg = "Incompatible frequencies at %s, lower band: %i != %i" % (group,
-                                                                                  cFreq.size, freqL.size)
+            error_msg = f"Incompatible frequencies at {group}, lower band: {cFreq.size} != {freqL.size}"
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
@@ -314,7 +313,7 @@ def main(args):
         ## Make sure the frequencies are compatible - upper band
         cFreq = dataDict['freq1']
         if cFreq.size != freqH.size:
-            error_msg = "Incompatible frequencies at %s, upper band: %i != %i" % (group, cFreq.size, freqH.size)
+            error_msg = f"Incompatible frequencies at {group}, upper band: {cFreq.size} != {freqH.size}"
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
@@ -392,21 +391,21 @@ def main(args):
             ## Create the FITS-IDI file as needed
             ### What to call it
             if args.tag is None:
-                outname = 'buildIDI.FITS_%i' % (i//args.split+1,)
+                outname = f"buildIDI.FITS_{i//args.split+1}"
             else:
-                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i//args.split+1,)
+                outname = f"buildIDI_{args.tag}.FITS_{i//args.split+1}"
                 
             ### Does it already exist or not
             if os.path.exists(outname):
                 if not args.force:
-                    yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                    yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
                 else:
                     yn = 'y'
                     
                 if yn not in ('n', 'N'):
                     os.unlink(outname)
                 else:
-                    raise RuntimeError("Output file '%s' already exists" % outname)
+                    raise RuntimeError(f"Output file '{outname}' already exists")
                     
             ### Create the file
             fits = fitsidi.Idi(outname, ref_time=tStart)
@@ -496,4 +495,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    
