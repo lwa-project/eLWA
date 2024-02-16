@@ -148,7 +148,7 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
     except ValueError:
         ext = -100
     ext += 1
-    nextname = "%s_%i" % (nextname, ext)
+    nextname = f"{nextname}_{ext}"
     
     if os.path.exists(nextname):
         # Open up the next file
@@ -338,9 +338,9 @@ def main(args):
             mask[match,:,:,:] = submask
             
             print('      Statistics for this scan')
-            print('      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,))
-            print('      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,))
-            print('      -> Elapsed - %.3f s' % (time.time()-tS,))
+            print(f"      -> {polMapper[0]}      - {mask[match,:,:,0].sum()/mask[match,:,:,0].size:.1%} flagged")
+            print(f"      -> {polMapper[1]}      - {mask[match,:,:,1].sum()/mask[match,:,:,1].size:.1%} flagged")
+            print(f"      -> Elapsed - {time.time()-tS:.3f} s")
             
             # Add in the original flag mask
             mask[match,:,:,:] |= ofm
@@ -501,7 +501,7 @@ def main(args):
         hdulist2.close()
         hdulist.close()
         print(f"  -> Dedispersed FITS IDI file is '{outname}'")
-        print("  Finished in %.3f s" % (time.time()-t0,))
+        print(f"  Finished in {time.time()-t0:.3f} s")
 
 
 if __name__ == "__main__":

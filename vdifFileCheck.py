@@ -131,7 +131,7 @@ def main(args):
                 
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print("%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
+            print(f"{i:3d} |  {clip[0]:6.2%}  {clip[1]:6.2%} | {power[0]:6.3f} {power[1]:6.3f} | {rms[0]:6.3f} {rms[1]:6.3f} |")
         
             i += 1
             fh.seek(vdif.FRAME_SIZE*chunkSkip, 1)
@@ -140,12 +140,13 @@ def main(args):
     meanPower = np.array(meanPower)
     meanRMS = np.array(meanRMS)
     
+    i = 'M'
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     rms = meanRMS.mean(axis=0)
     
     print("----+-----------------+---------------+---------------+")
-    print("%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
+    print(f"{i:3s} |  {clip[0]:6.2%}  {clip[1]:6.2%} | {power[0]:6.3f} {power[1]:6.3f} | {rms[0]:6.3f} {rms[1]:6.3f} |")
 
 
 if __name__ == "__main__":
