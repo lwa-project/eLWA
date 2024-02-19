@@ -5,7 +5,6 @@ Unit tests for the various eLWA scripts.
 import unittest
 import glob
 import sys
-import imp
 import re
 import os
 
