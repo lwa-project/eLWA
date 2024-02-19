@@ -577,6 +577,7 @@ def _read_correlator_configuration(filename):
             else:
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=1)
             antenna.apparent_stand = apparent_stand
+            antenna.config_name = name.upper()
             
             antennas.append( antenna )
             i += 1
