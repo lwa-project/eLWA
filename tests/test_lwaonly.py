@@ -1,4 +1,4 @@
-    """
+"""
 Unit tests for the a small LWA correlation job.
 """
 
