@@ -432,12 +432,10 @@ class Idi(WriterBase):
             
         # Create the stand mapper to deal with the fact that stands range from 
         # 1 to 258, not 1 to 255
+        # Changed 2024 Feb 19 - Always map so that the antenna numbers are not sparse
         mapper = OrderedDict()
-        if stands.max() > self._MAX_ANTS:
-            enableMapper = True
-        else:
-            enableMapper = False
-            
+        enableMapper = True
+        
         ants = []
         for i in range(len(stands)):
             ants.append( self._Antenna(stands[i], xyz[i,0], xyz[i,1], xyz[i,2], bits=bits) )
