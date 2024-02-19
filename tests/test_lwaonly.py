@@ -1,4 +1,4 @@
-"""
+    """
 Unit tests for the a small LWA correlation job.
 """
 
@@ -93,7 +93,7 @@ class database(object):
     def test_4_fringe_search(self):
         """Seach for fringes in the FITS-IDI file."""
         
-        cmd = [sys.executable, '../fringeSearchIDI.py', '-r', '51', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
+        cmd = [sys.executable, '../fringeSearchIDI.py', '-r', 'LWA1', 'buildIDI_%s_flagged.FITS_1' % self._BASENAME]
         with open('%s-fringe.log' % self._BASENAME, 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile)
