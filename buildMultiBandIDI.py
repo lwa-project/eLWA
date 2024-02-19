@@ -239,12 +239,6 @@ def main(args):
         freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-    # Figure out the visibility conjugation problem in LSL, pre-1.1.4
-    conjugateVis = False
-    if float(fitsidi.__version__) < 0.9:
-        print("Warning: Applying conjugate to visibility data")
-        conjugateVis = True
-        
     # Figure out our revision
     try:
         repo = git.Repo(os.path.dirname(os.path.abspath(__file__)))
@@ -361,12 +355,6 @@ def main(args):
             visYX = visYX.mean(axis=2)
             visYY.shape = (visYY.shape[0], visYY.shape[1]//args.decimate, args.decimate)
             visYY = visYY.mean(axis=2)
-            
-        if conjugateVis:
-            visXX = visXX.conj()
-            visXY = visXY.conj()
-            visYX = visYX.conj()
-            visYY = visYY.conj()
             
         if args.circular or args.stokes:
             visI = visXX + visYY

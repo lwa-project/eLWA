@@ -144,9 +144,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             pass
     fh.seek(-4*vdif.FRAME_SIZE, 1)
     freq = np.fft.fftshift(np.fft.fftfreq(LFFT, d=2/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
@@ -154,7 +152,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -340,9 +338,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             pass
     fh.seek(-4*vdif.FRAME_SIZE, 1)
     freq = np.fft.fftshift(np.fft.fftfreq(LFFT, d=2/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
@@ -350,7 +346,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -633,7 +629,7 @@ def main(args):
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, np.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=np.float32), int(round(obsList[o][2]/args.average)), data_products)
+            hdfData.createDataSets(f, o, t, np.arange(LFFT, dtype=np.float32), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(filename)
