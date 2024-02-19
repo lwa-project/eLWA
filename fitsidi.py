@@ -112,8 +112,11 @@ class WriterBase(object):
             self.polB = {'Type': 'Y', 'Angle': 90.0, 'Cal': [0.0, 0.0]}
             
         def get_name(self):
-            return "LWA%03i" % self.id
-            
+            try:
+                return self.config_name
+            except AttributeError:
+                return "LWA%03i" % self.id
+                
     class _Frequency:
         """
         Holds information about the frequency setup used in the file.
@@ -442,6 +445,11 @@ class Idi(WriterBase):
                 mapper[stands[i]] = i+1
             else:
                 mapper[stands[i]] = stands[i]
+                
+            try:
+                ants[-1].config_name = antennas[i].config_name
+            except AttributeError:
+                pass
                 
         # If the mapper has been enabled, tell the user about it
         if enableMapper and self.verbose:
