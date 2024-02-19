@@ -130,8 +130,13 @@ def main(args):
         iTimes[i-1] = times[i] - times[i-1]
     print(f" -> Interval: {robust.mean(iTimes):.3f} +/- {robust.std(iTimes):.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
     iSize = int(round(args.interval/robust.mean(iTimes)))
-    print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(iTimes):.3f} seconds)")
     iCount = times.size//iSize
+    if iCount == 0:
+        args.interval = times.size*robust.mean(iTimes)
+        iSize = int(round(args.interval/robust.mean(iTimes)))
+        iCount = times.size//iSize
+        print(f"WARNING:  Not enough data for requested search interval, changing to {args.interval:.3f} seconds")
+    print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(iTimes):.3f} seconds)")
     print(f" -> Working with {iCount} chunks of data")
     
     print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")

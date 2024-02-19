@@ -217,8 +217,13 @@ def main(args):
         good = np.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
         
         iSize = int(round(args.interval/robust.mean(inttimes)))
-        print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(inttimes):.3f} seconds)")
         iCount = times.size//iSize
+        if iCount == 0:
+            args.interval = times.size*robust.mean(inttimes)
+            iSize = int(round(args.interval/robust.mean(inttimes)))
+            iCount = times.size//iSize
+            print("WARNING:  Not enough data for requested search interval, changing to {args.interval:.3f} seconds")
+        print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(inttimes):.3f} seconds)")
         print(f" -> Working with {iCount} chunks of data")
         
         print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")
@@ -367,7 +372,7 @@ def main(args):
                         bdly = delay[best[0]]*1e6
                         brat = drate[best[1]]*1e3
                         
-                        c = axR.scatter(subTime,-ref_time, brat, c=bsnr, marker=markers[pol],
+                        c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
                                         cmap='gist_yarg', norm=None, vmin=3, vmax=40)
                         c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
                                         cmap='gist_yarg', vmin=3, vmax=40)
