@@ -52,8 +52,10 @@ def main(args):
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
     antLookup = {}
+    antLookup_inv = {}
     for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
         antLookup[an] = ai
+        antLookup_inv[ai] = an
     ## Frequency and polarization setup
     nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
     ## Baseline list
@@ -93,6 +95,30 @@ def main(args):
     utimes = np.unique(obstimes)
     usrc = np.unique(srcs)
     
+    
+    # Make sure the reference antenna is in there
+    if args.ref_ant is None:
+        bl = ubls[0]
+        ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
+        args.ref_ant = ant1
+    else:
+        found = False
+        for bl in ubls:
+            ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
+            if ant1 == args.ref_ant or ant2 == args.ref_ant:
+                found = True
+                break
+            elif antLookup_inv[ant1] == args.ref_ant:
+                args.ref_ant = ant1
+                found = True
+                break
+            elif antLookup_inv[ant2] == args.ref_ant:
+                args.ref_ant = ant2
+                found = True
+                break
+        if not found:
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+            
     # Convert times to real times
     times = utcjd_to_unix(obsdates + obstimes)
     times = np.unique(times)
@@ -111,21 +137,6 @@ def main(args):
                 blocks.append( [v,v] )
     blocks.sort()
     
-    # Make sure the reference antenna is in there
-    if args.ref_ant is None:
-        bl = ubls[0]
-        ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
-        args.ref_ant = ant1
-    else:
-        found = False
-        for bl in ubls:
-            ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
-            if ant1 == args.ref_ant:
-                found = True
-                break
-        if not found:
-            raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
-            
     search_bls = []
     cross = []
     for i in range(len(ubls)):
@@ -242,7 +253,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if ant1 not in (51, 52) and ant2 not in (51, 52):
+        if antLookup_inv[ant1][:3] != 'LWA' and antLookup_inv[ant2][:3] != 'LWA':
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'YY')
         else:
@@ -274,17 +285,16 @@ def main(args):
             blName = (ant1, ant2)
             if doConj:
                 blName = (ant2, ant1)
-            blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
-                        'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
+            blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
                         
             best = np.where( amp == amp.max() )
             if amp.max() > 0:
                 bsnr = (amp[best]-amp.mean())[0]/amp.std()
                 bdly = delay[best[0][0]]*1e6
                 brat = drate[best[1][0]]*1e3
-                print("%3i  %9s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat))
+                print("%3i  %11s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat))
             else:
-                print("%3i  %9s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----'))
+                print("%3i  %11s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----'))
                 
             if args.plot:
                 axs[pol].imshow(amp, origin='lower', interpolation='nearest', 
@@ -314,7 +324,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, 
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -329,5 +339,9 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--plot', action='store_true', 
                         help='show search plots at the end')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
     

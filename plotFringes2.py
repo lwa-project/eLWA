@@ -59,6 +59,7 @@ def main(args):
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
+    antLookup_inv = {ant.stand.id: ant.config_name for ant in antennas}
     dataDict.close()
     
     # Make sure the reference antenna is in there
@@ -68,8 +69,12 @@ def main(args):
             if ant.stand.id == args.ref_ant:
                 found = True
                 break
+            elif ant.config_name == args.ref_ant:
+                args.ref_ant = ant.stand.id
+                found = True
+                break
         if not found:
-            raise RuntimeError(f"Cannot file reference antenna {args.ref_ant} in the data")
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
             
     bls = []
     l = 0
@@ -172,6 +177,7 @@ def main(args):
     nCol = int(np.ceil(len(bls)*1.0/nRow))
     for b in range(len(bls)):
         i,j = bls[b]
+        ni,nj = antLookup_inv[i], antLookup_inv[j]
         vis = np.ma.array(visToPlot[:,b,:], mask=visToMask[:,b,:])
         
         ax = fig1.add_subplot(nRow, nCol, k+1)
@@ -179,7 +185,7 @@ def main(args):
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title(f"{i},{j} - {args.polToPlot}")
+        ax.set_title(f"{ni},{nj} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
@@ -190,7 +196,7 @@ def main(args):
         ax.axis('auto')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title(f"{i},{j} - {args.polToPlot}")
+        ax.set_title(f"{ni},{nj} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         ax.set_ylim((dTimes[0], dTimes[-1]))
                 
@@ -198,7 +204,7 @@ def main(args):
         ax.plot(freq/1e6, np.ma.abs(vis.mean(axis=0)))
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('Mean Vis. Amp. [lin.]')
-        ax.set_title(f"{i},{j} - {args.polToPlot}")
+        ax.set_title(f"{ni},{nj} - {args.polToPlot}")
         ax.set_xlim((freq[0]/1e6, freq[-1]/1e6))
         
         ax = fig4.add_subplot(nRow, nCol, k+1)
@@ -206,14 +212,14 @@ def main(args):
         ax.set_xlim((-180, 180))
         ax.set_xlabel('Mean Vis. Phase [deg]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title(f"{i},{j} - {args.polToPlot}")
+        ax.set_title(f"{ni},{nj} - {args.polToPlot}")
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         ax = fig5.add_subplot(nRow, nCol, k+1)
         ax.plot(np.ma.abs(vis[:,good].mean(axis=1))*180/np.pi, dTimes, linestyle='', marker='+')
         ax.set_xlabel('Mean Vis. Amp. [lin.]')
         ax.set_ylabel('Elapsed Time [s]')
-        ax.set_title(f"{i},{j} - {args.polToPlot}")
+        ax.set_title(f"{ni},{nj} - {args.polToPlot}")
         ax.set_ylim((dTimes[0], dTimes[-1]))
         
         k += 1
@@ -231,7 +237,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to process')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -257,4 +263,8 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)

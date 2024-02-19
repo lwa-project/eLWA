@@ -53,8 +53,10 @@ def main(args):
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
         antLookup = {}
+        antLookup_inv = {}
         for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
             antLookup[an] = ai
+            antLookup_inv[ai] = an
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
         stk0 = uvdata.header['STK_1']
@@ -95,6 +97,29 @@ def main(args):
         utimes = np.unique(obstimes)
         usrc = np.unique(srcs)
         
+        # Make sure the reference antenna is in there
+        if args.ref_ant is None:
+            bl = bls[0]
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            args.ref_ant = i
+        else:
+            found = False
+            for bl in ubls:
+                i,j = (bl>>8)&0xFF, bl&0xFF
+                if i == args.ref_ant or j == args.ref_ant:
+                    found = True
+                    break
+                elif antLookup_inv[i] == args.ref_ant:
+                    args.ref_ant = i
+                    found = True
+                    break
+                elif antLookup_inv[j] == args.ref_ant:
+                    args.ref_ant = j
+                    found = True
+                    break
+            if not found:
+                raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+                
         # Convert times to real times
         times = utcjd_to_unix(obsdates + obstimes)
         times = np.unique(times)
@@ -154,22 +179,6 @@ def main(args):
                     if not v:
                         continue
                     mask[btmask,b,cStart-1:cStop,:] |= pol
-                    
-        # Make sure the reference antenna is in there
-        if first:
-            if args.ref_ant is None:
-                bl = bls[0]
-                i,j = (bl>>8)&0xFF, bl&0xFF
-                args.ref_ant = i
-            else:
-                found = False
-                for bl in bls:
-                    i,j = (bl>>8)&0xFF, bl&0xFF
-                    if i == args.ref_ant:
-                        found = True
-                        break
-                if not found:
-                    raise RuntimeError(f"Cannot file reference antenna {args.ref_ant} in the data")
                     
         plot_bls = []
         cross = []
@@ -314,9 +323,8 @@ def main(args):
             blName = (i, j)
             if doConj:
                 blName = (j, i)
-            blName = '%s-%s' % (f"EA{blName[0]:02d}" if blName[0] < 51 else f"LWA{blName[0]-50}", 
-                                f"EA{blName[1]:02d}" if blName[1] < 51 else f"LWA{blName[1]-50}")
-                            
+            blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
+            
             if first or blName not in figs:
                 fig = plt.figure()
                 fig.suptitle('%s' % blName)
@@ -334,7 +342,7 @@ def main(args):
                     if (subStop - subStart) > 1.1*args.interval:
                         continue
                         
-                    subTime = dTimes[iSize*i:iSize*(i+1)].mean()
+                    subTime = np.array([dTimes[iSize*i:iSize*(i+1)].mean(),])
                     dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                     dTimes2 -= dTimes2[0]
                     dTimes2.shape += (1,)
@@ -359,8 +367,8 @@ def main(args):
                         bdly = delay[best[0]]*1e6
                         brat = drate[best[1]]*1e3
                         
-                        c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
-                                        cmap='gist_yarg', vmin=3, vmax=40)
+                        c = axR.scatter(subTime,-ref_time, brat, c=bsnr, marker=markers[pol],
+                                        cmap='gist_yarg', norm=None, vmin=3, vmax=40)
                         c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
                                         cmap='gist_yarg', vmin=3, vmax=40)
                         
@@ -415,7 +423,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -436,4 +444,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save-images', action='store_true',
                         help='save the output images as PNGs rather than displaying them')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)

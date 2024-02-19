@@ -59,8 +59,10 @@ def main(args):
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
         antLookup = {}
+        antLookup_inv = {}
         for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
             antLookup[an] = ai
+            antLookup_inv[ai] = an
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
         stk0 = uvdata.header['STK_1']
@@ -101,6 +103,29 @@ def main(args):
         utimes = np.unique(obstimes)
         usrc = np.unique(srcs)
         
+        # Make sure the reference antenna is in there
+        if args.ref_ant is None:
+            bl = bls[0]
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            args.ref_ant = i
+        else:
+            found = False
+            for bl in ubls:
+                i,j = (bl>>8)&0xFF, bl&0xFF
+                if i == args.ref_ant or j == args.ref_ant:
+                    found = True
+                    break
+                elif antLookup_inv[i] == args.ref_ant:
+                    args.ref_ant = i
+                    found = True
+                    break
+                elif antLookup_inv[j] == args.ref_ant:
+                    args.ref_ant = j
+                    found = True
+                    break
+            if not found:
+                raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+                
         # Convert times to real times
         times = utcjd_to_unix(obsdates + obstimes)
         times = np.unique(times)
@@ -211,15 +236,13 @@ def main(args):
             bl = plot_bls[b]
             valid = np.where( bls == bl )[0]
             i,j = (bl>>8)&0xFF, bl&0xFF
+            ni,nj = antLookup_inv[i], antLookup_inv[j]
             dTimes = obsdates[valid] + obstimes[valid]
             dTimes -= ref_time
             dTimes *= 86400.0
             
             for p in plot_pols:
-                blName = (i, j)
-                blName = '%s-%s - %s' % (f"EA{blName[0]:02d}" if blName[0] < 51 else f"LWA{blName[0]-50}", 
-                                         f"EA{blName[1]:02d}" if blName[1] < 51 else f"LWA{blName[1]-50}",
-                                         namMapper[polMapper[p]])
+                blName = '%s-%s - %s' % (ni, nj, namMapper[polMapper[p]])
                 
                 if first or blName not in figs:
                     fig = plt.figure()
@@ -270,7 +293,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to process')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -291,6 +314,10 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save-images', action='store_true',
                         help='save the output images as PNGs rather than displaying them')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     if not args.xx and not args.xy and not args.yx and not args.yy:
         raise RuntimeError("Must specify at least one polarization to plot")
     main(args)

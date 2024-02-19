@@ -46,6 +46,7 @@ def main(args):
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
+    antLookup_inv = {ant.stand.id: ant.config_name for ant in antennas}
     dataDict.close()
     
     # Make sure the reference antenna is in there
@@ -57,8 +58,12 @@ def main(args):
             if ant.stand.id == args.ref_ant:
                 found = True
                 break
+            elif ant.config_name == args.ref_ant:
+                args.ref_ant = ant.stand.id
+                found = True
+                break
         if not found:
-            raise RuntimeError(f"Cannot file reference antenna {args.ref_ant} in the data")
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
             
     bls = []
     l = 0
@@ -214,7 +219,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if bls[b][0] not in (51, 52) and bls[b][1] not in (51, 52):
+        if antLookup_inv[bls[b][0]][:3] != 'LWA' and antLookup_inv[bls[b][1]][:3] != 'LWA':
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'XY', 'YX', 'YY')
             visToUse = (visXX, visXY, visYX, visYY)
@@ -230,9 +235,8 @@ def main(args):
         blName = bls[b]
         if doConj:
             blName = (bls[b][1],bls[b][0])
-        blName = '%s-%s' % (f"EA{blName[0]:02d}" if blName[0] < 51 else f"LWA{blName[0]-50}", 
-                            f"EA{blName[1]:02d}" if blName[1] < 51 else f"LWA{blName[1]-50}")
-                        
+        blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
+        
         fig = plt.figure()
         fig.suptitle(f"{blName} @ {refSrc.name}")
         fig.subplots_adjust(hspace=0.001)
@@ -315,7 +319,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -332,4 +336,8 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--interval', type=float, default=30.0, 
                         help='fringe search interveral in seconds')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)

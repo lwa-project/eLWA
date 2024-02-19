@@ -53,8 +53,10 @@ def main(args):
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
     antLookup = {}
+    antLookup_inv = {}
     for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
         antLookup[an] = ai
+        antLookup_inv[ai] = an
     ## Frequency and polarization setup
     nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
     stk0 = uvdata.header['STK_1']
@@ -95,6 +97,29 @@ def main(args):
     utimes = np.unique(obstimes)
     usrc = np.unique(srcs)
     
+    # Make sure the reference antenna is in there
+    if args.ref_ant is None:
+        bl = bls[0]
+        i,j = (bl>>8)&0xFF, bl&0xFF
+        args.ref_ant = i
+    else:
+        found = False
+        for bl in ubls:
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            if i == args.ref_ant or j == args.ref_ant:
+                found = True
+                break
+            elif antLookup_inv[i] == args.ref_ant:
+                args.ref_ant = i
+                found = True
+                break
+            elif antLookup_inv[j] == args.ref_ant:
+                args.ref_ant = j
+                found = True
+                break
+        if not found:
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+            
     # Convert times to real times
     times = utcjd_to_unix(obsdates + obstimes)
     times = np.unique(times)
@@ -211,6 +236,7 @@ def main(args):
         bl = plot_bls[b]
         valid = np.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF
+        ni,nj = antLookup_inv[i], antLookup_inv[j]
         dTimes = obsdates[valid] + obstimes[valid]
         dTimes -= dTimes[0]
         dTimes *= 86400.0
@@ -226,7 +252,7 @@ def main(args):
             ax1.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax1.set_ylabel('Elapsed Time [s]')
-            ax1.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
+            ax1.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax1.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax1.set_ylim((dTimes[0], dTimes[-1]))
             
@@ -238,7 +264,7 @@ def main(args):
             ax2.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax2.set_ylabel('Elapsed Time [s]')
-            ax2.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
+            ax2.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax2.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax2.set_ylim((dTimes[0], dTimes[-1]))
                     
@@ -247,7 +273,7 @@ def main(args):
             ax3.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax3.set_ylabel('Mean Vis. Amp. [lin.]')
-            ax3.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
+            ax3.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax3.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             
             ax4 = fig4.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax4)
@@ -256,7 +282,7 @@ def main(args):
             ax4.set_xlabel('Mean Vis. Phase [deg]')
             if band == 0:
                 ax4.set_ylabel('Elapsed Time [s]')
-            ax4.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
+            ax4.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax4.set_ylim((dTimes[0], dTimes[-1]))
             
             ax5 = fig5.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax5)
@@ -264,7 +290,7 @@ def main(args):
             ax5.set_xlabel('Mean Vis. Amp. [lin.]')
             if band == 0:
                 ax5.set_ylabel('Elapsed Time [s]')
-            ax5.set_title(f"{i},{j} - {namMapper[polMapper[args.polToPlot]]}")
+            ax5.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax5.set_ylim((dTimes[0], dTimes[-1]))
             
             if band > 0:
@@ -292,7 +318,7 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, 
                         help='filename to process')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
     parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
@@ -312,4 +338,8 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
