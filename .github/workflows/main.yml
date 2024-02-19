@@ -43,8 +43,7 @@ jobs:
               h5py \
               jinja2 \
               GitPython
-            pip install \
-              git+https://github.com/lwa-project/lsl.git
+            pip install lsl
             pip install \
              pylint
         - name: Test
