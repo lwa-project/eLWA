@@ -97,31 +97,6 @@ def running_avg(arr, navg):
     return Num.add.reduce(Num.transpose(a)) / navg
 
 
-def hist(data, bins, range=None, laby="Number", **kwargs):
-    """
-    hist(data, bins, range=None, laby="Number", **kwargs):
-    Return and plot a histogram in one variable.
-      data  -- a sequence of data points
-      bins  -- the number of bins into which the data is to be sorted
-      range -- a tuple of two values, specifying the lower and
-               the upper end of the interval spanned by the bins.
-               Any data point outside this interval will be ignored.
-               If no range is given, the smallest and largest
-               data values are used to define the interval.
-    Note:  This command also accepts all the keyword arge of plotbinned().
-    """
-    ys, bin_edges = Num.histogram(data, bins, range)
-    dx = bin_edges[1] - bin_edges[0]
-    xs = bin_edges[:-1] + 0.5 * dx
-    maxy = int(1.1 * max(ys))
-    if maxy < max(ys):
-        maxy = max(ys) + 1.0
-    if 'rangey' not in list(kwargs.keys()):
-        kwargs['rangey'] = [0, maxy]
-    Pgplot.plotbinned(ys, xs, laby=laby, **kwargs)
-    return (xs, ys)
-
-
 def KS_test(data, cumdist, output=0):
     """
     KS_test(data, cumdist, output=0):
@@ -525,27 +500,6 @@ def z_to_accel(z, T, reffreq, harm=1):
     return z * pc.SOL / (harm * reffreq * T * T)
 
 
-def bins_to_accel(z, T, f=[1.0, 1000.0], device="/XWIN"):
-    """
-    bins_to_accel(z, T, f=[1.0, 1000.0], device="/XWIN"):
-        Make a plot showing the acceleration which corresponds
-        to a certain number of Fourier bins drifted 'z' during
-        an observation of length 'T'.
-    """
-    fs = span(Num.log10(f[0]), Num.log10(f[1]), 1000)
-    accels = z_to_accel(z, T, 10.0 ** fs)
-    if (device):
-        Pgplot.plotxy(Num.log10(accels), fs, logx=1, logy=1,
-                      labx="Frequency (Hz)",
-                      laby=r"Acceleration (m/s\u2\d)", device=device)
-        ppgplot.pgmtxt("T", -2.0, 0.75, 0.0, "T = %.0f sec" % T)
-        ppgplot.pgmtxt("T", -3.5, 0.75, 0.0, r"r\B\u\.\d = %.1f bins" % z)
-        if (device != '/XWIN'):
-            Pgplot.closeplot()
-    else:
-        return accels
-
-
 def pulsar_mass(pb, x, mc, inc):
     """
     pulsar_mass(pb, x, mc, inc):
@@ -915,65 +869,6 @@ def delay_from_foffsets(df, dfd, dfdd, times):
     return (f_delays + fd_delays + fdd_delays)
 
 
-def smear_plot(dm=[1.0, 1000.0], dmstep=1.0, subdmstep=10.0, freq=1390.0,
-               numchan=512, numsub=32, chanwidth=0.5, dt=0.000125,
-               device='/xwin'):
-    """
-    smear_plot(dm=[0.0,1000.0], dmstep=1.0, subdmstep=10.0, freq=1390.0,
-               numchan=512, numsub=32, chanwidth=0.5, dt=0.000125,
-               device='/xwin'):
-         Show a plot that displays the expected smearing in ms
-         from various effects during a radio pulsar search.
-    """
-    numpts = 500
-    BW = numchan * chanwidth
-    subBW = numchan / numsub * chanwidth
-    maxDMerror = 0.5 * dmstep
-    maxsubDMerror = 0.5 * subdmstep
-    ldms = span(Num.log10(dm[0]), Num.log10(dm[1]), numpts)
-    dms = 10.0 ** ldms
-    # Smearing from sample rate
-    dts = Num.zeros(numpts) + 1000.0 * dt
-    # Smearing due to the intrinsic channel width
-    chan_smear = 1000.0 * dm_smear(dms, chanwidth, freq)
-    # Smearing across the full BW due to max DM mismatch
-    BW_smear = Num.zeros(numpts) + \
-               1000.0 * dm_smear(maxDMerror, BW, freq)
-    # Smearing in each subband due to max DM mismatch
-    subband_smear = Num.zeros(numpts) + \
-                    1000.0 * dm_smear(maxsubDMerror, subBW, freq)
-    total_smear = Num.sqrt(dts ** 2.0 + chan_smear ** 2.0 +
-                           subband_smear ** 2.0 + BW_smear ** 2.0)
-    maxval = Num.log10(2.0 * max(total_smear))
-    minval = Num.log10(0.5 * min([min(dts), min(chan_smear),
-                                  min(BW_smear), min(subband_smear)]))
-    Pgplot.plotxy(Num.log10(total_smear), ldms, rangey=[minval, maxval],
-                  logx=1, logy=1, labx="Dispersion Measure",
-                  laby="Smearing (ms)", device=device)
-    ppgplot.pgsch(0.8)
-    ppgplot.pgmtxt("t", 1.5, 1.0 / 12.0, 0.5, r"\(2156)\dcenter\u = %gMHz" % freq)
-    ppgplot.pgmtxt("t", 1.5, 3.0 / 12.0, 0.5, r"N\dchan\u = %d" % numchan)
-    ppgplot.pgmtxt("t", 1.5, 5.0 / 12.0, 0.5, r"N\dsub\u = %d" % numsub)
-    ppgplot.pgmtxt("t", 1.5, 7.0 / 12.0, 0.5, r"BW\dchan\u = %gMHz" % chanwidth)
-    ppgplot.pgmtxt("t", 1.5, 9.0 / 12.0, 0.5, r"\gDDM = %g" % dmstep)
-    ppgplot.pgmtxt("t", 1.5, 11.0 / 12.0, 0.5, r"\gDDM\dsub\u = %g" % subdmstep)
-    ppgplot.pgsch(1.0)
-    ppgplot.pgmtxt("b", -7.5, 0.95, 1.0, "Total")
-    Pgplot.plotxy(Num.log10(dts), ldms, color="green",
-                  logx=1, logy=1)
-    ppgplot.pgmtxt("b", -6.0, 0.95, 1.0, "Sample Rate")
-    Pgplot.plotxy(Num.log10(chan_smear), ldms, color="purple",
-                  logx=1, logy=1)
-    ppgplot.pgmtxt("b", -4.5, 0.95, 1.0, "Channel")
-    Pgplot.plotxy(Num.log10(BW_smear), ldms, color="red",
-                  logx=1, logy=1)
-    ppgplot.pgmtxt("b", -3.0, 0.95, 1.0, "Full BW")
-    Pgplot.plotxy(Num.log10(subband_smear), ldms, color="blue",
-                  logx=1, logy=1)
-    ppgplot.pgmtxt("b", -1.5, 0.95, 1.0, "Subband")
-    ppgplot.pgsci(1)
-
-
 def search_sensitivity(Ttot, G, BW, chan, freq, T, dm, ddm, dt, Pmin=0.001,
                        Pmax=1.0, W=0.1, polar=2, factor=15.0, pts=1000):
     """
@@ -1136,20 +1031,6 @@ def rotate(arr, bins):
         return arr
     else:
         return Num.concatenate((arr[bins:], arr[:bins]))
-
-
-def interp_rotate(arr, bins, zoomfact=10):
-    """
-    interp_rotate(arr, bins, zoomfact=10):
-        Return a sinc-interpolated array rotated by 'bins' places to the left.
-            'bins' can be fractional and will be rounded to the closest
-            whole-number of interpolated bins.  The resulting vector will
-            have the same length as the oiginal.
-    """
-    newlen = len(arr) * zoomfact
-    rotbins = int(Num.floor(bins * zoomfact + 0.5)) % newlen
-    newarr = sinc_interp.periodic_interp(arr, zoomfact)
-    return rotate(newarr, rotbins)[::zoomfact]
 
 
 def fft_rotate(arr, bins):
@@ -1397,135 +1278,6 @@ def gaussian_profile(N, phase, fwhm):
     # The following avoids overflow by truncating the Gaussian at 20 sigma
     return Num.where(zs < 20.0, Num.exp(-0.5 * zs ** 2.0) / \
                      (sigma * Num.sqrt(2 * Num.pi)), 0.0)
-
-
-def gauss_profile_params(profile, output=0):
-    """
-    gauss_profile_params(profile, output=0):
-        Return parameters of a best-fit gaussian to a profile.
-        The funtion returns a tuple containg the following values:
-           ret[0] = Best-fit gaussian integrated 'flux'.
-           ret[1] = Best-fit gaussian FWHM.
-           ret[2] = Best-fit gaussian phase (0.0-1.0).
-           ret[3] = Baseline (i.e. noise) average value.
-           ret[4] = Residuals average value.
-           ret[5] = Residuals standard deviation.
-        If 'output' is true, the fit will be plotted and
-           the return values will be printed.
-    """
-    profile = Num.asarray(profile)
-
-    def funct(afpo, profile):
-        return afpo[0] * gaussian_profile(len(profile), afpo[2], afpo[1]) \
-               + afpo[3] - profile
-
-    ret = leastsq(funct, [profile.max() - profile.min(),
-                          0.25, profile.argmax() / float(len(profile)),
-                          profile.min()], args=(profile))
-    if (output):
-        phases = Num.arange(0.0, 1.0,
-                            1.0 / len(profile)) + 0.5 / len(profile)
-        Pgplot.plotxy(profile, phases, rangex=[0.0, 1.0],
-                      labx='Pulse Phase', laby='Pulse Intensity')
-    bestfit = ret[0][0] * gaussian_profile(len(profile),
-                                           ret[0][2], ret[0][1]) \
-              + ret[0][3]
-    if (output):
-        Pgplot.plotxy(bestfit, phases, color='red')
-        Pgplot.closeplot()
-    residuals = bestfit - profile
-    resid_avg = residuals.mean()
-    resid_std = residuals.std()
-    if (output):
-        Pgplot.plotxy(residuals, phases, rangex=[0.0, 1.0],
-                      rangey=[min(residuals) - 2 * resid_std,
-                              max(residuals) + 2 * resid_std],
-                      labx='Pulse Phase', laby='Residuals',
-                      line=None, symbol=3)
-        ppgplot.pgerrb(6, phases, residuals,
-                       Num.zeros(len(residuals), 'd') + \
-                       resid_std, 2)
-        Pgplot.plotxy([resid_avg, resid_avg], [0.0, 1.0], line=2)
-        Pgplot.closeplot()
-        print("")
-        print("  Best-fit gaussian integrated 'flux'  = ", ret[0][0])
-        print("               Best-fit gaussian FWHM  = ", ret[0][1])
-        print("    Best-fit gaussian phase (0.0-1.0)  = ", ret[0][2])
-        print("        Baseline (i.e. noise) average  = ", ret[0][3])
-        print("                    Residuals average  = ", resid_avg)
-        print("         Residuals standard deviation  = ", resid_std)
-        print("")
-    return (ret[0][0], ret[0][1], ret[0][2], ret[0][3], resid_avg, resid_std)
-
-
-def twogauss_profile_params(profile, output=0):
-    """
-    twogauss_profile_params(profile, output=0):
-        Return parameters of a two best-fit gaussians to a profile.
-        The function returns a tuple containg the following values:
-           ret[0] = Best-fit gaussian integrated 'flux'.
-           ret[1] = Best-fit gaussian FWHM.
-           ret[2] = Best-fit gaussian phase (0.0-1.0).
-           ret[3] = Best-fit gaussian integrated 'flux'.
-           ret[4] = Best-fit gaussian FWHM.
-           ret[5] = Best-fit gaussian phase (0.0-1.0).
-           ret[6] = Baseline (i.e. noise) average value.
-           ret[7] = Residuals average value.
-           ret[8] = Residuals standard deviation.
-        If 'output' is true, the fit will be plotted and
-           the return values will be printed.
-    """
-
-    def yfunct(afpo, n):
-        return afpo[0] * gaussian_profile(n, afpo[2], afpo[1]) + \
-               afpo[3] * gaussian_profile(n, afpo[5], afpo[4]) + afpo[6]
-
-    def min_funct(afpo, profile):
-        return yfunct(afpo, len(profile)) - profile
-
-    ret = leastsq(min_funct, [max(profile) - min(profile),
-                              0.05,
-                              Num.argmax(profile) / float(len(profile)),
-                              0.2 * max(profile) - min(profile),
-                              0.1,
-                              Num.fmod(Num.argmax(profile) / float(len(profile)) + 0.5, 1.0),
-                              min(profile)], args=(profile))
-    if (output):
-        phases = Num.arange(0.0, 1.0,
-                            1.0 / len(profile)) + 0.5 / len(profile)
-        Pgplot.plotxy(profile, phases, rangex=[0.0, 1.0],
-                      labx='Pulse Phase', laby='Pulse Intensity')
-    bestfit = yfunct(ret[0], len(profile))
-    if (output):
-        Pgplot.plotxy(bestfit, phases, color='red')
-        Pgplot.closeplot()
-    residuals = bestfit - profile
-    resid_avg = residuals.mean()
-    resid_std = residuals.std()
-    if (output):
-        Pgplot.plotxy(residuals, phases, rangex=[0.0, 1.0],
-                      rangey=[min(residuals) - 2 * resid_std,
-                              max(residuals) + 2 * resid_std],
-                      labx='Pulse Phase', laby='Residuals',
-                      line=None, symbol=3)
-        ppgplot.pgerrb(6, phases, residuals,
-                       Num.zeros(len(residuals), 'd') + \
-                       resid_std, 2)
-        Pgplot.plotxy([resid_avg, resid_avg], [0.0, 1.0], line=2)
-        Pgplot.closeplot()
-        print("")
-        print("  Best-fit gaussian integrated 'flux'  = ", ret[0][0])
-        print("               Best-fit gaussian FWHM  = ", ret[0][1])
-        print("    Best-fit gaussian phase (0.0-1.0)  = ", ret[0][2])
-        print("  Best-fit gaussian integrated 'flux'  = ", ret[0][3])
-        print("               Best-fit gaussian FWHM  = ", ret[0][4])
-        print("    Best-fit gaussian phase (0.0-1.0)  = ", ret[0][5])
-        print("        Baseline (i.e. noise) average  = ", ret[0][6])
-        print("                    Residuals average  = ", resid_avg)
-        print("         Residuals standard deviation  = ", resid_std)
-        print("")
-    return (ret[0][0], ret[0][1], ret[0][2], ret[0][3], ret[0][4],
-            ret[0][5], ret[0][6], resid_avg, resid_std)
 
 
 def estimate_flux_density(profile, N, dt, Ttot, G, BW, prof_stdev, display=0):
