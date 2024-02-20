@@ -1,14 +1,6 @@
-"""
-Copyright (c) 1998-2021 Scott M. Ransom <sransom@nrao.edu>
-This software was originally released under GPLv2.
-"""
-
 from __future__ import absolute_import
-try:
-    string_type = basestring
-except NameError:
-    string_type = str
-
+from builtins import range
+from builtins import object
 import os
 import sys
 import subprocess
@@ -71,7 +63,7 @@ telescope_to_maxha = {"GBT": 12, \
                    "Geocenter": 12, \
                    "Barycenter": 12}
 
-class polyco:
+class polyco(object):
     def __init__(self, fileptr):
         line = fileptr.readline()
         if (line==""):
@@ -146,7 +138,7 @@ class polyco:
             psrfreq = DT*psrfreq + ii*self.coeffs[ii]
         return self.F0 + psrfreq/60.0
         
-class polycos:
+class polycos(object):
     def __init__(self, psrname, filenm="polyco.dat"):
         self.psr = psrname
         self.file = filenm
@@ -243,7 +235,7 @@ def create_polycos(parfn, telescope_id, center_freq, start_mjd, end_mjd, \
         Output:
             new_polycos: a polycos object.
     """
-    if type(parfn) is string_type:
+    if type(parfn)==bytes:
         # assume parfn is a filename
         par = parfile.psr_par(parfn)
     else:

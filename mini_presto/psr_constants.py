@@ -1,8 +1,3 @@
-"""
-Copyright (c) 1998-2021 Scott M. Ransom <sransom@nrao.edu>
-This software was originally released under GPLv2.
-"""
-
 ## Automatically adapted for numpy Apr 14, 2006 by convertcode.py
 
 ARCSECTORAD = float('4.8481368110953599358991410235794797595635330237270e-6')
@@ -26,6 +21,5 @@ Mjup        = float('1.8987e27')      # kg
 Rsun        = float('6.9551e8')       # m
 Rearth      = float('6.378e6')        # m
 SOL         = float('299792458.0')    # m/s
-MSUN        = float('1.989e+30')      # kg
 G           = float('6.673e-11')      # m^3/s^2/kg 
 C           = SOL

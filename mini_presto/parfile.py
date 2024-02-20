@@ -1,18 +1,12 @@
-"""
-Copyright (c) 1998-2021 Scott M. Ransom <sransom@nrao.edu>
-This software was originally released under GPLv2.
-"""
-
-from __future__ import print_function, absolute_import
-try:
-    string_type = basestring
-except NameError:
-    string_type = str
-
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import object
+import six
 import math, re
 from mini_presto import psr_utils as pu
+from mini_presto import psr_constants as pc
 try:
-    from mini_presto.slalib import sla_ecleq, sla_eqecl, sla_eqgal
+    from slalib import sla_ecleq, sla_eqecl, sla_eqgal
     slalib = True
 except ImportError:
     slalib = False
@@ -65,7 +59,7 @@ floatn_keys = ["F", "P", "FB", "FD", "DMX_", "DMXEP_", "DMXR1_",
                "DMXR2_", "DMXF1_", "DMXF2_"]
 str_keys = ["FILE", "PSR", "PSRJ", "RAJ", "DECJ", "EPHEM", "CLK", "BINARY"]
 
-class psr_par:
+class psr_par(object):
     def __init__(self, parfilenm):
         self.FILE = parfilenm
         pf = open(parfilenm)
@@ -122,8 +116,8 @@ class psr_par:
             setattr(self, 'ELONG', self.LAMBDA)
         if (slalib and hasattr(self, 'ELAT') and hasattr(self, 'ELONG')):
             # TEMPO's ecliptic coords are always based on J2000 epoch
-            ra_rad, dec_rad = sla_ecleq(self.ELONG*pu.DEGTORAD,
-                                        self.ELAT*pu.DEGTORAD, J2000)
+            ra_rad, dec_rad = sla_ecleq(self.ELONG*pc.DEGTORAD,
+                                        self.ELAT*pc.DEGTORAD, J2000)
             rstr = pu.coord_to_string(*pu.rad_to_hms(ra_rad))
             dstr = pu.coord_to_string(*pu.rad_to_dms(dec_rad))
             setattr(self, 'RAJ', rstr)
@@ -135,14 +129,14 @@ class psr_par:
         # Compute the Galactic coords
         if (slalib and hasattr(self, 'RA_RAD') and hasattr(self, 'DEC_RAD')):
             l, b = sla_eqgal(self.RA_RAD, self.DEC_RAD)
-            setattr(self, 'GLONG', l*pu.RADTODEG)
-            setattr(self, 'GLAT', b*pu.RADTODEG)
+            setattr(self, 'GLONG', l*pc.RADTODEG)
+            setattr(self, 'GLAT', b*pc.RADTODEG)
         # Compute the Ecliptic coords
         if (slalib and hasattr(self, 'RA_RAD') and hasattr(self, 'DEC_RAD')):
             # TEMPO's ecliptic coords are always based on J2000 epoch
             elon, elat = sla_eqecl(self.RA_RAD, self.DEC_RAD, J2000)
-            setattr(self, 'ELONG', elon*pu.RADTODEG)
-            setattr(self, 'ELAT', elat*pu.RADTODEG)
+            setattr(self, 'ELONG', elon*pc.RADTODEG)
+            setattr(self, 'ELAT', elat*pc.RADTODEG)
         if hasattr(self, 'P'):
             setattr(self, 'P0', self.P)
         if hasattr(self, 'P0'):
@@ -150,7 +144,7 @@ class psr_par:
         if hasattr(self, 'F0'):
             setattr(self, 'P0', 1.0/self.F0)
         if hasattr(self, 'FB0'):
-            setattr(self, 'PB', (1.0/self.FB0)/86400.0)
+            setattr(self, 'PB', (1.0/self.FB0)/pc.SECPERDAY)
         if hasattr(self, 'P0_ERR'):
             if hasattr(self, 'P1_ERR'):
                 f, ferr, fd, fderr = pu.pferrs(self.P0, self.P0_ERR,
@@ -181,8 +175,8 @@ class psr_par:
             ecc = math.sqrt(self.EPS1 * self.EPS1 + self.EPS2 * self.EPS2)
             omega = math.atan2(self.EPS1, self.EPS2)
             setattr(self, 'E', ecc)
-            setattr(self, 'OM', omega * pu.RADTODEG)
-            setattr(self, 'T0', self.TASC + self.PB * omega/pu.TWOPI)
+            setattr(self, 'OM', omega * pc.RADTODEG)
+            setattr(self, 'T0', self.TASC + self.PB * omega/pc.TWOPI)
         if hasattr(self, 'PB') and hasattr(self, 'A1') and not \
                (hasattr(self, 'E') or hasattr(self, 'ECC')):
             setattr(self, 'E', 0.0)
@@ -197,15 +191,54 @@ class psr_par:
             setattr(self, 'E', self.ECC)
             setattr(self, 'E_ERR', self.ECC_ERR)
         pf.close()
+
     def __str__(self):
         out = ""
-        for k, v in self.__dict__.items():
+        for k, v in list(self.__dict__.items()):
             if k[:2]!="__":
-                if type(self.__dict__[k]) is string_type:
+                if type(self.__dict__[k]) in six.string_types:
                     out += "%10s = '%s'\n" % (k, v)
                 else:
                     out += "%10s = %-20.15g\n" % (k, v)
         return out
+
+
+def ELL1_check(par_file, output=False):
+    """
+    ELL1_check(par_file):
+        Check the parfile to see if ELL1 can be safely used as the
+            binary model.  To work properly, we should have:
+            asini/c * ecc**2 << timing precision / sqrt(# TOAs)
+    """
+    psr = psr_par(par_file)
+    try:
+        lhs = psr.A1 * psr.E ** 2.0 * 1e6
+    except:
+        if output:
+            print("Can't compute asini/c * ecc**2, maybe parfile doesn't have a binary?")
+        return
+    try:
+        rhs = psr.TRES / Num.sqrt(psr.NTOA)
+    except:
+        if output:
+            print("Can't compute TRES / sqrt(# TOAs), maybe this isn't a TEMPO output parfile?")
+        return
+    if output:
+        print("Condition is asini/c * ecc**2 << timing precision / sqrt(# TOAs) to use ELL1:")
+        print("     asini/c * ecc**2 = %8.3g us" % lhs)
+        print("  TRES / sqrt(# TOAs) = %8.3g us" % rhs)
+    if lhs * 50.0 < rhs:
+        if output:
+            print("Should be fine.")
+        return True
+    elif lhs * 5.0 < rhs:
+        if output:
+            print("Should be OK, but not optimal.")
+        return True
+    else:
+        if output:
+            print("Should probably use BT or DD instead.")
+        return False
 
 if __name__ == '__main__':
     a = psr_par("2140-2310A.par")
