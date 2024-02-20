@@ -259,7 +259,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     # Build the exclusion list
     exclude = ()
     if not includeLWA:
-        antLookup = {ant.config_name: ant.stand.id for ant for ant in antennas if ant.pol == 0}
+        antLookup = {ant.config_name: ant.stand.id for ant in antennas if ant.pol == 0}
         for name in ('LWA1', 'LWASV', 'LWANA'):
             try:
                 exclude.append( antLookup[name] )
