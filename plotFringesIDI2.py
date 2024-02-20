@@ -16,20 +16,12 @@ from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
-from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Polarization
     plot_pols = []
     if args.xx:
@@ -126,6 +118,28 @@ def main(args):
             if not found:
                 raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
                 
+        # Process the baseline list
+        if args.baseline is not None:
+            newBaselines = []
+            for bl in args.baseline.split(','):
+                ## Split and sort out antenna number vs. name
+                pair = bl.split('-')
+                try:
+                    pair[0] = int(pair[0], 10)
+                except ValueError:
+                    pair[0] = antLookup[pair[0]]
+                try:
+                    pair[1] = int(pair[1], 10)
+                except ValueError:
+                    pair[1] = antLookup[pair[1]]
+                    
+                ## Fill the baseline list with the conjugates, if needed
+                newBaselines.append(tuple(pair))
+                newBaselines.append((pair[1], pair[0]))
+                
+            ## Update
+            args.baseline = newBaselines
+            
         # Convert times to real times
         times = utcjd_to_unix(obsdates + obstimes)
         times = np.unique(times)
@@ -295,7 +309,7 @@ if __name__ == "__main__":
                         help='filename to process')
     parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')

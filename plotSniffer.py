@@ -14,7 +14,6 @@ from datetime import datetime
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
-from lsl.misc import parser as aph
 
 from utils import read_correlator_configuration
 
@@ -23,13 +22,6 @@ from matplotlib import pyplot as plt
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Search limits
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
@@ -46,6 +38,7 @@ def main(args):
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
+    antLookup = {ant.config_name: ant.stand.id for ant in antennas}
     antLookup_inv = {ant.stand.id: ant.config_name for ant in antennas}
     dataDict.close()
     
@@ -65,6 +58,28 @@ def main(args):
         if not found:
             raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
             
+    # Process the baseline list
+    if args.baseline is not None:
+        newBaselines = []
+        for bl in args.baseline.split(','):
+            ## Split and sort out antenna number vs. name
+            pair = bl.split('-')
+            try:
+                pair[0] = int(pair[0], 10)
+            except ValueError:
+                pair[0] = antLookup[pair[0]]
+            try:
+                pair[1] = int(pair[1], 10)
+            except ValueError:
+                pair[1] = antLookup[pair[1]]
+                
+            ## Fill the baseline list with the conjugates, if needed
+            newBaselines.append(tuple(pair))
+            newBaselines.append((pair[1], pair[0]))
+            
+        ## Update
+        args.baseline = newBaselines
+        
     bls = []
     l = 0
     cross = []
@@ -326,7 +341,7 @@ if __name__ == "__main__":
                         help='filename to search')
     parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
