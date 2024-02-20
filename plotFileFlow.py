@@ -23,7 +23,7 @@ def main(args):
             lines = lines.split('\n')
             
             for i,line in enumerate(lines):
-                ## A LWA1 or LWA-SV Type TabNine::no_sem to suppress this message.?
+                ## An LWA1 or LWA-SV entry?
                 if line.find('LWA1') != -1 or line.find('LWA-SV') != -1:
                     start = lines[i-8].rsplit('is ', 1)[1]
                     stop = lines[i-7].rsplit('is ', 1)[1]
