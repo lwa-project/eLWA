@@ -76,31 +76,15 @@ def main(args):
     ## Minimum basline length
     m = np.argmin(blLength)
     b = m % uvw.shape[1]
-    bl0 = blList[b][0].stand.id
-    if bl0 < 50:
-        bl0 = f"EA{bl0:02d}"
-    else:
-        bl0 = f"LWA{bl0-50}"
-    bl1 = blList[b][1].stand.id
-    if bl1 < 50:
-        bl1 = f"EA{bl1:02d}"
-    else:
-        bl1 = f"LWA{bl1-50}"
+    bl0 = blList[b][0].config_name
+    bl1 = blList[b][1].config_name
     print(f"  Minimum: {blLength.min():.2f} klambda ({bl0} <-> {bl1})")
     print(f"  Median: {np.median(blLength):.2f} klambda")
     ## Maximum baseline length
     m = np.argmax(blLength)
     b = m % uvw.shape[1]
-    bl0 = blList[b][0].stand.id
-    if bl0 < 50:
-        bl0 = f"EA{bl0:02d}"
-    else:
-        bl0 = f"LWA{bl0-50}"
-    bl1 = blList[b][1].stand.id
-    if bl1 < 50:
-        bl1 = f"EA{bl1:02d}"
-    else:
-        bl1 = f"LWA{bl1-50}"
+    bl0 = blList[b][0].config_name
+    bl1 = blList[b][1].config_name
     print(f"  Maximum {blLength.max():.2f} klambda ({bl0} <-> {bl1})")
     
     # Plot

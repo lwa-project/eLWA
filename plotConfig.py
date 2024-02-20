@@ -29,10 +29,7 @@ def main(args):
     for ant in antennas:
         if ant.stand.id not in processed:
             data.append( [ant.stand.x, ant.stand.y, ant.stand.z] )
-            if ant.stand.id < 51:
-                names.append( f"EA{ant.stand.id:02d}" )
-            else:
-                names.append( f"LWA{ant.stand.id-50}" )
+            names.append( ant.config_name )
             processed.append( ant.stand.id )
     data = np.array(data)
     
