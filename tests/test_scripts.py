@@ -5,7 +5,6 @@ Unit tests for the various eLWA scripts.
 import unittest
 import glob
 import sys
-import imp
 import re
 import os
 
@@ -73,14 +72,14 @@ class scripts_tests(unittest.TestCase):
         # get_vla_ant_pos.py
         if not os.path.exists('../get_vla_ant_pos.py'):
             with open('../get_vla_ant_pos.py', 'w') as fh:
-                fh.write("""import numpy
+                fh.write("""import numpy as np
 class database(object):
     def __init__(self, *args, **kwds):
         self._ready = True
     def get_pad(self,ant,date):
         return 'W40', None
     def get_xyz(self,ant,date):
-        return numpy.array((-6777.0613, -360.7018, -3550.9465), dtype=numpy.float64)
+        return np.array((-6777.0613, -360.7018, -3550.9465), dtype=np.float64)
     def close(self):
         return True""")
 
@@ -95,7 +94,7 @@ def _test_generator(script):
     def test(self):
         pylint_output = StringIO()
         reporter = TextReporter(pylint_output)
-        Run([script, '-E', '--extension-pkg-whitelist=numpy'], reporter=reporter, do_exit=False)
+        Run([script, '-E', '--extension-pkg-whitelist=numpy'], reporter=reporter, exit=False)
         out = pylint_output.getvalue()
         out_lines = out.split('\n')
         

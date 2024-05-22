@@ -8,7 +8,7 @@ import os
 import git
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 
@@ -32,7 +32,7 @@ def main(args):
         except KeyError:
             pass
     if len(toCopy) == 0:
-        raise RuntimeError("No FLAG tables found in '%s'" % os.path.basename(srcname))
+        raise RuntimeError(f"No FLAG tables found in '{os.path.basename(srcname)}'")
         
     # Figure out our revision
     try:
@@ -55,34 +55,34 @@ def main(args):
     for hdu in toCopy:
         dstlist.insert(-1, hdu)
         dstlist[-2].header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        dstlist[-2].header['HISTORY'] = 'Copied from \'%s\'' % os.path.basename(srcname)
+        dstlist[-2].header['HISTORY'] = f"Copied from '{os.path.basename(srcname)}'"
         ## Check to see if we need to scale the channel masks
         if dstlist[1].header['NO_CHAN'] != dstlist[-2].header['NO_CHAN']:
             ### Figure out how to change the channel ranges
             scl = 1.0 * dstlist[1].header['NO_CHAN'] / dstlist[-2].header['NO_CHAN']
             chans = dstlist[-2].data['CHANS']
             chans = chans * scl
-            chans = numpy.clip(chans, 1, dstlist[1].header['NO_CHAN'])
+            chans = np.clip(chans, 1, dstlist[1].header['NO_CHAN'])
             dstlist[-2].data['CHANS'][...] = chans.astype(dstlist[-2].data['CHANS'].dtype)
-            dstlist[-2].header['HISTORY'] = 'Scaled channel flag value range from [1, %i] to [1, %i]' % (dstlist[-2].header['NO_CHAN'], dstlist[1].header['NO_CHAN'])
+            dstlist[-2].header['HISTORY'] = f"Scaled channel flag value range from [1, {dstlist[-2].header['NO_CHAN']}] to [1, {dstlist[1].header['NO_CHAN']}]"
             
     # Save
     print("  Saving to disk")
     ## What to call it
     outname = os.path.basename(dstname)
     outname, outext = os.path.splitext(outname)
-    outname = '%s_flagged%s' % (outname, outext)
+    outname = f"{outname}_flagged{outext}"
     ## Does it already exist or not
     if os.path.exists(outname):
         if not args.force:
-            yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+            yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
         else:
             yn = 'y'
             
         if yn not in ('n', 'N'):
             os.unlink(outname)
         else:
-            raise RuntimeError("Output file '%s' already exists" % outname)
+            raise RuntimeError(f"Output file '{outname}' already exists")
     ## Open and create a new primary HDU
     hdulist2 = astrofits.open(outname, mode='append')
     primary = astrofits.PrimaryHDU()
@@ -105,12 +105,12 @@ def main(args):
     hdulist2.close()
     dstlist.close()
     srclist.close()
-    print("  -> Flagged FITS IDI file is '%s'" % outname)
+    print(f"  -> Flagged FITS IDI file is '{outname}'")
     print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     parser = argparse.ArgumentParser(
         description='copy the FLAG tables from one FITS-IDI file to another', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -123,4 +123,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    

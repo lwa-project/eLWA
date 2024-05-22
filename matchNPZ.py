@@ -2,14 +2,14 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 import warnings
 
 
 def main(args):
     # Load in the template .npz file and figure out its frequency range
-    template = numpy.load(args.template)
+    template = np.load(args.template)
     freqT = template['freq1'][...]
     template.close()
     print(f"Loaded template '{os.path.basename(args.template)}' with {freqT.size} channels of width {(freqT[1]-freqT[0])/1e3:.3f} kHz")
@@ -30,11 +30,11 @@ def main(args):
         tag = tag.split('-', 1)[0]
         
         ## Load in the .npz file and get its frequency range
-        data = numpy.load(filename)
+        data = np.load(filename)
         freq = data['freq1'][...]
         
         ## Find the overlap with the template's frequency range and validate
-        good = numpy.where((freq>=freqT[0]) & (freq<=freqT[-1]))[0]
+        good = np.where((freq>=freqT[0]) & (freq<=freqT[-1]))[0]
         if len(good) != freqT.size:
             warnings.warn(f"Incompatible overlapping channel count: {len(good)} != {freqT.size}, skipping")
             continue
@@ -63,7 +63,7 @@ def main(args):
         ## Save
         outname = filename.replace('vis2', 'vis2T')
         outname = os.path.basename(outname)
-        numpy.savez(outname, **keys)
+        np.savez(outname, **keys)
 
 
 if __name__ == "__main__":

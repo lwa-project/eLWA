@@ -7,7 +7,7 @@ Given a collection of .npz files search for course delays and rates.
 import os
 import sys
 import glob
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -16,7 +16,6 @@ from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
-from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -25,13 +24,6 @@ from matplotlib.patches import Rectangle as Box
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Search limits
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
@@ -39,7 +31,7 @@ def main(args):
     figs = {}
     first = True
     for filename in args.filename:
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -53,8 +45,10 @@ def main(args):
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
         antLookup = {}
+        antLookup_inv = {}
         for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
             antLookup[an] = ai
+            antLookup_inv[ai] = an
         ## Frequency and polarization setup
         nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
         stk0 = uvdata.header['STK_1']
@@ -69,38 +63,83 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
         except KeyError:
             u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-        uvw = numpy.array([u, v, w]).T
+        uvw = np.array([u, v, w]).T
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
+        ubls = np.unique(bls)
+        utimes = np.unique(obstimes)
+        usrc = np.unique(srcs)
         
+        # Make sure the reference antenna is in there
+        if args.ref_ant is None:
+            bl = bls[0]
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            args.ref_ant = i
+        else:
+            found = False
+            for bl in ubls:
+                i,j = (bl>>8)&0xFF, bl&0xFF
+                if i == args.ref_ant or j == args.ref_ant:
+                    found = True
+                    break
+                elif antLookup_inv[i] == args.ref_ant:
+                    args.ref_ant = i
+                    found = True
+                    break
+                elif antLookup_inv[j] == args.ref_ant:
+                    args.ref_ant = j
+                    found = True
+                    break
+            if not found:
+                raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+                
+        # Process the baseline list
+        if args.baseline is not None:
+            newBaselines = []
+            for bl in args.baseline.split(','):
+                ## Split and sort out antenna number vs. name
+                pair = bl.split('-')
+                try:
+                    pair[0] = int(pair[0], 10)
+                except ValueError:
+                    pair[0] = antLookup[pair[0]]
+                try:
+                    pair[1] = int(pair[1], 10)
+                except ValueError:
+                    pair[1] = antLookup[pair[1]]
+                    
+                ## Fill the baseline list with the conjugates, if needed
+                newBaselines.append(tuple(pair))
+                newBaselines.append((pair[1], pair[0]))
+                
+            ## Update
+            args.baseline = newBaselines
+            
         # Convert times to real times
         times = utcjd_to_unix(obsdates + obstimes)
-        times = numpy.unique(times)
+        times = np.unique(times)
         
         # Build a mask
-        mask = numpy.zeros(flux.shape, dtype=bool)
+        mask = np.zeros(flux.shape, dtype=bool)
         if fgdata is not None and not args.drop:
             reltimes = obsdates - obsdates[0] + obstimes
             maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -142,34 +181,18 @@ def main(args):
                 pol = row['PFLAGS'].astype(bool)
                 
                 if ant1 == 0 and ant2 == 0:
-                    btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 elif ant1 == 0 or ant2 == 0:
                     ant1 = max([ant1, ant2])
-                    btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
-                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 else:
-                    btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
-                                          & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                    btmask = np.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
                 for b,v in enumerate(band):
                     if not v:
                         continue
                     mask[btmask,b,cStart-1:cStop,:] |= pol
-                    
-        # Make sure the reference antenna is in there
-        if first:
-            if args.ref_ant is None:
-                bl = bls[0]
-                i,j = (bl>>8)&0xFF, bl&0xFF
-                args.ref_ant = i
-            else:
-                found = False
-                for bl in bls:
-                    i,j = (bl>>8)&0xFF, bl&0xFF
-                    if i == args.ref_ant:
-                        found = True
-                        break
-                if not found:
-                    raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
                     
         plot_bls = []
         cross = []
@@ -193,7 +216,7 @@ def main(args):
         # Decimation, if needed
         if args.decimate > 1:
             if nFreq % args.decimate != 0:
-                raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+                raise RuntimeError(f"Invalid freqeunce decimation factor:  {nFreq} % {args.decimate} = {nFreq%args.decimate}")
 
             nFreq //= args.decimate
             freq.shape = (freq.size//args.decimate, args.decimate)
@@ -205,14 +228,19 @@ def main(args):
             mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
             mask = mask.mean(axis=3)
             
-        good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
+        good = np.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
         
         iSize = int(round(args.interval/robust.mean(inttimes)))
-        print(" -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(inttimes)))
         iCount = times.size//iSize
-        print(" -> Working with %i chunks of data" % iCount)
+        if iCount == 0:
+            args.interval = times.size*robust.mean(inttimes)
+            iSize = int(round(args.interval/robust.mean(inttimes)))
+            iCount = times.size//iSize
+            print("WARNING:  Not enough data for requested search interval, changing to {args.interval:.3f} seconds")
+        print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(inttimes):.3f} seconds)")
+        print(f" -> Working with {iCount} chunks of data")
         
-        print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
+        print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")
 
         dTimes = times - times[0]
         if first:
@@ -251,32 +279,32 @@ def main(args):
             nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
         nRates += (nRates + 1) % 2
         
-        print("Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres))
-        print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
+        print(f"Searching delays {args.delay_window[0]:.1f} to {args.delay_window[1]:.1f} us in steps of {dres:.2f} us")
+        print(f"           rates {args.rate_window[0]:.1f} to {args.rate_window[1]:.1f} mHz in steps of {rres:.2f} mHz")
         print(" ")
         
-        delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
-        drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
+        delay = np.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+        drate = np.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
         
         # Find RFI and trim it out.  This is done by computing average visibility 
         # amplitudes (a "spectrum") and running a median filter in frequency to extract
         # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
         # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
         # value are also masked.
-        spec  = numpy.median(numpy.abs(flux[:,0,:,0]), axis=0)
-        spec += numpy.median(numpy.abs(flux[:,0,:,1]), axis=0)
+        spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
+        spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
         for i in range(smth.size):
             mn = max([0, i-winSize//2])
             mx = min([i+winSize, smth.size])
-            smth[i] = numpy.median(spec[mn:mx])
+            smth[i] = np.median(spec[mn:mx])
         smth /= robust.mean(smth)
         bp = spec / smth
-        good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+        good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
         nBad = nFreq - len(good)
-        print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
+        print(f"Masking {nBad} of {nFreq} channels ({100.0*nBad/nFreq:.1f}%)")
         
         freq2 = freq*1.0
         freq2.shape += (1,)
@@ -284,10 +312,10 @@ def main(args):
         dirName = os.path.basename( filename )
         for b in range(len(plot_bls)):
             bl = plot_bls[b]
-            valid = numpy.where( bls == bl )[0]
+            valid = np.where( bls == bl )[0]
             i,j = (bl>>8)&0xFF, bl&0xFF
             dTimes = obsdates[valid] + obstimes[valid]
-            dTimes = numpy.array([utcjd_to_unix(v) for v in dTimes])
+            dTimes = np.array([utcjd_to_unix(v) for v in dTimes])
             
             ## Skip over baselines that are not in the baseline list (if provided)
             if args.baseline is not None:
@@ -314,9 +342,8 @@ def main(args):
             blName = (i, j)
             if doConj:
                 blName = (j, i)
-            blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
-                                'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
-                            
+            blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
+            
             if first or blName not in figs:
                 fig = plt.figure()
                 fig.suptitle('%s' % blName)
@@ -334,7 +361,7 @@ def main(args):
                     if (subStop - subStart) > 1.1*args.interval:
                         continue
                         
-                    subTime = dTimes[iSize*i:iSize*(i+1)].mean()
+                    subTime = np.array([dTimes[iSize*i:iSize*(i+1)].mean(),])
                     dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                     dTimes2 -= dTimes2[0]
                     dTimes2.shape += (1,)
@@ -343,24 +370,24 @@ def main(args):
                     if doConj:
                         subData = subData.conj()
                         subPhase = subPhase.conj()
-                    subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+                    subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
                     subData /= freq2[good,:].size
-                    amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
-                    amp = numpy.abs(amp / dTimes2.size)
+                    amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+                    amp = np.abs(amp / dTimes2.size)
                     
-                    subPhase = numpy.angle(subPhase.mean()) * 180/numpy.pi
+                    subPhase = np.angle(subPhase.mean()) * 180/np.pi
                     subPhase %= 360
                     if subPhase > 180:
                         subPhase -= 360
                         
-                    best = numpy.where( amp == amp.max() )
+                    best = np.where( amp == amp.max() )
                     if amp.max() > 0:
                         bsnr = (amp[best]-amp.mean())/amp.std()
                         bdly = delay[best[0]]*1e6
                         brat = drate[best[1]]*1e3
                         
                         c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
-                                        cmap='gist_yarg', vmin=3, vmax=40)
+                                        cmap='gist_yarg', norm=None, vmin=3, vmax=40)
                         c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
                                         cmap='gist_yarg', vmin=3, vmax=40)
                         
@@ -415,9 +442,9 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+',
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
@@ -436,5 +463,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save-images', action='store_true',
                         help='save the output images as PNGs rather than displaying them')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
-    

@@ -6,7 +6,7 @@ A FITS-IDI compatible version of plotFringes2.py.
 
 import os
 import sys
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -15,20 +15,12 @@ from scipy.stats import scoreatpercentile as percentile
 
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
-from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Polarization
     args.polToPlot = 'XX'
     if args.xy:
@@ -39,7 +31,7 @@ def main(args):
         args.polToPlot = 'YY'
     filename = args.filename
     
-    print("Working on '%s'" % os.path.basename(filename))
+    print(f"Working on '{os.path.basename(filename)}'")
     # Open the FITS IDI file and access the UV_DATA extension
     hdulist = astrofits.open(filename, mode='readonly')
     andata = hdulist['ANTENNA']
@@ -53,8 +45,10 @@ def main(args):
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
     antLookup = {}
+    antLookup_inv = {}
     for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
         antLookup[an] = ai
+        antLookup_inv[ai] = an
     ## Frequency and polarization setup
     nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
     stk0 = uvdata.header['STK_1']
@@ -69,38 +63,83 @@ def main(args):
     ## Band information
     fqoffsets = fqdata.data['BANDFREQ'].ravel()
     ## Frequency channels
-    freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+    freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
     freq += uvdata.header['CRVAL3']
     ## UVW coordinates
     try:
         u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
     except KeyError:
         u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-    uvw = numpy.array([u, v, w]).T
+    uvw = np.array([u, v, w]).T
     ## The actual visibility data
-    flux = uvdata.data['FLUX'].astype(numpy.float32)
+    flux = uvdata.data['FLUX'].astype(np.float32)
     
     # Convert the visibilities to something that we can easily work with
     nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
-        flux = flux.view(numpy.complex64)
+        flux = flux.view(np.complex64)
     else:
         ## Case 2) - Real, imaginary data + weights (drop the weights)
         flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
     flux.shape = (flux.shape[0], nBand, nFreq, nStk)
     
     # Find unique baselines, times, and sources to work with
-    ubls = numpy.unique(bls)
-    utimes = numpy.unique(obstimes)
-    usrc = numpy.unique(srcs)
+    ubls = np.unique(bls)
+    utimes = np.unique(obstimes)
+    usrc = np.unique(srcs)
     
+    # Make sure the reference antenna is in there
+    if args.ref_ant is None:
+        bl = bls[0]
+        i,j = (bl>>8)&0xFF, bl&0xFF
+        args.ref_ant = i
+    else:
+        found = False
+        for bl in ubls:
+            i,j = (bl>>8)&0xFF, bl&0xFF
+            if i == args.ref_ant or j == args.ref_ant:
+                found = True
+                break
+            elif antLookup_inv[i] == args.ref_ant:
+                args.ref_ant = i
+                found = True
+                break
+            elif antLookup_inv[j] == args.ref_ant:
+                args.ref_ant = j
+                found = True
+                break
+        if not found:
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
+            
+    # Process the baseline list
+    if args.baseline is not None:
+        newBaselines = []
+        for bl in args.baseline.split(','):
+            ## Split and sort out antenna number vs. name
+            pair = bl.split('-')
+            try:
+                pair[0] = int(pair[0], 10)
+            except ValueError:
+                pair[0] = antLookup[pair[0]]
+            try:
+                pair[1] = int(pair[1], 10)
+            except ValueError:
+                pair[1] = antLookup[pair[1]]
+                
+            ## Fill the baseline list with the conjugates, if needed
+            newBaselines.append(tuple(pair))
+            newBaselines.append((pair[1], pair[0]))
+            
+        ## Update
+        args.baseline = newBaselines
+        
     # Convert times to real times
     times = utcjd_to_unix(obsdates + obstimes)
-    times = numpy.unique(times)
+    times = np.unique(times)
     
     # Build a mask
-    mask = numpy.zeros(flux.shape, dtype=bool)
+    mask = np.zeros(flux.shape, dtype=bool)
     if fgdata is not None and not args.drop:
         reltimes = obsdates - obsdates[0] + obstimes
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -142,14 +181,14 @@ def main(args):
             pol = row['PFLAGS'].astype(bool)
             
             if ant1 == 0 and ant2 == 0:
-                btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             elif ant1 == 0 or ant2 == 0:
                 ant1 = max([ant1, ant2])
-                btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
-                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                  & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             else:
-                btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
-                                      & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                  & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             for b,v in enumerate(band):
                 if not v:
                     continue
@@ -159,7 +198,7 @@ def main(args):
     cross = []
     for i in range(len(ubls)):
         bl = ubls[i]
-        ant1, ant2 = (bl>>8)&0xFF, bl&0xFF 
+        ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
         if args.include_auto or ant1 != ant2:
             if args.baseline is not None:
                 if (ant1,ant2) in args.baseline:
@@ -177,7 +216,7 @@ def main(args):
     # Decimation, if needed
     if args.decimate > 1:
         if nFreq % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nFreq, args.decimate, nFreq%args.decimate))
+            raise RuntimeError(f"Invalid freqeunce decimation factor:  {nFreq} % {args.decimate} = {nFreq%args.decimate}")
 
         nFreq //= args.decimate
         freq.shape = (freq.size//args.decimate, args.decimate)
@@ -189,7 +228,7 @@ def main(args):
         mask.shape = (mask.shape[0], mask.shape[1], mask.shape[2]//args.decimate, args.decimate, mask.shape[3])
         mask = mask.mean(axis=3)
         
-    good = numpy.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
+    good = np.arange(freq.size//8, freq.size*7//8)		# Inner 75% of the band
     
     # NOTE: Assumes that the Stokes parameters increment by -1
     namMapper = {}
@@ -205,12 +244,13 @@ def main(args):
     fig5 = plt.figure()
     
     k = 0
-    nRow = int(numpy.sqrt( len(plot_bls) ))
-    nCol = int(numpy.ceil(len(plot_bls)*1.0/nRow))
+    nRow = int(np.sqrt( len(plot_bls) ))
+    nCol = int(np.ceil(len(plot_bls)*1.0/nRow))
     for b in range(len(plot_bls)):
         bl = plot_bls[b]
-        valid = numpy.where( bls == bl )[0]
+        valid = np.where( bls == bl )[0]
         i,j = (bl>>8)&0xFF, bl&0xFF
+        ni,nj = antLookup_inv[i], antLookup_inv[j]
         dTimes = obsdates[valid] + obstimes[valid]
         dTimes -= dTimes[0]
         dTimes *= 86400.0
@@ -218,53 +258,53 @@ def main(args):
         ax1, ax2, ax3, ax4, ax5 = None, None, None, None, None
         for band,offset in enumerate(fqoffsets):
             frq = freq + offset
-            vis = numpy.ma.array(flux[valid,band,:,polMapper[args.polToPlot]], mask=mask[valid,band,:,polMapper[args.polToPlot]])
+            vis = np.ma.array(flux[valid,band,:,polMapper[args.polToPlot]], mask=mask[valid,band,:,polMapper[args.polToPlot]])
             
             ax1 = fig1.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax1)
-            ax1.imshow(numpy.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-numpy.pi, vmax=numpy.pi, interpolation='nearest')
+            ax1.imshow(np.ma.angle(vis), extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', vmin=-np.pi, vmax=np.pi, interpolation='nearest')
             ax1.axis('auto')
             ax1.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax1.set_ylabel('Elapsed Time [s]')
-            ax1.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax1.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax1.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax1.set_ylim((dTimes[0], dTimes[-1]))
             
             ax2 = fig2.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax2)
-            amp = numpy.ma.abs(vis)
+            amp = np.ma.abs(vis)
             vmin, vmax = percentile(amp, 1), percentile(amp, 99)
             ax2.imshow(amp, extent=(frq[0]/1e6, frq[-1]/1e6, dTimes[0], dTimes[-1]), origin='lower', interpolation='nearest', vmin=vmin, vmax=vmax)
             ax2.axis('auto')
             ax2.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax2.set_ylabel('Elapsed Time [s]')
-            ax2.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax2.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax2.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             ax2.set_ylim((dTimes[0], dTimes[-1]))
                     
             ax3 = fig3.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax3)
-            ax3.plot(frq/1e6, numpy.ma.abs(vis.mean(axis=0)))
+            ax3.plot(frq/1e6, np.ma.abs(vis.mean(axis=0)))
             ax3.set_xlabel('Frequency [MHz]')
             if band == 0:
                 ax3.set_ylabel('Mean Vis. Amp. [lin.]')
-            ax3.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax3.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax3.set_xlim((frq[0]/1e6, frq[-1]/1e6))
             
             ax4 = fig4.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax4)
-            ax4.plot(numpy.ma.angle(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+            ax4.plot(np.ma.angle(vis[:,good].mean(axis=1))*180/np.pi, dTimes, linestyle='', marker='+')
             ax4.set_xlim((-180, 180))
             ax4.set_xlabel('Mean Vis. Phase [deg]')
             if band == 0:
                 ax4.set_ylabel('Elapsed Time [s]')
-            ax4.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax4.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax4.set_ylim((dTimes[0], dTimes[-1]))
             
             ax5 = fig5.add_subplot(nRow, nCol*nBand, nBand*k+1+band, sharey=ax5)
-            ax5.plot(numpy.ma.abs(vis[:,good].mean(axis=1))*180/numpy.pi, dTimes, linestyle='', marker='+')
+            ax5.plot(np.ma.abs(vis[:,good].mean(axis=1))*180/np.pi, dTimes, linestyle='', marker='+')
             ax5.set_xlabel('Mean Vis. Amp. [lin.]')
             if band == 0:
                 ax5.set_ylabel('Elapsed Time [s]')
-            ax5.set_title("%i,%i - %s" % (i,j,namMapper[polMapper[args.polToPlot]]))
+            ax5.set_title(f"{ni},{nj} - {namMapper[polMapper[args.polToPlot]]}")
             ax5.set_ylim((dTimes[0], dTimes[-1]))
             
             if band > 0:
@@ -292,9 +332,9 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, 
                         help='filename to process')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-o', '--drop', action='store_true', 
                         help='drop FLAG table when displaying')
@@ -312,5 +352,8 @@ if __name__ == "__main__":
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
-    

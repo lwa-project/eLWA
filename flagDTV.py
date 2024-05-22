@@ -8,7 +8,7 @@ import os
 import git
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -25,7 +25,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -38,9 +38,9 @@ def main(args):
         
         # Verify we can flag this data
         if uvdata.header['STK_1'] > 0:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
@@ -66,30 +66,30 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
-        ubls = numpy.unique(bls)
-        utimes = numpy.unique(obstimes)
-        usrc = numpy.unique(srcs)
+        ubls = np.unique(bls)
+        utimes = np.unique(obstimes)
+        usrc = np.unique(srcs)
         
         # Find unique scans to work on, making sure that there are no large gaps
         blocks = []
         for src in usrc:
-            valid = numpy.where( src == srcs )[0]
+            valid = np.where( src == srcs )[0]
             
             blocks.append( [valid[0],valid[0]] )
             for v in valid[1:]:
@@ -101,20 +101,20 @@ def main(args):
         blocks.sort()
         
         # Build up the mask
-        mask = numpy.zeros(flux.shape, dtype=bool)
+        mask = np.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
-            print('  Working on scan %i of %i' % (i+1, len(blocks)))
+            print(f"  Working on scan {i+1} of {len(blocks)}")
             match = range(block[0],block[1]+1)
             
-            bbls = numpy.unique(bls[match])
+            bbls = np.unique(bls[match])
             times = obstimes[match] * 86400.0
             scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
             scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
             print('    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S')))
             
             for b,offset in enumerate(fqoffsets):
-                print('    IF #%i' % (b+1,))
+                print(f"    IF #{b+1}")
                 visXX = flux[match,b,:,0]
                 visYY = flux[match,b,:,1]
                 
@@ -125,13 +125,13 @@ def main(args):
                 visYY.shape = (visYY.shape[0]//nBL, nBL, visYY.shape[1])
                 print('      Scan/IF contains %i times, %i baselines, %i channels' % visXX.shape)
                 
-                maskDTV = numpy.zeros(visXX.shape, dtype=bool)
+                maskDTV = np.zeros(visXX.shape, dtype=bool)
                 
                 ## Mask channels 2, 3, 4, 5, and 6 which are all in the LWA band
                 for ledge in (54, 60, 66, 76, 82):
                     ## The pilot is offset 310 kHz above the lower edge of the band
                     pilot = 1e6*(ledge + 0.310)
-                    bad = numpy.where( numpy.abs(freq+offset - pilot) <= 25e3 )[0]
+                    bad = np.where( np.abs(freq+offset - pilot) <= 25e3 )[0]
                     if len(bad) > 0:
                         maskDTV[:,:,bad] = True
                         
@@ -169,10 +169,10 @@ def main(args):
         ## New Flags
         nBL = len(ubls)
         for i in range(nBL):
-            blset = numpy.where( bls == ubls[i] )[0]
+            blset = np.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             if len(blset) == 0:
                 continue
@@ -224,16 +224,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -265,7 +265,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -274,18 +274,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_flagged%s' % (outname, outext)
+        outname = f"{outname}_flagged{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =	astrofits.PrimaryHDU()
@@ -307,12 +307,12 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Flagged FITS IDI file is '%s'" % outname)
+        print(f"  -> Flagged FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     parser = argparse.ArgumentParser(
         description='Flag the DTV pilot carriers in FITS-IDI files', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

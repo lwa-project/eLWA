@@ -23,22 +23,18 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
         else:
             pcmd = shlex.split(cmd)
     elif cwd is None:
-        pcmd = ['ssh', '-t', '-t', node, 'bash -c "%s"' % cmd]
+        pcmd = ['ssh', '-t', '-t', node, f'bash -c "{cmd}"']
     else:
-        pcmd = ['ssh', '-t', '-t', node, 'bash -c "cd %s && %s"' % (cwd, cmd)]
+        pcmd = ['ssh', '-t', '-t', node, f'bash -c "cd {cwd} && {cmd}"']
         
     outdev = subprocess.PIPE
     if quiet:
-        outdev = open(os.devnull, 'wb')
+        outdev = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, stdout=outdev, stderr=outdev)
     stdout, stderr = p.communicate()
-    status = p.returncode
-    if quiet:
-        outdev.close()
-    else:
-        stdout = stdout.decode()
-        stderr = stderr.decode()
-        
+    stdout = stdout.decode('ascii', errors='ignore')
+    stderr = stderr.decode('ascii', errors='ignore')
+    
     return status, stdout, stderr
 
 
@@ -63,7 +59,7 @@ def get_processes(node):
 
 
 def get_directory_contents(node, dirname):
-    status, filenames, errors = run_command('ls -d -1 %s/*' % dirname, node=node)
+    status, filenames, errors = run_command(f"ls -d -1 {dirname}/*", node=node)
     if status != 0:
         filenames = []
     else:
@@ -73,7 +69,7 @@ def get_directory_contents(node, dirname):
 
 
 def get_logfile_speed(node, logname):
-    status, speedtime, error = run_command('grep -i -e average -e estimated %s | tail -n2' % logname, node=node)
+    status, speedtime, error = run_command(f"grep -i -e average -e estimated {logname} | tail -n2", node=node)
     if status != 0:
         speed  = '---'
         remain = '---'
@@ -192,7 +188,7 @@ def main(args):
             for node in sorted(status.keys()):
                 entry = status[node]
                 
-                print("%s:" % node)
+                print(f"{node}:")
                 for dirname in entry['dirnames']:
                     nFiles = entry['progress'][dirname]
                     if dirname in entry['active']:
@@ -212,7 +208,7 @@ def main(args):
                                     if active.find('pulsar') == -1:
                                         active += ' - pulsar'
                                         
-                        info = '%s @ %i; %s per integration, %s remaining' % (configfile, pid, speed, remaining)
+                        info = f"{configfile} @ {pid}; {speed} per integration, {remaining} remaining"
                         
                     else:
                         try:
@@ -227,13 +223,13 @@ def main(args):
                             
                         info = '%s (?)' % configfile if configfile is not None else None
                         
-                    print('  %s (%s)' % (dirname, active))
-                    print('    %i integrations processed' % nFiles)
+                    print(f"  {dirname} ({active})")
+                    print(f"    {nFiles} integrations processed")
                     if info is not None:
-                        print('    %s' % info)
+                        print(f"    {info}")
                         
             t2 = time.time()
-            print("query %.3f, report %.3f" % (t1-t0, t2-t1))
+            print(f"query {t1-t0:.3f}, report {t2-t1:.3f}")
             
             # Sleep
             while (time.time() - t0) < 60:

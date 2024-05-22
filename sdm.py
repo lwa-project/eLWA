@@ -3,7 +3,8 @@ Module for working with VLA SDM files for flagging purposes.
 """
 
 import os
-import numpy
+import sys
+import numpy as np
 import struct
 from functools import reduce
 from xml.etree import ElementTree
@@ -97,7 +98,7 @@ def _parse_compound(text):
         output = []
         for d in data:
             output.append( _parse_convert(d) )
-        output = numpy.array(output)
+        output = np.array(output)
         output.shape = tuple(dims)
         if dims[0] == 1:
             output = output[0]
@@ -491,19 +492,16 @@ def filter_requantizer_gains(gains, startJD, stopJD):
 
 
 if __name__ == "__main__":
-    import sys
-    import numpy
     gains = get_requantizer_gains(sys.argv[1])
     
     import pylab
     for ant in ('EA20',):
-        gain = numpy.array(gains[ant])
+        gain = np.array(gains[ant])
         
         try:
             norm
         except NameError:
-            norm = numpy.median(gain[:,3])
+            norm = np.median(gain[:,3])
         pylab.plot(gain[:,0]-gain[0,0], gain[:,2]/norm)
         pylab.plot(gain[:,0]-gain[0,0], gain[:,3]/norm)
     pylab.show()
-    

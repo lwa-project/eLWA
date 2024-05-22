@@ -7,7 +7,7 @@ Run through a VDIF file and determine if it is bad or not.
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime
 
@@ -48,12 +48,12 @@ def main(args):
     beginDate = junkFrame.time.datetime
         
     # Report
-    print("Filename: %s" % os.path.basename(filename))
-    print("  Date of First Frame: %s" % beginDate)
-    print("  Station: %i" % beam)
-    print("  Sample Rate: %i Hz" % srate)
-    print("  Bit Depth: %i" % junkFrame.header.bits_per_sample)
-    print("  Tuning 1: %.1f Hz" % cFreq)
+    print(f"Filename: {os.path.basename(filename)}")
+    print(f"  Date of First Frame: {str(beginDate)}")
+    print(f"  Station: {beam}")
+    print(f"  Sample Rate: {srate} Hz")
+    print(f"  Bit Depth: {junkFrame.header.bits_per_sample}")
+    print(f"  Tuning 1: {cFreq:.1f} Hz")
     print(" ")
     
     # Determine the clip level
@@ -68,7 +68,7 @@ def main(args):
             args.trim_level = abs(255/256.)**2
         else:
             args.trim_level = 1.0
-        print("Setting clip level to %.3f" % args.trim_level)
+        print(f"Setting clip level to {args.trim_level:.3f}")
         print(" ")
         
     # Convert chunk length to total frame count
@@ -93,7 +93,7 @@ def main(args):
     
     while True:
         count = {0:0, 1:0}
-        data = numpy.empty((2,chunkLength*vdif.DATA_LENGTH//tunepols), dtype=numpy.float32)
+        data = np.empty((2,chunkLength*vdif.DATA_LENGTH//tunepols), dtype=np.float32)
         for j in range(chunkLength):
             # Read in the next frame and anticipate any problems that could occur
             try:
@@ -119,33 +119,34 @@ def main(args):
             break
             
         else:
-            rms = numpy.sqrt( (data**2).mean(axis=1) )
-            data = numpy.abs(data)**2
+            rms = np.sqrt( (data**2).mean(axis=1) )
+            data = np.abs(data)**2
             
-            clipFraction.append( numpy.zeros(2) )
+            clipFraction.append( np.zeros(2) )
             meanPower.append( data.mean(axis=1) )
             meanRMS.append( rms )
             for j in range(2):
-                bad = numpy.nonzero(data[j,:] > args.trim_level)[0]
+                bad = np.nonzero(data[j,:] > args.trim_level)[0]
                 clipFraction[-1][j] = 1.0*len(bad) / data.shape[1]
                 
             clip = clipFraction[-1]
             power = meanPower[-1]
-            print("%3i | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % (i, clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
+            print(f"{i:3d} |  {clip[0]:6.2%}  {clip[1]:6.2%} | {power[0]:6.3f} {power[1]:6.3f} | {rms[0]:6.3f} {rms[1]:6.3f} |")
         
             i += 1
             fh.seek(vdif.FRAME_SIZE*chunkSkip, 1)
             
-    clipFraction = numpy.array(clipFraction)
-    meanPower = numpy.array(meanPower)
-    meanRMS = numpy.array(meanRMS)
+    clipFraction = np.array(clipFraction)
+    meanPower = np.array(meanPower)
+    meanRMS = np.array(meanRMS)
     
+    i = 'M'
     clip = clipFraction.mean(axis=0)
     power = meanPower.mean(axis=0)
     rms = meanRMS.mean(axis=0)
     
     print("----+-----------------+---------------+---------------+")
-    print("%3s | %6.2f%% %6.2f%% | %6.3f %6.3f | %6.3f %6.3f |" % ('M', clip[0]*100.0, clip[1]*100.0, power[0], power[1], rms[0], rms[1]))
+    print(f"{i:3s} |  {clip[0]:6.2%}  {clip[1]:6.2%} | {power[0]:6.3f} {power[1]:6.3f} | {rms[0]:6.3f} {rms[1]:6.3f} |")
 
 
 if __name__ == "__main__":
@@ -163,4 +164,3 @@ if __name__ == "__main__":
                         help='trim level for power analysis with clipping')
     args = parser.parse_args()
     main(args)
-    

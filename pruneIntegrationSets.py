@@ -19,9 +19,9 @@ def main(args):
     # Validate
     args.directory = os.path.abspath(args.directory)
     if not os.path.exists(args.directory):
-        raise RuntimeError("'%s' does not exists" % args.directory)
+        raise RuntimeError(f"'{args.directory}' does not exists")
     if not os.path.isdir(args.directory):
-        raise RuntimeError("'%s' is not a directory" % args.directory)
+        raise RuntimeError(f"'{args.directory}' is not a directory")
         
     # Find all of the files
     filenames = glob.glob(os.path.join(args.directory, '*-vis2-*.npz'))
@@ -29,7 +29,7 @@ def main(args):
     # Validate
     if len(filenames) == 0:
         if (not args.quiet):
-            print("No integrations found in '%s', exiting" % args.directory)
+            print(f"No integrations found in '{args.directory}', exiting")
         sys.exit()
         
     # Find the scan/integration sets
@@ -52,7 +52,7 @@ def main(args):
         nInts.extend( [len(scans[scan][nint]) for nint in scans[scan]] )
     nInts = max(nInts)
     if (not args.quiet):
-        print("There appear to be %i files per integration set" % nInts)
+        print(f"There appear to be {nInts} files per integration set")
         
     # Find bad integration sets that do not have the right number parts
     bad = []
@@ -80,10 +80,10 @@ def main(args):
         if (not args.quiet):
             badScans = set([scan for scan,nint in bad])
             
-            print("Moved %i files corresponding to %i integrations to 'notUsed'" % (nMoved, len(bad)))
+            print(f"Moved {nMoved} files corresponding to {len(bad)} integrations to 'notUsed'")
             print("Trimmed Scans:")
             for scan in badScans:
-                print("  %s" % scan)
+                print(f"  {scan}")
 
 
 if __name__ == "__main__":
@@ -98,4 +98,3 @@ if __name__ == "__main__":
                         help='suppress script output')
     args = parser.parse_args()
     main(args)
-    

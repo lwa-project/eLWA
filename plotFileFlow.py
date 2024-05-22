@@ -24,7 +24,7 @@ def main(args):
             lines = lines.split('\n')
             
             for i,line in enumerate(lines):
-                ## A LWA1 or LWA-SV Type TabNine::no_sem to suppress this message.?
+                ## A LWA1 or LWA-SV or LWA-NA entry?
                 if line.find('LWA1') != -1 or line.find('LWA-SV') != -1 or line.find('LWA-NA') != -1:
                     start = lines[i-8].rsplit('is ', 1)[1]
                     stop = lines[i-7].rsplit('is ', 1)[1]
@@ -114,4 +114,3 @@ if __name__ == "__main__":
                         help='configuration file to parse')
     args = parser.parse_args()
     main(args)
-    

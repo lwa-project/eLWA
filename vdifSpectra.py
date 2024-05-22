@@ -3,7 +3,7 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime
 
@@ -34,7 +34,7 @@ def main(args):
     
     is_complex = False
     junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
-    if junkFrame.payload.data.dtype in (numpy.complex64, numpy.complex128):
+    if junkFrame.payload.data.dtype in (np.complex64, np.complex128):
         is_complex = True
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*(2.0-is_complex))
     srate = junkFrame.sample_rate
@@ -90,7 +90,7 @@ def main(args):
     print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
+    data = np.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=np.complex64)
     count = [0 for i in range(data.shape[0])]
     for i in range(beampols*nFrames):
         try:
@@ -114,7 +114,7 @@ def main(args):
     fig = plt.figure()
     ax = fig.gca()
     for i in range(psd.shape[0]):
-        ax.plot(freq/1e6, numpy.log10(psd[i,:])*10, label='%i' % i)
+        ax.plot(freq/1e6, np.log10(psd[i,:])*10, label='%i' % i)
     ax.set_title('%i' % beam)
     ax.set_xlabel('Frequency [MHz]')
     ax.set_ylabel('PSD [arb. dB]')

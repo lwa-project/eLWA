@@ -7,14 +7,13 @@ Given a collection of .npz files search for course delays and rates.
 import os
 import sys
 import glob
-import numpy
+import numpy as np
 import argparse
 import tempfile
 from datetime import datetime
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
-from lsl.misc import parser as aph
 
 from utils import read_correlator_configuration
 
@@ -23,13 +22,6 @@ from matplotlib import pyplot as plt
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Search limits
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
@@ -41,11 +33,13 @@ def main(args):
         
     nInt = len(filenames)
     
-    dataDict = numpy.load(filenames[0])
+    dataDict = np.load(filenames[0])
     tInt = dataDict['tInt']
     nBL, nchan = dataDict['vis1XX'].shape
     freq = dataDict['freq1']
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
+    antLookup = {ant.config_name: ant.stand.id for ant in antennas}
+    antLookup_inv = {ant.stand.id: ant.config_name for ant in antennas}
     dataDict.close()
     
     # Make sure the reference antenna is in there
@@ -57,9 +51,35 @@ def main(args):
             if ant.stand.id == args.ref_ant:
                 found = True
                 break
+            elif ant.config_name == args.ref_ant:
+                args.ref_ant = ant.stand.id
+                found = True
+                break
         if not found:
-            raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
             
+    # Process the baseline list
+    if args.baseline is not None:
+        newBaselines = []
+        for bl in args.baseline.split(','):
+            ## Split and sort out antenna number vs. name
+            pair = bl.split('-')
+            try:
+                pair[0] = int(pair[0], 10)
+            except ValueError:
+                pair[0] = antLookup[pair[0]]
+            try:
+                pair[1] = int(pair[1], 10)
+            except ValueError:
+                pair[1] = antLookup[pair[1]]
+                
+            ## Fill the baseline list with the conjugates, if needed
+            newBaselines.append(tuple(pair))
+            newBaselines.append((pair[1], pair[0]))
+            
+        ## Update
+        args.baseline = newBaselines
+        
     bls = []
     l = 0
     cross = []
@@ -75,21 +95,21 @@ def main(args):
     
     if args.decimate > 1:
         if nchan % args.decimate != 0:
-            raise RuntimeError("Invalid freqeunce decimation factor:  %i %% %i = %i" % (nchan, args.decimate, nchan%args.decimate))
+            raise RuntimeError(f"Invalid freqeunce decimation factor:  {nchan} % {args.decimate} = {nchan%args.decimate}")
 
         nchan /= args.decimate
         freq.shape = (freq.size/args.decimate, args.decimate)
         freq = freq.mean(axis=1)
         
-    times = numpy.zeros(nInt, dtype=numpy.float64)
-    visXX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+    times = np.zeros(nInt, dtype=np.float64)
+    visXX = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
     if not args.y_only:
-        visXY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visYX = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
-    visYY = numpy.zeros((nInt,nBL,nchan), dtype=numpy.complex64)
+        visXY = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
+    visYX = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
+    visYY = np.zeros((nInt,nBL,nchan), dtype=np.complex64)
 
     for i,filename in enumerate(filenames):
-        dataDict = numpy.load(filename)
+        dataDict = np.load(filename)
 
         tStart = dataDict['tStart']
         
@@ -120,16 +140,21 @@ def main(args):
             
     print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
-    iTimes = numpy.zeros(nInt-1, dtype=times.dtype)
+    iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (robust.mean(iTimes), robust.std(iTimes), iTimes.min(), iTimes.max()))
+    print(f" -> Interval: {robust.mean(iTimes):.3f} +/- {robust.std(iTimes):.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
     iSize = int(round(args.interval/robust.mean(iTimes)))
-    print(" -> Chunk size is %i intervals (%.3f seconds)" % (iSize, iSize*robust.mean(iTimes)))
     iCount = times.size//iSize
-    print(" -> Working with %i chunks of data" % iCount)
+    if iCount == 0:
+        args.interval = times.size*robust.mean(iTimes)
+        iSize = int(round(args.interval/robust.mean(iTimes)))
+        iCount = times.size//iSize
+        print(f"WARNING:  Not enough data for requested search interval, changing to {args.interval:.3f} seconds")
+    print(f" -> Chunk size is {iSize} intervals ({iSize*robust.mean(iTimes):.3f} seconds)")
+    print(f" -> Working with {iCount} chunks of data")
     
-    print("Number of frequency channels: %i (~%.1f Hz/channel)" % (len(freq), freq[1]-freq[0]))
+    print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")
 
     dTimes = times - times[0]
     ref_time = (int(times[0]) / 60) * 60
@@ -167,32 +192,32 @@ def main(args):
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
     
-    print("Searching delays %.1f to %.1f us in steps of %.2f us" % (args.delay_window[0], args.delay_window[1], dres))
-    print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
+    print(f"Searching delays {args.delay_window[0]:.1f} to {args.delay_window[1]:.1f} us in steps of {dres:.2f} us")
+    print(f"           rates {args.rate_window[0]:.1f} to {args.rate_window[1]:.1f} mHz in steps of {rres:.2f} mHz")
     print(" ")
     
-    delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
-    drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
+    delay = np.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+    drate = np.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
     
     # Find RFI and trim it out.  This is done by computing average visibility 
     # amplitudes (a "spectrum") and running a median filter in frequency to extract
     # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
     # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
     # value are also masked.
-    spec  = numpy.median(numpy.abs(visXX.mean(axis=0)), axis=0)
-    spec += numpy.median(numpy.abs(visYY.mean(axis=0)), axis=0)
+    spec  = np.median(np.abs(visXX.mean(axis=0)), axis=0)
+    spec += np.median(np.abs(visYY.mean(axis=0)), axis=0)
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize, smth.size])
-        smth[i] = numpy.median(spec[mn:mx])
+        smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
     nBad = nchan - len(good)
-    print("Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan))
+    print(f"Masking {nBad} of {nchan} channels ({100.0*nBad/nchan:.1f}%)")
     
     freq2 = freq*1.0
     freq2.shape += (1,)
@@ -214,7 +239,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if bls[b][0] not in (51, 52, 53) and bls[b][1] not in (51, 52, 53):
+        if antLookup_inv[bls[b][0]][:3] != 'LWA' and antLookup_inv[bls[b][1]][:3] != 'LWA':
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'XY', 'YX', 'YY')
             visToUse = (visXX, visXY, visYX, visYY)
@@ -230,11 +255,10 @@ def main(args):
         blName = bls[b]
         if doConj:
             blName = (bls[b][1],bls[b][0])
-        blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
-                        'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
-                        
+        blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
+        
         fig = plt.figure()
-        fig.suptitle('%s @ %s' % (blName, refSrc.name))
+        fig.suptitle(f"{blName} @ {refSrc.name}")
         fig.subplots_adjust(hspace=0.001)
         axR = fig.add_subplot(4, 1, 1)
         axD = fig.add_subplot(4, 1, 2, sharex=axR)
@@ -256,17 +280,17 @@ def main(args):
                 if doConj:
                     subData = subData.conj()
                     subPhase = subPhase.conj()
-                subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+                subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
                 subData /= freq2[good,:].size
-                amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
-                amp = numpy.abs(amp / dTimes2.size)
+                amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+                amp = np.abs(amp / dTimes2.size)
                 
-                subPhase = numpy.angle(subPhase.mean()) * 180/numpy.pi
+                subPhase = np.angle(subPhase.mean()) * 180/np.pi
                 subPhase %= 360
                 if subPhase > 180:
                     subPhase -= 360
                     
-                best = numpy.where( amp == amp.max() )
+                best = np.where( amp == amp.max() )
                 if amp.max() > 0:
                     bsnr = (amp[best]-amp.mean())/amp.std()
                     bdly = delay[best[0]]*1e6
@@ -315,9 +339,9 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, nargs='+', 
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-d', '--decimate', type=int, default=1, 
                         help='frequency decimation factor')
@@ -332,5 +356,8 @@ if __name__ == "__main__":
     parser.add_argument('-i', '--interval', type=float, default=30.0, 
                         help='fringe search interveral in seconds')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
-    
