@@ -217,7 +217,14 @@ def main(args):
                                 site = 'LWA-SV'
                                 break
                     except (RuntimeError, ValueError):
-                        site = 'LWA-SV'
+                        try:
+                            cs = metabundleADP.get_command_script(filename)
+                            for c in cs:
+                                if c['subsystem_id'] == 'ADP':
+                                    site = 'LWA-SV'
+                                    break
+                        except (RuntimeError, ValueError):
+                            site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
