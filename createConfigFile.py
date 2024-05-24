@@ -37,6 +37,9 @@ LWA1_ECEF = np.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
 ## above for LWA1
 LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
 
+## Based on CASA Observatories data added by helpdesk ticket NRAO-32983
+OVRO_ECEF = np.array((-2409247.2041188804, -4477889.562214502, 3839327.8281910145))
+
 
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
@@ -252,7 +255,7 @@ def main(args):
                 ## Get the location so that we can set site-specific parameters
                 if isinstance(sitename, np.ndarray):
                     found_site = False
-                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF), (args.lwa1_offset, args.lwasv_offset)):
+                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, OVRO_ECEF), (args.lwa1_offset, args.lwasv_offset, args.ovro_offset)):
                         d = np.sqrt(((sitename - ref_pos)^2).sum())
                         if d < 200:
                             found_site = True
@@ -270,6 +273,9 @@ def main(args):
                     elif sitename == 'LWA-SV':
                         xyz = LWASV_ECEF
                         off = args.lwasv_offset
+                    elif sitename == 'OVRO-LWA':
+                        xyz = OVRO_ECEF
+                        off = args.ovro_offset
                     else:
                         raise RuntimeError(f"Unknown LWA site '{sitename}'")
                     
@@ -672,6 +678,8 @@ if __name__ == "__main__":
                         help='LWA1 clock offset')
     parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 
                         help='LWA-SV clock offset')
+    parser.add_argument('-r', '--ovro-offset', type=time_string, default='0.0', 
+                        help='OVRO-LWA clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
     parser.add_argument('-m', '--minimum-scan-length', type=float, default=-np.inf,
