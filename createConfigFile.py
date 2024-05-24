@@ -38,7 +38,7 @@ LWA1_ECEF = np.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
 LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
 
 ## Based on CASA Observatories data added by helpdesk ticket NRAO-32983
-OVRO_ECEF = np.array((-2409247.2041188804, -4477889.562214502, 3839327.8281910145))
+OVROLWA_ECEF = np.array((-2409247.2041188804, -4477889.562214502, 3839327.8281910145))
 
 
 ## Correlator configuration regexs
@@ -199,7 +199,7 @@ def main(args):
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
-                ## Figure out LWA1 vs LWA-SV
+                ## Figure out LWA1 vs LWA-SV vs OVRO-LWA
                 sta = metabundle.get_station(filename)
                 if sta is not None:
                     sta = EarthLocation.from_geodetic(sta.long*astrounits.rad, sta.lat*astrounits.rad,
@@ -255,7 +255,7 @@ def main(args):
                 ## Get the location so that we can set site-specific parameters
                 if isinstance(sitename, np.ndarray):
                     found_site = False
-                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, OVRO_ECEF), (args.lwa1_offset, args.lwasv_offset, args.ovro_offset)):
+                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, OVROLWA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.ovrolwa_offset)):
                         d = np.sqrt(((sitename - ref_pos)^2).sum())
                         if d < 200:
                             found_site = True
@@ -274,8 +274,8 @@ def main(args):
                         xyz = LWASV_ECEF
                         off = args.lwasv_offset
                     elif sitename == 'OVRO-LWA':
-                        xyz = OVRO_ECEF
-                        off = args.ovro_offset
+                        xyz = OVROLWA_ECEF
+                        off = args.ovrolwa_offset
                     else:
                         raise RuntimeError(f"Unknown LWA site '{sitename}'")
                     
@@ -678,7 +678,7 @@ if __name__ == "__main__":
                         help='LWA1 clock offset')
     parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 
                         help='LWA-SV clock offset')
-    parser.add_argument('-r', '--ovro-offset', type=time_string, default='0.0', 
+    parser.add_argument('-r', '--ovrolwa-offset', type=time_string, default='0.0', 
                         help='OVRO-LWA clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
