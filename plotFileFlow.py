@@ -16,6 +16,7 @@ def main(args):
     # Parse the config files to pull out filenames and associated start/stop times
     lwa1 = {}
     lwasv = {}
+    ovrolwa = {}
     vla = {}
     for filename in args.filename:
         with open(filename, 'r') as fh:
@@ -23,8 +24,8 @@ def main(args):
             lines = lines.split('\n')
             
             for i,line in enumerate(lines):
-                ## An LWA1 or LWA-SV entry?
-                if line.find('LWA1') != -1 or line.find('LWA-SV') != -1:
+                ## An LWA1 or LWA-SV or OVRO-LWA entry?
+                if line.find('LWA1') != -1 or line.find('LWA-SV') != -1 or line.find('OVRO-LWA') != -1:
                     start = lines[i-8].rsplit('is ', 1)[1]
                     stop = lines[i-7].rsplit('is ', 1)[1]
                     filename = lines[i-3].rsplit(None, 1)[1]
@@ -38,6 +39,8 @@ def main(args):
                         lwa1[filename] = (start,stop)
                     elif line.find('LWA-SV') != -1:
                         lwasv[filename] = (start,stop)
+                    elif line.find('OVRO-LWA') != -1:
+                        ovrolwa[filename] = (start,stop)
                         
                 ## A VLA entry?
                 if line.find('AC-0') != -1 or line.find('BD-0') != -1:
@@ -57,7 +60,7 @@ def main(args):
                     
     # Find the first scan in the set
     ref = None
-    for site in (lwa1, lwasv, vla):
+    for site in (lwa1, lwasv, ovrolwa, vla):
         for filename in site:
             if ref is None or site[filename][0] < ref:
                 ref = site[filename][0]
@@ -67,7 +70,7 @@ def main(args):
     fig = plt.figure()
     ax = fig.gca()
     #ax2 = ax.twiny()
-    for offset,site in enumerate((vla,lwa1,lwasv)):
+    for offset,site in enumerate((vla,lwa1,lwasv,ovrolwa)):
         for filename in site:
             start, stop = site[filename]
             
@@ -96,7 +99,7 @@ def main(args):
     ax.set_ylim((-0.5, 2.5))
     ax.set_xlabel('Elapsed Time [min]')
     ax.set_yticks((0,1,2))
-    ax.set_yticklabels(('VLA', 'LWA1', 'LWA-SV'))
+    ax.set_yticklabels(('VLA', 'LWA1', 'LWA-SV', 'OVRO-LWA'))
     #ax2.set_xlim((ax.get_xlim()[0]/60.0, ax.get_xlim()[1]/60.0))
     #ax2.set_xlabel('Elapsed Time [hr]')
     fig.tight_layout()
