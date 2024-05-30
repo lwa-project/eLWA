@@ -42,7 +42,7 @@ LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
 ## 3/16/2015 by van Gulick Surveying. 
 ## To be replaced with astronomical calibration 
 ## during ongoing station commissioning.
-LWANA_ECEF = numpy.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
+LWANA_ECEF = np.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
 
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
