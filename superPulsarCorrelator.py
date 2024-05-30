@@ -527,8 +527,11 @@ def main(args):
                     idx1 = 2*j + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    dataV[idx0,:] = np.roll(dataV[idx0,:], -offset)
-                    dataV[idx1,:] = np.roll(dataV[idx1,:], -offset)
+                    if tStartB[j][1] >= 1.0:
+                        tStartB[j][0] += 1
+                        tStartB[j][1] -= 1
+                    dataV[idx0,:] = numpy.roll(dataV[idx0,:], -offset)
+                    dataV[idx1,:] = numpy.roll(dataV[idx1,:], -offset)
                     
             else:
                 if offset != 0:
@@ -536,8 +539,11 @@ def main(args):
                     idx1 = 2*(j - nVDIFInputs) + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    dataD[idx0,:] = np.roll(dataD[idx0,:], -offset)
-                    dataD[idx1,:] = np.roll(dataD[idx1,:], -offset)
+                    if tStartB[j][1] >= 1.0:
+                        tStartB[j][0] += 1
+                        tStartB[j][1] -= 1
+                    dataD[idx0,:] = numpy.roll(dataD[idx0,:], -offset)
+                    dataD[idx1,:] = numpy.roll(dataD[idx1,:], -offset)
                     
         vdifOffsets = offsets[:nVDIFInputs]
         drxOffsets = offsets[nVDIFInputs:]
@@ -613,12 +619,18 @@ def main(args):
                                                             pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
+                if feoV.shape[2] == 0:
+                    continue
+                    
             if nDRXInputs > 0:
                 freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                             sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
                                                             pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
                 
+                if feoD.shape[2] == 0:
+                    continue
+                    
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
             if nDRXInputs*nVDIFInputs > 0:
                 subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
