@@ -18,6 +18,8 @@ from lsl.misc.mathutils import to_dB
 from utils import read_correlator_configuration
 
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Rectangle as Box
 
 
 def main(args):
@@ -272,7 +274,7 @@ def main(args):
                 if (subStop - subStart) > 1.1*args.interval:
                     continue
                     
-                subTime = times[iSize*i:iSize*(i+1)].mean()
+                subTime = np.array([times[iSize*i:iSize*(i+1)].mean(),])
                 dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                 dTimes2.shape += (1,)
                 subData = vis[iSize*i:iSize*(i+1),b,good]*1.0
@@ -296,14 +298,23 @@ def main(args):
                     bdly = delay[best[0]]*1e6
                     brat = drate[best[1]]*1e3
                     
-                    axR.plot(subTime-ref_time, brat, linestyle='', marker=markers[pol], color='k')
-                    axD.plot(subTime-ref_time, bdly, linestyle='', marker=markers[pol], color='k')
-                    axP.plot(subTime-ref_time, subPhase, linestyle='', marker=markers[pol], color='k')
-                    axA.plot(subTime-ref_time, amp.max()*1e3, linestyle='', marker=markers[pol], color='k', label=pol)
+                    c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
+                                    cmap='gist_yarg', norm=None, vmin=3, vmax=40)
+                    c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],
+                                    cmap='gist_yarg', norm=None, vmin=3, vmax=40)
+                    c = axP.scatter(subTime-ref_time, subPhase, c=bsnr, marker=markers[pol],
+                                    cmap='gist_yarg', norm=None, vmin=3, vmax=40)
+                    c = axA.scatter(subTime-ref_time, amp.max()*1e3, c=bsnr, marker=markers[pol],
+                                    cmap='gist_yarg', norm=None, vmin=3, vmax=40)
                     
+        # Colorbar
+        cb = fig.colorbar(c, ax=axR, orientation='horizontal')
+        cb.set_label('SNR')
         # Legend and reference marks
-        handles, labels = axA.get_legend_handles_labels()
-        axA.legend(handles[::iCount], labels[::iCount], loc=0)
+        handles = []
+        for pol in polToUse:
+            handles.append(Line2D([0,], [0,], linestyle='', marker=markers[pol], color='k', label=pol))
+        axA.legend(handles=handles, loc=0)
         oldLim = axR.get_xlim()
         for ax in (axR, axD, axP):
             ax.hlines(0, oldLim[0], oldLim[1], linestyle=':', alpha=0.5)
