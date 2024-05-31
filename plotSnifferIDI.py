@@ -294,8 +294,8 @@ def main(args):
         # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
         # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
         # value are also masked.
-        spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
-        spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
+        spec  = np.median(np.abs(flux[:,:,0]), axis=0)
+        spec += np.median(np.abs(flux[:,:,1]), axis=0)
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
