@@ -371,8 +371,8 @@ def main(args):
                     dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                     dTimes2 -= dTimes2[0]
                     dTimes2.shape += (1,)
-                    subData = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
-                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
+                    subData = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
+                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
                     if doConj:
                         subData = subData.conj()
                         subPhase = subPhase.conj()
