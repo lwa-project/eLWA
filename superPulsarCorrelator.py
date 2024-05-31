@@ -530,8 +530,8 @@ def main(args):
                     if tStartB[j][1] >= 1.0:
                         tStartB[j][0] += 1
                         tStartB[j][1] -= 1
-                    dataV[idx0,:] = numpy.roll(dataV[idx0,:], -offset)
-                    dataV[idx1,:] = numpy.roll(dataV[idx1,:], -offset)
+                    dataV[idx0,:] = np.roll(dataV[idx0,:], -offset)
+                    dataV[idx1,:] = np.roll(dataV[idx1,:], -offset)
                     
             else:
                 if offset != 0:
@@ -542,8 +542,8 @@ def main(args):
                     if tStartB[j][1] >= 1.0:
                         tStartB[j][0] += 1
                         tStartB[j][1] -= 1
-                    dataD[idx0,:] = numpy.roll(dataD[idx0,:], -offset)
-                    dataD[idx1,:] = numpy.roll(dataD[idx1,:], -offset)
+                    dataD[idx0,:] = np.roll(dataD[idx0,:], -offset)
+                    dataD[idx1,:] = np.roll(dataD[idx1,:], -offset)
                     
         vdifOffsets = offsets[:nVDIFInputs]
         drxOffsets = offsets[nVDIFInputs:]
