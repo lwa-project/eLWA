@@ -61,8 +61,11 @@ def main(args):
     ## Band information
     fqoffsets = fqdata.data['BANDFREQ'].ravel()
     ## Frequency channels
-    freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
-    freq += uvdata.header['CRVAL3']
+    freq = []
+    for fqoff in fqoffsets:
+        freq.append((np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3'])
+        freq[-1] += uvdata.header['CRVAL3'] + fqoff
+    freq = np.concatenate(freq)
     ## UVW coordinates
     try:
         u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
@@ -80,7 +83,7 @@ def main(args):
     else:
         ## Case 2) - Real, imaginary data + weights (drop the weights)
         flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
-    flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+    flux.shape = (flux.shape[0], nBand*nFreq, nStk)
     
     # Find unique baselines, times, and sources to work with
     ubls = np.unique(bls)
@@ -214,8 +217,8 @@ def main(args):
     # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
     # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
     # value are also masked.
-    spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
-    spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
+    spec  = np.median(np.abs(flux[:,:,0]), axis=0)
+    spec += np.median(np.abs(flux[:,:,1]), axis=0)
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
@@ -226,8 +229,8 @@ def main(args):
     smth /= robust.mean(smth)
     bp = spec / smth
     good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-    nBad = nFreq - len(good)
-    print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
+    nBad = nBand*nFreq - len(good)
+    print("Masking %i of %i channels (%.1f%%)" % (nBad, nBand*nFreq, 100.0*nBad/nBand/nFreq))
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()
@@ -286,7 +289,7 @@ def main(args):
             
         valid = np.where( bls == bl )[0]
         for pol in polToUse:
-            subData = flux[valid,0,:,polMapper[pol]]*1.0
+            subData = flux[valid,:,polMapper[pol]]*1.0
             subData = subData[:,good]
             if doConj:
                 subData = subData.conj()
