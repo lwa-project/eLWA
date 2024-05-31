@@ -40,14 +40,12 @@ def main(args):
     ## Adjust frequencies from user input.
     ## Default setting (no selection) results in these frequencies being set to the bookends of 'freq'.
     freq = dataDict['freq1']
-    if args.hf == -1:
-        hf = freq[-1]
-    elif args.lf == -1:
-        lf = freq[0]
-    else:
+    lf, hf = freq[0], freq[-1]
+    if args.hf < 0:
         hf = args.hf * 1e6
+    if args.lf < 0:
         lf = args.lf * 1e6
-
+        
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     antLookup = {ant.config_name: ant.stand.id for ant in antennas}
     antLookup_inv = {ant.stand.id: ant.config_name for ant in antennas}
