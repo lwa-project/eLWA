@@ -171,12 +171,12 @@ def main(args):
     if rMax*1e3 < args.rate_window[1]:
         args.rate_window[1] = rMax*1e3
         
-    dres = 1.0
+    dres = 0.010
     nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     while nDelays < 50:
         dres /= 10
         nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
-    while nDelays > 5000:
+    while nDelays > 15000:
         dres *= 10
         nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     nDelays += (nDelays + 1) % 2
@@ -186,7 +186,7 @@ def main(args):
     while nRates < 50:
         rres /= 10
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
-    while nRates > 5000:
+    while nRates > 15000:
         rres *= 10
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
