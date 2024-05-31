@@ -357,7 +357,10 @@ def main(args):
             
             for pol,vis in zip(polToUse, visToUse):
                 for i in range(iCount):
-                    subStart, subStop = dTimes[iSize*i], dTimes[iSize*(i+1)-1]
+                    try:
+                        subStart, subStop = dTimes[iSize*i], dTimes[iSize*(i+1)-1]
+                    except IndexError:
+                        continue
                     if (subStop - subStart) > 1.1*args.interval:
                         continue
                         
