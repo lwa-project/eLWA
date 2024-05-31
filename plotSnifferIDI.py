@@ -63,8 +63,11 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
-        freq += uvdata.header['CRVAL3']
+        freq = []
+        for fqoff in fqoffsets:
+            freq.append((np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3'])
+            freq[-1] += uvdata.header['CRVAL3'] + fqoff
+        freq = np.concatenate(freq)
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
@@ -82,7 +85,7 @@ def main(args):
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
-        flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+        flux.shape = (flux.shape[0], nBand*nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
         ubls = np.unique(bls)
@@ -303,8 +306,8 @@ def main(args):
         smth /= robust.mean(smth)
         bp = spec / smth
         good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-        nBad = nFreq - len(good)
-        print(f"Masking {nBad} of {nFreq} channels ({100.0*nBad/nFreq:.1f}%)")
+        nBad = nBand*nFreq - len(good)
+        print(f"Masking {nBad} of {nBand*nFreq} channels ({100.0*nBad/nBand/nFreq:.1f}%)")
         
         freq2 = freq*1.0
         freq2.shape += (1,)
