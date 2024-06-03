@@ -295,7 +295,7 @@ def main(args):
                 subData = subData.conj()
             subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
             subData /= freq2[good,:].size
-            amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+            amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2[:subData.shape[0],:]*drate))
             amp = np.abs(amp / dTimes2.size)
             
             blName = (ant1, ant2)

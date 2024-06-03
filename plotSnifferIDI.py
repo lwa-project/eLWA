@@ -294,8 +294,8 @@ def main(args):
         # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
         # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
         # value are also masked.
-        spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
-        spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
+        spec  = np.median(np.abs(flux[:,:,0]), axis=0)
+        spec += np.median(np.abs(flux[:,:,1]), axis=0)
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
@@ -371,14 +371,14 @@ def main(args):
                     dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                     dTimes2 -= dTimes2[0]
                     dTimes2.shape += (1,)
-                    subData = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
-                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
+                    subData = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
+                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
                     if doConj:
                         subData = subData.conj()
                         subPhase = subPhase.conj()
                     subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
                     subData /= freq2[good,:].size
-                    amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+                    amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2[:subData.shape[0],:]*drate))
                     amp = np.abs(amp / dTimes2.size)
                     
                     subPhase = np.angle(subPhase.mean()) * 180/np.pi
