@@ -41,9 +41,9 @@ def main(args):
     ## Default setting (no selection) results in these frequencies being set to the bookends of 'freq'.
     freq = dataDict['freq1']
     lf, hf = freq[0], freq[-1]
-    if args.hf < 0:
+    if args.hf >= 0:
         hf = args.hf * 1e6
-    if args.lf < 0:
+    if args.lf >= 0:
         lf = args.lf * 1e6
         
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
