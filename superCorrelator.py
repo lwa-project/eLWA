@@ -82,7 +82,7 @@ def main(args):
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
-        go = int(round((antennas[2*i].cable.clock_offset*196e6)) / 196e6
+        go = int(round(antennas[2*i].cable.clock_offset*196e6)) / 196e6
         antennas[2*i+0].cable.clock_offset -= go
         antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( -go )
