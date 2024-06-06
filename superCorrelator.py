@@ -82,7 +82,8 @@ def main(args):
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
-        go = np.int32(antennas[2*i].cable.clock_offset)
+        go = np.int32(antennas[2*i].cable.clock_offset*196e6) // 40960
+        go = go * 40960 / 196e6
         antennas[2*i+0].cable.clock_offset -= go
         antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( go )
@@ -244,8 +245,8 @@ def main(args):
             junkFrame = readers[i].read_frame(fh[i])
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
-        beginMJDs.append( junkFrame.time.mjd )
-        beginDates.append( junkFrame.time.datetime )
+        beginMJDs.append( (junkFrame.time + grossOffsets[i]).mjd )
+        beginDates.append( (junkFrame.time + grossOffsets[i]).datetime )
         
     # Set the output base filename
     if args.tag is None:
@@ -392,8 +393,14 @@ def main(args):
                                 tStart.append( cFrame.time )
                                 tStart[-1] = tStart[-1] + grossOffsets[j]
                                 tStartB.append( get_better_time(cFrame) )
-                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
-                                
+                                tStartB[-1][1] += grossOffsets[j]
+                                while tStartB[-1][1] >= 1.0:
+                                    tStartB[-1][0] += 1
+                                    tStartB[-1][1] -= 1
+                                while tStartB[-1][1] < 0.0:
+                                    tStartB[-1][0] -= 1
+                                    tStartB[-1][1] += 1
+                                    
                                 for p in (0,1):
                                     psid = 2*j + p
                                     vdifRef[psid] = cFrame.header.seconds_from_epoch*framesPerSecondV + cFrame.header.frame_in_second
@@ -427,11 +434,11 @@ def main(args):
                                 continue
                             bid = 2*(j-nVDIFInputs) + pol
                             
+                            cFrame.payload.timetag += int(grossOffsets[j]*196e6)
+                            
                             if k == 0:
                                 tStart.append( cFrame.time )
-                                tStart[-1] = tStart[-1] + grossOffsets[j]
                                 tStartB.append( get_better_time(cFrame) )
-                                tStartB[-1][0] = tStart[-1][0] + grossOffsets[j]
                                 
                                 for p in (0,1):
                                     pbid = 2*(j-nVDIFInputs) + p
@@ -481,9 +488,12 @@ def main(args):
                     idx1 = 2*j + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    if tStartB[j][1] >= 1.0:
+                    while tStartB[j][1] >= 1.0:
                         tStartB[j][0] += 1
                         tStartB[j][1] -= 1
+                    while tStartB[j][1] < 0.0:
+                        tStartB[j][0] -= 1
+                        tStartB[j][1] += 1
                     dataV[idx0,:] = np.roll(dataV[idx0,:], -offset)
                     dataV[idx1,:] = np.roll(dataV[idx1,:], -offset)
                     
@@ -493,9 +503,12 @@ def main(args):
                     idx1 = 2*(j - nVDIFInputs) + 1
                     tStart[j] += offset/(srate[j])
                     tStartB[j][1] += offset/(srate[j])
-                    if tStartB[j][1] >= 1.0:
+                    while tStartB[j][1] >= 1.0:
                         tStartB[j][0] += 1
                         tStartB[j][1] -= 1
+                    while tStartB[j][1] < 0.0:
+                        tStartB[j][0] -= 1
+                        tStartB[j][1] += 1
                     dataD[idx0,:] = np.roll(dataD[idx0,:], -offset)
                     dataD[idx1,:] = np.roll(dataD[idx1,:], -offset)
                     
