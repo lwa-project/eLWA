@@ -214,7 +214,7 @@ def main(args):
         smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & numpy.logical_and(freq<=hf, freq>=lf) )[0]
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & np.logical_and(freq<=hf, freq>=lf) )[0]
     nBad = nchan - len(good)
     print("Masking %i of %i channels (%.1f%%)" % (nBad, nchan, 100.0*nBad/nchan))
     if args.plot:
