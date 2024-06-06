@@ -89,13 +89,12 @@ def main(args):
     for i,(filename,metaname,foffset) in enumerate(zip(filenames, metanames, foffsets)):
         fh.append( open(filename, "rb") )
         
-        go = np.int32(antennas[2*i].cable.clock_offset*196e6) // 40960
-        go = go * 40960 / 196e6
+        go = int(round(antennas[2*i].cable.clock_offset*196e6)) / 196e6
         antennas[2*i+0].cable.clock_offset -= go
         antennas[2*i+1].cable.clock_offset -= go
-        grossOffsets.append( go )
+        grossOffsets.append( -go )
         if go != 0:
-            print(f"Correcting time tags for gross offset of {grossOffsets[i]} s")
+            print(f"Correcting time tags for gross offset of {grossOffsets[i]*1e6:.3f} us")
             print(f"  Antenna clock offsets are now at {antennas[2*i+0].cable.clock_offset*1e6:.3f} us, {antennas[2*i+1].cable.clock_offset*1e6:.3f} us")
             
         if readers[i] is vdif:
