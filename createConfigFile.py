@@ -44,6 +44,9 @@ LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
 ## during ongoing station commissioning.
 LWANA_ECEF = np.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
 
+## Based on CASA Observatories data added by helpdesk ticket NRAO-32983
+OVROLWA_ECEF = np.array((-2409247.2041188804, -4477889.562214502, 3839327.8281910145))
+
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
 CORR_INTTIME = re.compile('corrinttime:(?P<inttime>\d+(.\d*)?)')
@@ -202,7 +205,7 @@ def main(args):
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
-                ## Figure out LWA1 vs LWA-SV
+                ## Figure out LWA1 vs LWA-SV vs OVRO-LWA
                 sta = metabundle.get_station(filename)
                 if sta is not None:
                     sta = EarthLocation.from_geodetic(sta.long*astrounits.rad, sta.lat*astrounits.rad,
@@ -216,9 +219,12 @@ def main(args):
                     except (RuntimeError, ValueError):
                         try:
                             cs = metabundleADP.get_command_script(filename)
-                            site = 'LWA-SV'
+                            for c in cs:
+                                if c['subsystem_id'] == 'ADP':
+                                    site = 'LWA-SV'
+                                    break
                         except (RuntimeError, ValueError):
-                            site = 'LWA-NA'
+                            site = 'LWA-NA' # But it could also be OVRO-LWA
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
@@ -251,12 +257,16 @@ def main(args):
                 try:
                     sitename = lwasite[os.path.basename(filename)]
                 except KeyError:
-                    sitename = 'LWA1'
-                    
+                    _, optag = filename.rsplit('_', 1)
+                    if len(optag) > 12:
+                        sitename = 'OVRO-LWA'
+                    else:
+                        sitename = 'LWA1'
+                        
                 ## Get the location so that we can set site-specific parameters
                 if isinstance(sitename, np.ndarray):
                     found_site = False
-                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, LWANA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.lwana_offset)):
+                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, LWANA_ECEF, OVROLWA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.lwana_offset, args.ovrolwa_offset)):
                         d = np.sqrt(((sitename - ref_pos)^2).sum())
                         if d < 200:
                             found_site = True
@@ -274,9 +284,15 @@ def main(args):
                     elif sitename == 'LWA-SV':
                         xyz = LWASV_ECEF
                         off = args.lwasv_offset
+                    elif sitename == 'LWA-NA':
+                        xyz = LWANA_ECEF
+                        off = args.lwana_offset
+                    elif sitename == 'OVRO-LWA':
+                        xyz = OVROLWA_ECEF
+                        off = args.ovrolwa_offset
                     else:
                         raise RuntimeError(f"Unknown LWA site '{sitename}'")
-                    
+                        
                 ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
                 enz = get_enz_offset(LWA1_ECEF, xyz)
@@ -465,10 +481,10 @@ def main(args):
     for cinp in toPurge:
         del corrConfig['inputs'][corrConfig['inputs'].index(cinp)]
         
-    # Sort the inputs based on the antenna name - this puts LWA1 first, 
-    # LWA-SV second, LWA-NA third, and the VLA at the end in 'EA' antenna order, i.e., 
-    # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else int(x['antenna'][2:], 10))))
+    # Sort the inputs based on the antenna name - this puts LWA1 first, LWA-SV
+    # second, LWA-NA third, OVRO-LWA fourth, and the VLA at the end in 'EA'
+    # antenna order, i.e., EA01, EA02, etc.
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else (3 if x['antenna'] == 'OVRO-LWA' else int(x['antenna'][2:], 10)))))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
@@ -678,6 +694,8 @@ if __name__ == "__main__":
                         help='LWA-SV clock offset')
     parser.add_argument('-a', '--lwana-offset', type=time_string, default='0.0',
                         help='LWA-NA clock offset')
+    parser.add_argument('-r', '--ovrolwa-offset', type=time_string, default='0.0', 
+                        help='OVRO-LWA clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
     parser.add_argument('-m', '--minimum-scan-length', type=float, default=-np.inf,
