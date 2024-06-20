@@ -18,6 +18,7 @@ from datetime import datetime
 from lsl.astro import utcjd_to_unix
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
+from lsl.misc import parser as aph
 
 from matplotlib import pyplot as plt
 
@@ -153,14 +154,6 @@ def main(args):
                 blocks.append( [v,v] )
     blocks.sort()
     
-    ## Adjust frequencies from user input.
-    ## Default setting (no selection) results in these frequencies being set to the bookends of 'freq'.
-    lf, hf = freq[0], freq[-1]
-    if args.hf >= 0:
-        hf = args.hf * 1e6
-    if args.lf >= 0:
-        lf = args.lf * 1e6
-        
     search_bls = []
     cross = []
     for i in range(len(ubls)):
@@ -236,7 +229,7 @@ def main(args):
         smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & np.logical_and(freq<=hf, freq>=lf) )[0]
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & np.logical_and(freq<=args.hf, freq>=args.lf) )[0]
     nBad = nBand*nFreq - len(good)
     print("Masking %i of %i channels (%.1f%%)" % (nBad, nBand*nFreq, 100.0*nBad/nBand/nFreq))
     if args.plot:
@@ -362,9 +355,9 @@ if __name__ == "__main__":
                         help='rate search window in mHz; defaults to maximum allowed')
     parser.add_argument('-p', '--plot', action='store_true', 
                         help='show search plots at the end')
-    parser.add_argument('--hf', type=float, default=-1,
+    parser.add_argument('--hf', type=type=aph.frequency, default='0.0',
                         help='High frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when high frequency RFI is present')
-    parser.add_argument('--lf', type=float, default=-1,
+    parser.add_argument('--lf', type=type=aph.frequency, default='98.0',
                         help='Low frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when low frequency RFI is present')
     args = parser.parse_args()
     try:
