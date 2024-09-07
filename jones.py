@@ -7,9 +7,9 @@ import sys
 import time
 import ephem
 import numpy as np
+from functools import lru_cache
 
 from lsl.common.paths import DATA as dataPath
-from lsl.misc.lru_cache import lru_cache
 
 __version__ = '0.4'
 __all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 

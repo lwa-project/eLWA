@@ -6,11 +6,10 @@ import os
 import sys
 import numpy as np
 import struct
-from functools import reduce
+from functools import lru_cache, reduce
 from xml.etree import ElementTree
 
 from lsl.astro import utcjd_to_unix, MJD_OFFSET
-from lsl.misc.lru_cache import lru_cache
 
 
 __version__ = '0.5'
