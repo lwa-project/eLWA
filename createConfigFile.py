@@ -214,17 +214,17 @@ def main(args):
                     site = np.array([sta.x.to('m').value, sta.y.to('m').value, sta.z.to('m').value])
                 else:
                     try:
-                        cs = metabundle.get_command_script(filename)
-                        site = 'LWA1'
+                        sstyle = metabundle.get_style(filename)
+                        if sstyle.endswith('metabundleDP'):
+                            site = 'LWA1'
+                        elif sstyle.endswith('metabundleADP'):
+                            site = 'LWA-SV'
+                        elif sstyle.endswith('metabundleNDP'):
+                            site = 'LWA-NA'
+                        else:
+                            raise ValueError("Unknown site")
                     except (RuntimeError, ValueError):
-                        try:
-                            cs = metabundleADP.get_command_script(filename)
-                            for c in cs:
-                                if c['subsystem_id'] == 'ADP':
-                                    site = 'LWA-SV'
-                                    break
-                        except (RuntimeError, ValueError):
-                            site = 'LWA-NA' # But it could also be OVRO-LWA
+                        site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
