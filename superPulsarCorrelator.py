@@ -296,7 +296,7 @@ def main(args):
         print(f"DRX Frames/s: {framesPerSecondB:.6f}")
         print(f"DRX Frames/Integration: {nFramesB}")
     if nVDIFInputs*nDRXInputs:
-        print(f"Sample Count Ratio: {(1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
+        print(f"Sample Count Ratio: {1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
         print(f"Sample Rate Ratio: {srate[0]/srate[-1]:.6f}")
     print(" ")
     
