@@ -62,12 +62,12 @@ class database(object):
     def test_1_correlate(self):
         """Run the correlator on eLWA data."""
         
-        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '1', 
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '512', '-w', '1', 
                '-g', '%sL' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-L.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
         self.assertEqual(status, 0)
-        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '256', '-w', '2', 
+        cmd = [sys.executable, '../superCorrelator.py', '-t', '1', '-l', '512', '-w', '2', 
                '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
