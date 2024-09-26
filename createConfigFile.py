@@ -222,7 +222,7 @@ def main(args):
                         elif sstyle.endswith('metabundleNDP'):
                             site = 'LWA-NA'
                         else:
-                            raise ValueError("Unknown site")
+                            raise ValueError("This should not happen")
                     except (RuntimeError, ValueError):
                         site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
