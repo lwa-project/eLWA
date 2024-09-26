@@ -32,20 +32,20 @@ def _get_lwa_antenna_gain_functions(freq):
             #print "Beam Coeffs. X: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaH, betaH, gammaH, deltaH)
             #print "Beam Coeffs. Y: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaE, betaE, gammaE, deltaE)
             
-        def BeamPattern(az, alt):
-            zaR = np.pi/2 - alt*np.pi / 180.0
-            azR = az*np.pi / 180.0
+            def BeamPattern(az, alt):
+                zaR = np.pi/2 - alt*np.pi / 180.0
+                azR = az*np.pi / 180.0
 
-            pE = (1-(2*zaR/np.pi)**alphaE)*np.cos(zaR)**betaE + gammaE*(2*zaR/np.pi)*np.cos(zaR)**deltaE
-            pH = (1-(2*zaR/np.pi)**alphaH)*np.cos(zaR)**betaH + gammaH*(2*zaR/np.pi)*np.cos(zaR)**deltaH
+                pE = (1-(2*zaR/np.pi)**alphaE)*np.cos(zaR)**betaE + gammaE*(2*zaR/np.pi)*np.cos(zaR)**deltaE
+                pH = (1-(2*zaR/np.pi)**alphaH)*np.cos(zaR)**betaH + gammaH*(2*zaR/np.pi)*np.cos(zaR)**deltaH
 
-            return np.sqrt((pE*np.cos(azR))**2 + (pH*np.sin(azR))**2)
-            
-        if pol == 'X':
-            beamFuncX = BeamPattern
-        else:
-            beamFuncY = BeamPattern
-            
+                return np.sqrt((pE*np.cos(azR))**2 + (pH*np.sin(azR))**2)
+                
+            if pol == 'X':
+                beamFuncX = BeamPattern
+            else:
+                beamFuncY = BeamPattern
+                
     return (beamFuncX, beamFuncY)
 
 
@@ -58,7 +58,6 @@ def get_lwa_antenna_gain(site, src, freq=74e6):
     # Compute
     beamFuncX, beamFuncY = _get_lwa_antenna_gain_functions(freq)
     bx, by = beamFuncX(az, el), beamFuncY(az, el)
-    print(bx,by)
     
     # Done
     return bx, by
