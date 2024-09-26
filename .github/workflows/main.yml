@@ -24,6 +24,7 @@ jobs:
               libfftw3-dev \
               libhdf5-dev \
               libgdbm-dev \
+              libgsl-dev \
               pkg-config \
               tar
         - uses: actions/setup-python@v5.0.0
