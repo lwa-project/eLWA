@@ -63,8 +63,11 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
-        freq += uvdata.header['CRVAL3']
+        freq = []
+        for fqoff in fqoffsets:
+            freq.append((np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3'])
+            freq[-1] += uvdata.header['CRVAL3'] + fqoff
+        freq = np.concatenate(freq)
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
@@ -82,7 +85,7 @@ def main(args):
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
-        flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+        flux.shape = (flux.shape[0], nBand*nFreq, nStk)
         
         # Find unique baselines, times, and sources to work with
         ubls = np.unique(bls)
@@ -259,12 +262,12 @@ def main(args):
         if rMax*1e3 < args.rate_window[1]:
             args.rate_window[1] = rMax*1e3
             
-        dres = 1.0
+        dres = 0.01
         nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
         while nDelays < 50:
             dres /= 10
             nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
-        while nDelays > 5000:
+        while nDelays > 15000:
             dres *= 10
             nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
         nDelays += (nDelays + 1) % 2
@@ -274,7 +277,7 @@ def main(args):
         while nRates < 50:
             rres /= 10
             nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
-        while nRates > 5000:
+        while nRates > 15000:
             rres *= 10
             nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
         nRates += (nRates + 1) % 2
@@ -291,8 +294,8 @@ def main(args):
         # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
         # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
         # value are also masked.
-        spec  = np.median(np.abs(flux[:,0,:,0]), axis=0)
-        spec += np.median(np.abs(flux[:,0,:,1]), axis=0)
+        spec  = np.median(np.abs(flux[:,:,0]), axis=0)
+        spec += np.median(np.abs(flux[:,:,1]), axis=0)
         smth = spec*0.0
         winSize = int(250e3/(freq[1]-freq[0]))
         winSize += ((winSize+1)%2)
@@ -303,8 +306,8 @@ def main(args):
         smth /= robust.mean(smth)
         bp = spec / smth
         good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-        nBad = nFreq - len(good)
-        print(f"Masking {nBad} of {nFreq} channels ({100.0*nBad/nFreq:.1f}%)")
+        nBad = nBand*nFreq - len(good)
+        print(f"Masking {nBad} of {nBand*nFreq} channels ({100.0*nBad/nBand/nFreq:.1f}%)")
         
         freq2 = freq*1.0
         freq2.shape += (1,)
@@ -357,7 +360,10 @@ def main(args):
             
             for pol,vis in zip(polToUse, visToUse):
                 for i in range(iCount):
-                    subStart, subStop = dTimes[iSize*i], dTimes[iSize*(i+1)-1]
+                    try:
+                        subStart, subStop = dTimes[iSize*i], dTimes[iSize*(i+1)-1]
+                    except IndexError:
+                        continue
                     if (subStop - subStart) > 1.1*args.interval:
                         continue
                         
@@ -365,14 +371,14 @@ def main(args):
                     dTimes2 = dTimes[iSize*i:iSize*(i+1)]*1.0
                     dTimes2 -= dTimes2[0]
                     dTimes2.shape += (1,)
-                    subData = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
-                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),0,good,vis]*1.0
+                    subData = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
+                    subPhase = flux[valid,...][iSize*i:iSize*(i+1),good,vis]*1.0
                     if doConj:
                         subData = subData.conj()
                         subPhase = subPhase.conj()
                     subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
                     subData /= freq2[good,:].size
-                    amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2*drate))
+                    amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2[:subData.shape[0],:]*drate))
                     amp = np.abs(amp / dTimes2.size)
                     
                     subPhase = np.angle(subPhase.mean()) * 180/np.pi

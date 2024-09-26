@@ -170,7 +170,7 @@ def main(args):
     iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
-    print(" -> Interval: {iTimes.mean():.3f} +/- {iTimes.std():.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
+    print(f" -> Interval: {iTimes.mean():.3f} +/- {iTimes.std():.3f} seconds ({iTimes.min():.3f} to {iTimes.max():.3f} seconds)")
     
     print(f"Number of frequency channels: {len(freq)} (~{freq[1]-freq[0]:.1f} Hz/channel)")
 
