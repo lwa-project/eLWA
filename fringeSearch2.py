@@ -34,6 +34,7 @@ def main(args):
     
     dataDict = np.load(filenames[0])
     tInt = dataDict['tInt']
+    freq = dataDict['freq1']
     nBL, nchan = dataDict['vis1XX'].shape
     
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
@@ -290,9 +291,9 @@ if __name__ == "__main__":
                         help='limit the search on VLA-LWA baselines to the VLA Y pol. only')
     parser.add_argument('-p', '--plot', action='store_true', 
                         help='show search plots at the end')
-    parser.add_argument('--hf', type=type=aph.frequency, default='98.0',
+    parser.add_argument('--hf', type=aph.frequency, default='98.0',
                         help='High frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when high frequency RFI is present')
-    parser.add_argument('--lf', type=type=aph.frequency, default='0.0',
+    parser.add_argument('--lf', type=aph.frequency, default='0.0',
                         help='Low frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when low frequency RFI is present')
     args = parser.parse_args()
     try:
