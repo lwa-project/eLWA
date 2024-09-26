@@ -9,43 +9,12 @@ import ephem
 import numpy as np
 from functools import lru_cache
 
-from lsl.common.paths import DATA as dataPath
+from lsl.sim.beam import beam_response
 
 __version__ = '0.4'
 __all__ = ['get_lwa_antenna_gain', 'get_matrix_lwa', 'get_matrix_vla', 
            'apply_matrix']
 
-
-@lru_cache(maxsize=10)
-def _get_lwa_antenna_gain_functions(freq):
-    beamDict = np.load(os.path.join(dataPath, 'lwa1-dipole-emp.npz'))
-    for pol,beamCoeff in zip(('X', 'Y'), (beamDict['fitX'], beamDict['fitY'])):
-        alphaE = np.polyval(beamCoeff[0,0,:], freq)
-        betaE =  np.polyval(beamCoeff[0,1,:], freq)
-        gammaE = np.polyval(beamCoeff[0,2,:], freq)
-        deltaE = np.polyval(beamCoeff[0,3,:], freq)
-        alphaH = np.polyval(beamCoeff[1,0,:], freq)
-        betaH =  np.polyval(beamCoeff[1,1,:], freq)
-        gammaH = np.polyval(beamCoeff[1,2,:], freq)
-        deltaH = np.polyval(beamCoeff[1,3,:], freq)
-        #print "Beam Coeffs. X: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaH, betaH, gammaH, deltaH)
-        #print "Beam Coeffs. Y: a=%.2f, b=%.2f, g=%.2f, d=%.2f" % (alphaE, betaE, gammaE, deltaE)
-        
-        def BeamPattern(az, alt):
-            zaR = np.pi/2 - alt*np.pi / 180.0
-            azR = az*np.pi / 180.0
-
-            pE = (1-(2*zaR/np.pi)**alphaE)*np.cos(zaR)**betaE + gammaE*(2*zaR/np.pi)*np.cos(zaR)**deltaE
-            pH = (1-(2*zaR/np.pi)**alphaH)*np.cos(zaR)**betaH + gammaH*(2*zaR/np.pi)*np.cos(zaR)**deltaH
-
-            return np.sqrt((pE*np.cos(azR))**2 + (pH*np.sin(azR))**2)
-            
-        if pol == 'X':
-            beamFuncX = BeamPattern
-        else:
-            beamFuncY = BeamPattern
-            
-    return (beamFuncX, beamFuncY)
 
 
 def get_lwa_antenna_gain(site, src, freq=74e6):
@@ -54,9 +23,11 @@ def get_lwa_antenna_gain(site, src, freq=74e6):
     az *= 180/np.pi
     el *= 180/np.pi
     
+    az, el = np.array([az]), np.array([el])
+    
     # Compute
-    beamFuncX, beamFuncY = _get_lwa_antenna_gain_functions(freq)
-    bx, by = beamFuncX(az, el), beamFuncY(az, el)
+    bx = beam_response('empirical', 'XX', az, el, frequency=freq, degrees=True)[0]
+    by = beam_response('empirical', 'YY', az, el, frequency=freq, degrees=True)[0]
     
     # Done
     return bx, by
