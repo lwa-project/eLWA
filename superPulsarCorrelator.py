@@ -659,10 +659,10 @@ def main(args):
             ## Sort out what goes where (channels and antennas) if we don't already know
             try:
                 if nVDIFInputs > 0:
-                    freqV = freqV[goodV]        # pylint: disable=used-before-assignment
+                    freqV = freqV[goodV]        # pylint: disable=possibly-used-before-assignment,used-before-assignment
                     feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
                 if nDRXInputs > 0:
-                    freqD = freqD[goodD]        # pylint: disable=used-before-assignment
+                    freqD = freqD[goodD]        # pylint: disable=possibly-used-before-assignment,used-before-assignment
                     feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
                     
             except NameError:
@@ -731,11 +731,11 @@ def main(args):
             try:
                 nchan = freqV.size
                 fdt = feoV.dtype
-                vdt = veoV.dtype        # pylint: disable=used-before-assignment
+                vdt = veoV.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
             except NameError:
                 nchan = freqD.size
                 fdt = feoD.dtype
-                vdt = veoD.dtype        # pylint: disable=used-before-assignment
+                vdt = veoD.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
             ## Setup the intermediate F-engine products and trim the data
             ### Figure out the minimum number of windows
             nWin = 1e12
@@ -748,7 +748,7 @@ def main(args):
                 
             ### Initialize the intermediate arrays
             try:
-                assert(feoX.shape[2] == nWin)       # pylint: disable=used-before-assignment
+                assert(feoX.shape[2] == nWin)       # pylint: disable=possibly-used-before-assignment,used-before-assignment
             except (NameError, AssertionError):
                 feoX = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
                 feoY = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
@@ -765,15 +765,15 @@ def main(args):
                 
             ## Sort it all out by polarization
             for k in range(nVDIFInputs):
-                feoX[k,:,:] = feoV[aXV[k],:,:]      # pylint: disable=used-before-assignment
-                feoY[k,:,:] = feoV[aYV[k],:,:]      # pylint: disable=used-before-assignment
-                veoX[k,:] = veoV[aXV[k],:]          # pylint: disable=used-before-assignment
-                veoY[k,:] = veoV[aYV[k],:]          # pylint: disable=used-before-assignment
+                feoX[k,:,:] = feoV[aXV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                feoY[k,:,:] = feoV[aYV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                veoX[k,:] = veoV[aXV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                veoY[k,:] = veoV[aYV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
             for k in range(nDRXInputs):
-                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]      # pylint: disable=used-before-assignment
-                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]      # pylint: disable=used-before-assignment
-                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]          # pylint: disable=used-before-assignment
-                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]         # pylint: disable=used-before-assignment 
+                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]         # pylint: disable=possibly-used-before-assignment,used-before-assignment 
                 
             ## Cross multiply
             try:
@@ -860,7 +860,7 @@ def main(args):
                     ### tDump/nProfileBins but let's use the actual median number
                     ### of accumulations at tSub instead
                     try:
-                        tDumpAct        # pylint: disable=used-before-assignment
+                        tDumpAct        # pylint: disable=possibly-used-before-assignment,used-before-assignment
                     except NameError:
                         tDumpAct = np.median(subIntWeight[bestBin]) * tSub
                         
