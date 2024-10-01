@@ -611,10 +611,10 @@ def main(args):
             ## Sort out what goes where (channels and antennas) if we don't already know
             try:
                 if nVDIFInputs > 0:
-                    freqV = freqV[goodV]
+                    freqV = freqV[goodV]        # pylint: disable=used-before-assignment
                     feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
                 if nDRXInputs > 0:
-                    freqD = freqD[goodD]
+                    freqD = freqD[goodD]        # pylint: disable=used-before-assignment
                     feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
                     
             except NameError:
@@ -683,11 +683,11 @@ def main(args):
             try:
                 nchan = freqV.size
                 fdt = feoV.dtype
-                vdt = veoV.dtype
+                vdt = veoV.dtype        # pylint: disable=used-before-assignment
             except NameError:
                 nchan = freqD.size
                 fdt = feoD.dtype
-                vdt = veoD.dtype
+                vdt = veoD.dtype        # pylint: disable=used-before-assignment
             ## Setup the intermediate F-engine products and trim the data
             ### Figure out the minimum number of windows
             nWin = 1e12
@@ -700,7 +700,7 @@ def main(args):
                 
             ### Initialize the intermediate arrays
             try:
-                assert(feoX.shape[2] == nWin)
+                assert(feoX.shape[2] == nWin)       # pylint: disable=used-before-assignment
             except (NameError, AssertionError):
                 feoX = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
                 feoY = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
@@ -717,15 +717,15 @@ def main(args):
                 
             ## Sort it all out by polarization
             for k in range(nVDIFInputs):
-                feoX[k,:,:] = feoV[aXV[k],:,:]
-                feoY[k,:,:] = feoV[aYV[k],:,:]
-                veoX[k,:] = veoV[aXV[k],:]
-                veoY[k,:] = veoV[aYV[k],:]
+                feoX[k,:,:] = feoV[aXV[k],:,:]      # pylint: disable=used-before-assignment
+                feoY[k,:,:] = feoV[aYV[k],:,:]      # pylint: disable=used-before-assignment
+                veoX[k,:] = veoV[aXV[k],:]          # pylint: disable=used-before-assignment
+                veoY[k,:] = veoV[aYV[k],:]          # pylint: disable=used-before-assignment
             for k in range(nDRXInputs):
-                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]
-                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]
-                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]
-                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]
+                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]      # pylint: disable=used-before-assignment
+                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]      # pylint: disable=used-before-assignment
+                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]          # pylint: disable=used-before-assignment
+                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]          # pylint: disable=used-before-assignment
                 
             ## Cross multiply
             try:
@@ -760,7 +760,7 @@ def main(args):
                 
                 ### CD = correlator dump
                 outfile = f"{outbase}-vis2-{fileCount:05d}.npz"
-                np.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX, 
+                np.savez(outfile, config=rawConfig, srate=srate[0]/2.0, freq1=freqXX,       # pylint: disable=used-before-assignment
                             vis1XX=visXX, vis1XY=visXY, vis1YX=visYX, vis1YY=visYY, 
                             tStart=np.mean(np.array(subIntTimes, dtype=np.float64)), tInt=tDump)
                 print("CD - writing integration %i to disk, timestamp is %.3f s" % (fileCount, np.mean(np.array(subIntTimes, dtype=np.float64))))
