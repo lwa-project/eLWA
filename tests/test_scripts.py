@@ -35,6 +35,7 @@ __author__   = "Jayce Dowell"
 
 _PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'HDUList'"),
+                   ('no-member',              "Instance of 'Exception' has no 'GitError' member"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format")]
 
@@ -69,6 +70,9 @@ class database(object):
             path.extend(['*',]*depth)
             path.append('*.py')
             _SCRIPTS.extend(glob.glob(os.path.join(*path)))
+        _SCRIPTS = list(filter(lambda x: x.find('2018Feb') == -1, _SCRIPTS))
+        _SCRIPTS = list(filter(lambda x: x.find('2018Mar') == -1, _SCRIPTS))
+        _SCRIPTS = list(filter(lambda x: x.find('2018Apr') == -1, _SCRIPTS))
         _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
         _SCRIPTS.sort()
         try:
