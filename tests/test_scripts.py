@@ -37,6 +37,7 @@ _PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'HDUList'"),
                    ('no-member',              "Instance of 'Exception' has no 'GitError' member"),
                    ('no-member',              "Instance of 'GitError' has no 'GitError' member"),
+                   ('no-member',              "Module 'astropy.units' has no"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format"),
                    ('bad-option-value',       "Bad option value 'possibly-")]
