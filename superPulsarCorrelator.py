@@ -405,10 +405,10 @@ def main(args):
         # Read in the data
         with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
-                dataV *= 0.0
+                dataV *= 0
                 dataD *= 0.0
             except NameError:
-                dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.float32)
+                dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.int8)
                 dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=np.complex64)
             for j,f in enumerate(fh):
                 if readers[j] is vdif:
@@ -416,7 +416,7 @@ def main(args):
                     k = 0
                     while k < beampols[j]*nFramesV:
                         try:
-                            cFrame = readers[j].read_frame(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
+                            cFrame = readers[j].read_frame_i8(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
                             print(f"Error - VDIF @ {i}, {j}")
