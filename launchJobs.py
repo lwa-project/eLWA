@@ -74,7 +74,7 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
             pcmd[-1] += f"numactl --cpunodebind={socket} --membind={socket} -- "
         pcmd[-1] += f'{cmd}"'
     else:
-        pcmd = ['ssh', node, f'shopt -s huponexit && bash -c "cd {cwd} && "]
+        pcmd = ['ssh', node, f'shopt -s huponexit && bash -c "cd {cwd} && ']
         if socket is not None:
             pcmd[-1] += f"numactl --cpunodebind={socket} --membind={socket} -- "
         pcmd[-1] += f'{cmd}"'
