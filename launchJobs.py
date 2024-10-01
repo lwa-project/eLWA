@@ -144,7 +144,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
             continue
         code += run_command(f"rsync -e ssh -avH {filename} {node}:{cwd}/", quiet=True)
     if code != 0:
-        print(f"WARNING: failed to sync configuration on {node} - {os.path.basename(configfile)}"
+        print(f"WARNING: failed to sync configuration on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
@@ -152,7 +152,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     scode, numa_status = run_command(f"{sys.executable} -c 'import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'", node=node, cwd=cwd, return_output=True)
     code += scode
     if code != 0:
-        print(f"WARNING: failed to determine NUMA status on {node} - {os.path.basename(configfile)}"
+        print(f"WARNING: failed to determine NUMA status on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
     numa_support, numa_node_count = numa_status.split(None, 1)
@@ -167,7 +167,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         # Query the GPU status
         scode, gpu_status = run_command("%s -c 'import utils; print(utils.get_gpu_support(), utils.get_gpu_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
         if scode != 0:
-            print(f"WARNING: failed to determine GPU status on {node} - {os.path.basename(configfile)}"
+            print(f"WARNING: failed to determine GPU status on {node} - {os.path.basename(configfile)}")
             ## Unknown, drop the GPU option
             options = options.replace('--gpu', '')
         else:
@@ -197,7 +197,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     logfile = outname+".log"
     code += run_command(f"{sys.executable} ./{corr_mode} {options} -g {outname} {configfile} > {logfile} 2>&1", node=node, socket=socket, cwd=cwd)
     if code != 0:
-        print(f"WARNING: failed to run correlator on {node} - {os.path.basename(configfile)}"
+        print(f"WARNING: failed to run correlator on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
@@ -207,14 +207,14 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.npz {resultsDir}", quiet=True)
     code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.log {resultsDir}", quiet=True)
     if code != 0:
-        print(f"WARNING: failed to sync results on {node} - {os.path.basename(configfile)}"
+        print(f"WARNING: failed to sync results on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
     # Cleanup
     code += run_command(f"rm -rf {cwd}", node=node, quiet=True)
     if code != 0:
-        print(f"WARNING: failed to remove directory on {node} - {os.path.basename(configfile)}"
+        print(f"WARNING: failed to remove directory on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         

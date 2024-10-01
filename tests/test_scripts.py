@@ -36,8 +36,10 @@ __author__   = "Jayce Dowell"
 _PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
                    ('no-member',              "Instance of 'HDUList'"),
                    ('no-member',              "Instance of 'Exception' has no 'GitError' member"),
+                   ('no-member',              "Instance of 'GitError' has no 'GitError' member"),
                    ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
-                   ('bad-string-format-type', "Argument '.ndarray' does not match format")]
+                   ('bad-string-format-type', "Argument '.ndarray' does not match format"),
+                   ('bad-option-value',       "Bad option value 'possibly-")]
 
 
 @unittest.skipUnless(run_scripts_tests, "requires the 'pylint' module")
