@@ -32,6 +32,7 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
         outdev = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, stdout=outdev, stderr=outdev)
     stdout, stderr = p.communicate()
+    status = p.returncode
     stdout = stdout.decode('ascii', errors='ignore')
     stderr = stderr.decode('ascii', errors='ignore')
     
