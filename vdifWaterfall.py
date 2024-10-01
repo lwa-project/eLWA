@@ -200,7 +200,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -394,7 +394,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -613,14 +613,14 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
             
-    f = hdfData.createNewFile(outname)
+    f = hdfData.create_new_file(outname)
     
     # Look at the metadata and come up with a list of observations.  If 
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
     obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
-    hdfData.fillMinimum(f, 1, beam, srate)
+    hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):
         data_products = ['XX', 'YY']
@@ -629,7 +629,7 @@ def main(args):
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, np.arange(LFFT, dtype=np.float32), int(round(obsList[o][2]/args.average)), data_products)
+            hdfData.create_data_sets(f, o, t, np.arange(LFFT, dtype=np.float32), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(filename)
@@ -637,7 +637,7 @@ def main(args):
     # Create the various HDF group holders
     ds = {}
     for o in sorted(obsList.keys()):
-        obs = hdfData.getObservationSet(f, o)
+        obs = hdfData.get_observation_set(f, o)
         
         ds['obs%i' % o] = obs
         ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
