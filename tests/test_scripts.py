@@ -73,6 +73,7 @@ class database(object):
         _SCRIPTS = list(filter(lambda x: x.find('2018Feb') == -1, _SCRIPTS))
         _SCRIPTS = list(filter(lambda x: x.find('2018Mar') == -1, _SCRIPTS))
         _SCRIPTS = list(filter(lambda x: x.find('2018Apr') == -1, _SCRIPTS))
+        _SCRIPTS = list(filter(lambda x: x.find('mini_presto') == -1, _SCRIPTS))
         _SCRIPTS = list(filter(lambda x: x.find('test_scripts.py') == -1, _SCRIPTS))
         _SCRIPTS.sort()
         try:
