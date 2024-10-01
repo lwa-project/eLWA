@@ -121,7 +121,7 @@ def main(args):
                         
         # Decimate
         ## Setup
-        print(f"  Found {nFreq} channels, each {freq[1]-freq[0])/1e3:.3f} kHz wide")
+        print(f"  Found {nFreq} channels, each {(freq[1]-freq[0])/1e3:.3f} kHz wide")
         if freq.size % args.decimation != 0:
             to_trim = (freq.size/args.decimation)*args.decimation
             to_drop = freq.size - to_trim

@@ -62,7 +62,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
     fmask[np.where( (np.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
     if isinstance(freq_range[0], (tuple, list)):
         for section in freq_range:
-            fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+            fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True     # pylint: disable=unscriptable-object
     else:
         fmask[np.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
     bad = np.where(fmask == True)[0]
@@ -77,7 +77,7 @@ def flag_bandpass_freq(freq, data, width=250e3, clip=3.0, grow=True, freq_range=
         fmask[np.where( (np.abs(bp-dm) > clip*ds) | (smth < 0.1) )] = True
         if isinstance(freq_range[0], (tuple, list)):
             for section in freq_range:
-                fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True
+                fmask[np.where( ((freq >= section[0]) & (freq <= section[1])) )] = True     # pylint: disable=unscriptable-object
         else:
             fmask[np.where( ((freq >= freq_range[0]) & (freq <= freq_range[1])) )] = True
         bad = np.where(fmask == True)[0]
@@ -257,7 +257,7 @@ def mask_spurious(antennas, times, uvw, freq, data, clip=3.0, nearest=15, includ
     """
     
     # Build the exclusion list
-    exclude = ()
+    exclude = []
     if not includeLWA:
         antLookup = {ant.config_name: ant.stand.id for ant in antennas if ant.pol == 0}
         for name in ('LWA1', 'LWASV', 'LWANA', 'OVROLWA'):

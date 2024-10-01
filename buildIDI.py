@@ -375,10 +375,10 @@ def main(args):
         ## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
         obsTime = astro.unix_to_taimjd(tStart)
         if args.circular:
-            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)        # pylint: disable=used-before-assignment
+            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)        # pylint: disable=used-before-assignment
+            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)        # pylint: disable=used-before-assignment
+            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)        # pylint: disable=used-before-assignment
         elif args.stokes:
             fits.add_data_set(obsTime, tInt, blList, visI, pol='I', source=refSrc)
             fits.add_data_set(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)

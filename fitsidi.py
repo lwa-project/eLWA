@@ -1086,7 +1086,7 @@ class Idi(WriterBase):
                 
             # Sort the data by packed baseline
             try:
-                if len(dataSet.visibilities) != len(order):
+                if len(dataSet.visibilities) != len(order):     # pylint: disable=used-before-assignment
                     raise NameError
             except NameError:
                 order = dataSet.argsort(mapper=mapper, shift=self._PACKING_BIT_SHIFT)
@@ -1105,7 +1105,7 @@ class Idi(WriterBase):
                 date.seconds = 0
                 utc0 = date.to_jd()
                 try:
-                    utcR
+                    utcR        # pylint: disable=used-before-assignment
                 except NameError:
                     utcR = utc0*1.0
                     
@@ -1166,8 +1166,8 @@ class Idi(WriterBase):
                 
                 ### Zero out the visibility data
                 try:
-                    matrix[...] = 0.0
-                    weights[...] = 1.0
+                    matrix[...] = 0.0       # pylint: disable=used-before-assignment
+                    weights[...] = 1.0      # pylint: disable=used-before-assignment
                     if matrix.shape[0] != len(order):
                         raise NameError
                 except NameError:

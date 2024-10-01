@@ -252,7 +252,7 @@ def main(args):
             i,j = (bl>>8)&0xFF, bl&0xFF
             ni,nj = antLookup_inv[i], antLookup_inv[j]
             dTimes = obsdates[valid] + obstimes[valid]
-            dTimes -= ref_time
+            dTimes -= ref_time      # pylint: disable=used-before-assignment
             dTimes *= 86400.0
             
             for p in plot_pols:
