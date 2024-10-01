@@ -34,8 +34,8 @@ __author__   = "Jayce Dowell"
 
 
 _PYLINT_IGNORES = [('no-member',              "Module 'ephem' has no"),
-                   ('no-member',              "Instance of 'HDUList'"
-                   ('no-name-in-module',      "No name 'c' in module 'astropy.constants'")
+                   ('no-member',              "Instance of 'HDUList'"),
+                   ('no-name-in-module',      "No name 'c' in module 'astropy.constants'"),
                    ('bad-string-format-type', "Argument '.ndarray' does not match format")]
 
 
