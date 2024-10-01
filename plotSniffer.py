@@ -308,7 +308,7 @@ def main(args):
                                     cmap='gist_yarg', norm=None, vmin=3, vmax=40)
                     
         # Colorbar
-        cb = fig.colorbar(c, ax=axR, orientation='horizontal')
+        cb = fig.colorbar(c, ax=axR, orientation='horizontal')     # pylint: disable=used-before-assignment 
         cb.set_label('SNR')
         # Legend and reference marks
         handles = []

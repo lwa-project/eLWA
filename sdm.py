@@ -498,7 +498,7 @@ if __name__ == "__main__":
         gain = np.array(gains[ant])
         
         try:
-            norm
+            norm        # pylint: disable=used-before-assignment
         except NameError:
             norm = np.median(gain[:,3])
         pylab.plot(gain[:,0]-gain[0,0], gain[:,2]/norm)
