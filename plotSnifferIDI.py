@@ -392,9 +392,9 @@ def main(args):
                         bdly = delay[best[0]]*1e6
                         brat = drate[best[1]]*1e3
                         
-                        c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],        # pylint: disable=used-before-assignment
+                        c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],        # pylint: disable=possibly-used-before-assignment,used-before-assignment
                                         cmap='gist_yarg', norm=None, vmin=3, vmax=40)
-                        c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],        # pylint: disable=used-before-assignment
+                        c = axD.scatter(subTime-ref_time, bdly, c=bsnr, marker=markers[pol],        # pylint: disable=possibly-used-before-assignment,used-before-assignment
                                         cmap='gist_yarg', vmin=3, vmax=40)
                         
         first = False
@@ -403,7 +403,7 @@ def main(args):
         fig, axR, axD = figs[blName]
         
         # Colorbar
-        cb = fig.colorbar(c, ax=axR, orientation='horizontal')      # pylint: disable=used-before-assignment
+        cb = fig.colorbar(c, ax=axR, orientation='horizontal')      # pylint: disable=possibly-used-before-assignment,used-before-assignment
         cb.set_label('SNR')
         # Legend and reference marks
         handles = []
