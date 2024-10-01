@@ -200,7 +200,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=used-before-assignment
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=possibly-used-before-assignment,used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -394,7 +394,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=used-before-assignment
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=possibly-used-before-assignment,used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
