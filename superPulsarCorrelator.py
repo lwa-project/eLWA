@@ -406,9 +406,9 @@ def main(args):
         # Read in the data
         with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
-                dataV[...] = 0
-                dataD['re'][...] = 0
-                dataD['im'][...] = 0
+                dataV[...] = 0              # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                dataD['re'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                dataD['im'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
             except NameError:
                 dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.int8)
                 dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=CI8)
@@ -500,7 +500,7 @@ def main(args):
                             if count < 0:
                                 continue
                             try:
-                                dataD_view[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data.view(np.int16)
+                                dataD_view[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data.view(np.int16)     # pylint: disable=possibly-used-before-assignment,used-before-assignment
                                 k += beampols[j]//2
                             except ValueError:
                                 k = beampols[j]*nFramesD
