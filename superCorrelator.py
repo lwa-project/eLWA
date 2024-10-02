@@ -27,6 +27,7 @@ from lsl.correlator.uvutils import compute_uvw
 
 from lsl.reader import drx, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
+from lsl.reader.base import CI8
 
 import jones
 import multirate
@@ -359,11 +360,13 @@ def main(args):
         # Read in the data
         with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
-                dataV *= 0
-                dataD *= 0.0
+                dataV[...] = 0
+                dataD['re'][...] = 0
+                dataD['im'][...] = 0
             except NameError:
                 dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.int8)
-                dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=np.complex64)
+                dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=CI8)
+                dataD_view = dataD.view(np.int16)
             for j,f in enumerate(fh):
                 if readers[j] is vdif:
                     ## VDIF
@@ -414,7 +417,7 @@ def main(args):
                     k = 0
                     while k < beampols[j]*nFramesD:
                         try:
-                            cFrame = readers[j].read_frame(f)
+                            cFrame = readers[j].read_frame_ci8(f)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
                             print(f"Error - DRX @ {i}, {j}")
@@ -451,7 +454,7 @@ def main(args):
                             if count < 0:
                                 continue
                             try:
-                                dataD[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
+                                dataD_view[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data.view(np.int16)
                                 k += beampols[j]//2
                             except ValueError:
                                 k = beampols[j]*nFramesD
@@ -459,10 +462,6 @@ def main(args):
                                 
         print(f"RR - Read finished in {time.time()-wallTime:.3f} s for {tRead:.3f} s of data")
         
-        # Figure out which DRX tuning corresponds to the VDIF data
-        if nDRXInputs > 0:
-            dataD /= 7.0
-            
         # Time tag alignment (sample based)
         ## Initial time tags for each stream and the relative start time for each stream
         if args.verbose:
@@ -556,6 +555,15 @@ def main(args):
                 if tDSub.size == 0:
                     continue
                     
+                try:
+                    if dataDSubF.shape[1] != dataDSub.shape[1]:
+                        del dataDSubF
+                    dataDSubF.real[...] = dataDSub['re']
+                    dataDSubF.imag[...] = dataDSub['im']
+                except NameError:
+                    dataDSubF = dataDSub['re'] + 1j*dataDSub['im']
+                    dataDSubF = dataDSubF.astype(np.complex64)
+                    
             ## Update the observation
             observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
             refSrc.compute(observer)
@@ -563,15 +571,15 @@ def main(args):
             ## Correct for the LWA dipole power pattern
             if nDRXInputs > 0:
                 dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
-                dataDSub[0::2,:] /= np.sqrt(dipoleX)
-                dataDSub[1::2,:] /= np.sqrt(dipoleY)
+                dataDSubF[0::2,:] /= np.sqrt(dipoleX) * 7
+                dataDSubF[1::2,:] /= np.sqrt(dipoleY) * 7
                 
             ## Get the Jones matrices and apply
             ## NOTE: This moves the LWA into the frame of the VLA
             if nVDIFInputs*nDRXInputs > 0:
                 lwaToSky = jones.get_matrix_lwa(observer, refSrc)
                 skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
-                dataDSub = jones.apply_matrix(dataDSub, np.matrix(skyToVLA)*np.matrix(lwaToSky))
+                dataDSubF = jones.apply_matrix(dataDSubF, np.matrix(skyToVLA)*np.matrix(lwaToSky))
                 
             ## Correlate
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
@@ -587,7 +595,7 @@ def main(args):
                     continue
                     
             if nDRXInputs > 0:
-                freqD, feoD, veoD, deoD = multirate.fengine(dataDSub, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
+                freqD, feoD, veoD, deoD = multirate.fengine(dataDSubF, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                             sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
                                                             pol='*', phase_center=refSrc, 
                                                             delayPadding=delayPadding)
