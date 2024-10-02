@@ -2,9 +2,6 @@
 Module that provides GPU-based X-engines built using cupy.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import cupy as cp
 import numpy as np
 

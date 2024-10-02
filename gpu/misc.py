@@ -3,9 +3,6 @@ Module that provides miscellaneous GPU-based correlation functions built using
 cupy.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import cupy as cp
 import numpy as np
 

@@ -2,9 +2,6 @@
 Module that provides GPU-based F-engines built using cupy.
 """
 
-# Python2 compatibility
-from __future__ import print_function, division
-
 import ephem
 import cupy as cp
 import numpy as np
