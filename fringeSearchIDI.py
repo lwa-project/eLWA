@@ -10,7 +10,7 @@ NOTE:  This script does not try to fringe search only a single source.  Rather,
 
 import os
 import sys
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -25,13 +25,6 @@ from matplotlib import pyplot as plt
 
 def main(args):
     # Parse the command line
-    ## Baseline list
-    if args.baseline is not None:
-        ## Fill the baseline list with the conjugates, if needed
-        newBaselines = []
-        for pair in args.baseline:
-            newBaselines.append( (pair[1],pair[0]) )
-        args.baseline.extend(newBaselines)
     ## Search limits
     args.delay_window = [float(v) for v in args.delay_window.split(',', 1)]
     args.rate_window = [float(v) for v in args.rate_window.split(',', 1)]
@@ -52,8 +45,10 @@ def main(args):
     # Pull out various bits of information we need to flag the file
     ## Antenna look-up table
     antLookup = {}
+    antLookup_inv = {}
     for an, ai in zip(andata.data['ANNAME'], andata.data['ANTENNA_NO']):
         antLookup[an] = ai
+        antLookup_inv[ai] = an
     ## Frequency and polarization setup
     nBand, nFreq, nStk = uvdata.header['NO_BAND'], uvdata.header['NO_CHAN'], uvdata.header['NO_STKD']
     ## Baseline list
@@ -67,49 +62,34 @@ def main(args):
     ## Band information
     fqoffsets = fqdata.data['BANDFREQ'].ravel()
     ## Frequency channels
-    freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
-    freq += uvdata.header['CRVAL3']
+    freq = []
+    for fqoff in fqoffsets:
+        freq.append((np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3'])
+        freq[-1] += uvdata.header['CRVAL3'] + fqoff
+    freq = np.concatenate(freq)
     ## UVW coordinates
     try:
         u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
     except KeyError:
         u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-    uvw = numpy.array([u, v, w]).T
+    uvw = np.array([u, v, w]).T
     ## The actual visibility data
-    flux = uvdata.data['FLUX'].astype(numpy.float32)
+    flux = uvdata.data['FLUX'].astype(np.float32)
     
     # Convert the visibilities to something that we can easily work with
     nComp = flux.shape[1] // nBand // nFreq // nStk
     if nComp == 2:
         ## Case 1) - Just real and imaginary data
-        flux = flux.view(numpy.complex64)
+        flux = flux.view(np.complex64)
     else:
         ## Case 2) - Real, imaginary data + weights (drop the weights)
         flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
-    flux.shape = (flux.shape[0], nBand, nFreq, nStk)
+    flux.shape = (flux.shape[0], nBand*nFreq, nStk)
     
     # Find unique baselines, times, and sources to work with
-    ubls = numpy.unique(bls)
-    utimes = numpy.unique(obstimes)
-    usrc = numpy.unique(srcs)
-    
-    # Convert times to real times
-    times = utcjd_to_unix(obsdates + obstimes)
-    times = numpy.unique(times)
-    
-    # Find unique scans to work on, making sure that there are no large gaps
-    blocks = []
-    for src in usrc:
-        valid = numpy.where( src == srcs )[0]
-        
-        blocks.append( [valid[0],valid[0]] )
-        for v in valid[1:]:
-            if v == blocks[-1][1] + 1 \
-                and (obsdates[v] - obsdates[blocks[-1][1]] + obstimes[v] - obstimes[blocks[-1][1]])*86400 < 10*inttimes[v]:
-                blocks[-1][1] = v
-            else:
-                blocks.append( [v,v] )
-    blocks.sort()
+    ubls = np.unique(bls)
+    utimes = np.unique(obstimes)
+    usrc = np.unique(srcs)
     
     # Make sure the reference antenna is in there
     if args.ref_ant is None:
@@ -120,12 +100,60 @@ def main(args):
         found = False
         for bl in ubls:
             ant1, ant2 = (bl>>8)&0xFF, bl&0xFF
-            if ant1 == args.ref_ant:
+            if ant1 == args.ref_ant or ant2 == args.ref_ant:
+                found = True
+                break
+            elif antLookup_inv[ant1] == args.ref_ant:
+                args.ref_ant = ant1
+                found = True
+                break
+            elif antLookup_inv[ant2] == args.ref_ant:
+                args.ref_ant = ant2
                 found = True
                 break
         if not found:
-            raise RuntimeError("Cannot file reference antenna %i in the data" % args.ref_ant)
+            raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
             
+    # Process the baseline list
+    if args.baseline is not None:
+        newBaselines = []
+        for bl in args.baseline.split(','):
+            ## Split and sort out antenna number vs. name
+            pair = bl.split('-')
+            try:
+                pair[0] = int(pair[0], 10)
+            except ValueError:
+                pair[0] = antLookup[pair[0]]
+            try:
+                pair[1] = int(pair[1], 10)
+            except ValueError:
+                pair[1] = antLookup[pair[1]]
+                
+            ## Fill the baseline list with the conjugates, if needed
+            newBaselines.append(tuple(pair))
+            newBaselines.append((pair[1], pair[0]))
+            
+        ## Update
+        args.baseline = newBaselines
+        
+    # Convert times to real times
+    times = utcjd_to_unix(obsdates + obstimes)
+    times = np.unique(times)
+    
+    # Find unique scans to work on, making sure that there are no large gaps
+    blocks = []
+    for src in usrc:
+        valid = np.where( src == srcs )[0]
+        
+        blocks.append( [valid[0],valid[0]] )
+        for v in valid[1:]:
+            if v == blocks[-1][1] + 1 \
+                and (obsdates[v] - obsdates[blocks[-1][1]] + obstimes[v] - obstimes[blocks[-1][1]])*86400 < 10*inttimes[v]:
+                blocks[-1][1] = v
+            else:
+                blocks.append( [v,v] )
+    blocks.sort()
+    
     search_bls = []
     cross = []
     for i in range(len(ubls)):
@@ -136,7 +164,7 @@ def main(args):
             cross.append( i )
     nBL = len(cross)
     
-    iTimes = numpy.zeros(times.size-1, dtype=times.dtype)
+    iTimes = np.zeros(times.size-1, dtype=times.dtype)
     for i in range(1, len(times)):
         iTimes[i-1] = times[i] - times[i-1]
     print(" -> Interval: %.3f +/- %.3f seconds (%.3f to %.3f seconds)" % (iTimes.mean(), iTimes.std(), iTimes.min(), iTimes.max()))
@@ -158,12 +186,12 @@ def main(args):
     if rMax*1e3 < args.rate_window[1]:
         args.rate_window[1] = rMax*1e3
         
-    dres = 1.0
+    dres = 0.01
     nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     while nDelays < 50:
         dres /= 10
         nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
-    while nDelays > 5000:
+    while nDelays > 15000:
         dres *= 10
         nDelays = int((args.delay_window[1]-args.delay_window[0])/dres)
     nDelays += (nDelays + 1) % 2
@@ -173,7 +201,7 @@ def main(args):
     while nRates < 50:
         rres /= 10
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
-    while nRates > 5000:
+    while nRates > 15000:
         rres *= 10
         nRates = int((args.rate_window[1]-args.rate_window[0])/rres)
     nRates += (nRates + 1) % 2
@@ -182,33 +210,33 @@ def main(args):
     print("           rates %.1f to %.1f mHz in steps of %.2f mHz" % (args.rate_window[0], args.rate_window[1], rres))
     print(" ")
     
-    delay = numpy.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
-    drate = numpy.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
+    delay = np.linspace(args.delay_window[0]*1e-6, args.delay_window[1]*1e-6, nDelays)		# s
+    drate = np.linspace(args.rate_window[0]*1e-3,  args.rate_window[1]*1e-3,  nRates )		# Hz
     
     # Find RFI and trim it out.  This is done by computing average visibility 
     # amplitudes (a "spectrum") and running a median filter in frequency to extract
     # the bandpass.  After the spectrum has been bandpassed, 3sigma features are 
     # trimmed.  Additionally, area where the bandpass fall below 10% of its mean
     # value are also masked.
-    spec  = numpy.median(numpy.abs(flux[:,0,:,0]), axis=0)
-    spec += numpy.median(numpy.abs(flux[:,0,:,1]), axis=0)
+    spec  = np.median(np.abs(flux[:,:,0]), axis=0)
+    spec += np.median(np.abs(flux[:,:,1]), axis=0)
     smth = spec*0.0
     winSize = int(250e3/(freq[1]-freq[0]))
     winSize += ((winSize+1)%2)
     for i in range(smth.size):
         mn = max([0, i-winSize//2])
         mx = min([i+winSize//2+1, smth.size])
-        smth[i] = numpy.median(spec[mn:mx])
+        smth[i] = np.median(spec[mn:mx])
     smth /= robust.mean(smth)
     bp = spec / smth
-    good = numpy.where( (smth > 0.1) & (numpy.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
-    nBad = nFreq - len(good)
-    print("Masking %i of %i channels (%.1f%%)" % (nBad, nFreq, 100.0*nBad/nFreq))
+    good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) & np.logical_and(freq<=args.hf, freq>=args.lf) )[0]
+    nBad = nBand*nFreq - len(good)
+    print("Masking %i of %i channels (%.1f%%)" % (nBad, nBand*nFreq, 100.0*nBad/nBand/nFreq))
     if args.plot:
         fig = plt.figure()
         ax = fig.gca()
-        ax.plot(freq/1e6, numpy.log10(spec)*10)
-        ax.plot(freq[good]/1e6, numpy.log10(spec[good])*10)
+        ax.plot(freq/1e6, np.log10(spec)*10)
+        ax.plot(freq[good]/1e6, np.log10(spec[good])*10)
         ax.set_title('Mean Visibility Amplitude')
         ax.set_xlabel('Frequency [MHz]')
         ax.set_ylabel('PSD [arb. dB]')
@@ -242,7 +270,7 @@ def main(args):
             doConj = True
             
         ## Figure out which polarizations to process
-        if ant1 not in (51, 52) and ant2 not in (51, 52):
+        if antLookup_inv[ant1][:3] != 'LWA' and antLookup_inv[ant2][:3] != 'LWA':
             ### Standard VLA-VLA baseline
             polToUse = ('XX', 'YY')
         else:
@@ -260,31 +288,30 @@ def main(args):
             axs['XY'] = fig.add_subplot(2, 2, 3)
             axs['YX'] = fig.add_subplot(2, 2, 4)
             
-        valid = numpy.where( bls == bl )[0]
+        valid = np.where( bls == bl )[0]
         for pol in polToUse:
-            subData = flux[valid,0,:,polMapper[pol]]*1.0
+            subData = flux[valid,:,polMapper[pol]]*1.0
             subData = subData[:,good]
             if doConj:
                 subData = subData.conj()
-            subData = numpy.dot(subData, numpy.exp(-2j*numpy.pi*freq2[good,:]*delay))
+            subData = np.dot(subData, np.exp(-2j*np.pi*freq2[good,:]*delay))
             subData /= freq2[good,:].size
-            amp = numpy.dot(subData.T, numpy.exp(-2j*numpy.pi*dTimes2*drate))
-            amp = numpy.abs(amp / dTimes2.size)
+            amp = np.dot(subData.T, np.exp(-2j*np.pi*dTimes2[:subData.shape[0],:]*drate))
+            amp = np.abs(amp / dTimes2.size)
             
             blName = (ant1, ant2)
             if doConj:
                 blName = (ant2, ant1)
-            blName = '%s-%s' % ('EA%02i' % blName[0] if blName[0] < 51 else 'LWA%i' % (blName[0]-50), 
-                        'EA%02i' % blName[1] if blName[1] < 51 else 'LWA%i' % (blName[1]-50))
+            blName = '%s-%s' % (antLookup_inv[blName[0]], antLookup_inv[blName[1]])
                         
-            best = numpy.where( amp == amp.max() )
+            best = np.where( amp == amp.max() )
             if amp.max() > 0:
                 bsnr = (amp[best]-amp.mean())[0]/amp.std()
                 bdly = delay[best[0][0]]*1e6
                 brat = drate[best[1][0]]*1e3
-                print("%3i  %9s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat))
+                print("%3i  %11s  %2s  %6.2f  %6.2f us  %7.2f mHz" % (b, blName, pol, bsnr, bdly, brat))
             else:
-                print("%3i  %9s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----'))
+                print("%3i  %11s  %2s  %6s  %9s  %11s" % (b, blName, pol, '----', '----', '----'))
                 
             if args.plot:
                 axs[pol].imshow(amp, origin='lower', interpolation='nearest', 
@@ -314,9 +341,9 @@ if __name__ == "__main__":
         )
     parser.add_argument('filename', type=str, 
                         help='filename to search')
-    parser.add_argument('-r', '--ref-ant', type=int, 
+    parser.add_argument('-r', '--ref-ant', type=str, 
                         help='limit plots to baselines containing the reference antenna')
-    parser.add_argument('-b', '--baseline', type=aph.csv_baseline_list, 
+    parser.add_argument('-b', '--baseline', type=str, 
                         help="limit plots to the specified baseline in 'ANT-ANT' format")
     parser.add_argument('-l', '--limit', type=int, default=-1, 
                         help='limit the data loaded to the first N files, -1 = load all')
@@ -328,6 +355,14 @@ if __name__ == "__main__":
                         help='rate search window in mHz; defaults to maximum allowed')
     parser.add_argument('-p', '--plot', action='store_true', 
                         help='show search plots at the end')
+    parser.add_argument('--hf', type=aph.frequency, default='98.0',
+                        help='High frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when high frequency RFI is present')
+    parser.add_argument('--lf', type=aph.frequency, default='0.0',
+                        help='Low frequency (in MHz) cutoff to use in fringe searching correlated data. Note: May be useful when low frequency RFI is present')
     args = parser.parse_args()
+    try:
+        args.ref_ant = int(args.ref_ant, 10)
+    except (TypeError, ValueError):
+        pass
     main(args)
     

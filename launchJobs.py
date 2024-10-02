@@ -24,16 +24,14 @@ FAILED_QUEUE = Queue()
 
 def check_for_other_instances(quiet=True):
     filename = os.path.basename(__file__)
-    pcmd = 'ps aux | grep python | grep %s | grep -v %i | grep -v grep' % (filename, os.getpid())
+    pcmd = f"ps aux | grep python | grep {filename} | grep -v {os.getpid()} | grep -v grep"
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, shell=True, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return True if status == 0 else False
 
 
@@ -42,12 +40,10 @@ def configfile_is_pulsar(configfile, quiet=True):
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return True if status == 0 else False
 
 
@@ -56,16 +52,17 @@ def configfile_is_lwa_only(configfile, quiet=True):
     
     DEVNULL = None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
+        DEVNULL = subprocess.DEVNULL
     p = subprocess.Popen(gcmd, stdout=DEVNULL, stderr=DEVNULL)
     status = p.wait()
-    if quiet:
-        DEVNULL.close()
-        
+    
     return False if status == 0 else True
 
 
 def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quiet=False):
+    if return_output and quiet:
+        raise RuntimeError("Cannot be both quiet and return output")
+        
     if node is None:
         if type(cmd) is list:
             pcmd = cmd
@@ -74,31 +71,30 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
     elif cwd is None:
         pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "']
         if socket is not None:
-            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
-        pcmd[-1] += '%s"' % cmd
+            pcmd[-1] += f"numactl --cpunodebind={socket} --membind={socket} -- "
+        pcmd[-1] += f'{cmd}"'
     else:
-        pcmd = ['ssh', node, 'shopt -s huponexit && bash -c "cd %s && ' % cwd]
+        pcmd = ['ssh', node, f'shopt -s huponexit && bash -c "cd {cwd} && ']
         if socket is not None:
-            pcmd[-1] += 'numactl --cpunodebind=%i --membind=%i -- ' % (socket, socket)
-        pcmd[-1] += '%s"' % cmd
+            pcmd[-1] += f"numactl --cpunodebind={socket} --membind={socket} -- "
+        pcmd[-1] += f'{cmd}"'
         
     OUT, ERR = None, None
     if quiet:
-        DEVNULL = open(os.devnull, 'wb')
-        OUT = DEVNULL
-        ERR = DEVNULL
+        OUT = subprocess.DEVNULL
+        ERR = subprocess.DEVNULL
     if return_output:
         OUT = subprocess.PIPE
+        ERR = subprocess.PIPE
     p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
     output, err = p.communicate()
-    output = output.decode()
-    err = err.decode()
     status = p.returncode
-    if quiet:
-        DEVNULL.close()
-        
+    
     if return_output:
+        output = output.decode('ascii', errors='ignore')
+        err = err.decode('ascii', errors='ignore')
         status = (status, output)
+        
     return status
 
 
@@ -108,9 +104,9 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     # Create a temporary directory to use
     cwd = tempfile.mkdtemp(prefix='correlator-')
     os.rmdir(cwd)
-    code += run_command('mkdir %s' % cwd, node=node, quiet=True)
+    code += run_command(f"mkdir {cwd}", node=node, quiet=True)
     if code != 0:
-        print("WARNING: failed to create directory on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to create directory on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
@@ -127,7 +123,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
             polyfile = polyfile.split(None, 1)[1].strip().rstrip()
             polyfile = os.path.join(os.path.dirname(configfile), polyfile)
         except IndexError:
-            print("WARNING: failed to find polyco file on %s - %s" % (node, os.path.basename(configfile)))
+            print(f"WARNING: failed to find polyco file on {node} - {os.path.basename(configfile)}")
             returnQueue.put(False)
             return False
             
@@ -136,9 +132,9 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         softwareDir = os.path.dirname(__file__)
     for filename in ['jones.py', 'multirate.py', 'superCorrelator.py', 'superPulsarCorrelator.py', 'utils.py', 'mini_presto']:
         filename = os.path.join(softwareDir, filename)
-        code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
+        code += run_command(f"rsync -e ssh -avH {filename} {node}:{cwd}/", quiet=True)
     if code != 0:
-        print("WARNING: failed to sync software on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to sync software on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
@@ -146,17 +142,17 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     for filename in [configfile, polyfile]:
         if filename is None:
             continue
-        code += run_command('rsync -e ssh -avH %s %s:%s/' % (filename, node, cwd), quiet=True)
+        code += run_command(f"rsync -e ssh -avH {filename} {node}:{cwd}/", quiet=True)
     if code != 0:
-        print("WARNING: failed to sync configuration on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to sync configuration on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
     # Query the NUMA status
-    scode, numa_status = run_command("%s -c 'import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
+    scode, numa_status = run_command(f"{sys.executable} -c 'import utils; print(utils.get_numa_support(), utils.get_numa_node_count())'", node=node, cwd=cwd, return_output=True)
     code += scode
     if code != 0:
-        print("WARNING: failed to determine NUMA status on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to determine NUMA status on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
     numa_support, numa_node_count = numa_status.split(None, 1)
@@ -171,7 +167,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
         # Query the GPU status
         scode, gpu_status = run_command("%s -c 'import utils; print(utils.get_gpu_support(), utils.get_gpu_count())'" % (sys.executable,), node=node, cwd=cwd, return_output=True)
         if scode != 0:
-            print("WARNING: failed to determine GPU status on %s - %s" % (node, os.path.basename(configfile)))
+            print(f"WARNING: failed to determine GPU status on {node} - {os.path.basename(configfile)}")
             ## Unknown, drop the GPU option
             options = options.replace('--gpu', '')
         else:
@@ -184,14 +180,14 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
                 gpu = 0
                 if socket is not None:
                     gpu = socket % int(gpu_count, 10)
-                options = options.replace('--gpu', '--gpu=%i' % gpu)
+                options = options.replace('--gpu', f"--gpu={gpu}")
                 
     # Run the correlator
     configfile = os.path.basename(configfile)
     outname, count = os.path.splitext(configfile)
     try:
         count = int(re.sub(r'\D*', '', count), 10)
-        outname = "%s%03i" % (outname, count)
+        outname = f"{outname}{count:03d}"
     except ValueError:
         pass
     if options.find('-w 1') != -1 or options.find('-w1') != -1:
@@ -199,26 +195,26 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    code += run_command('%s ./%s %s -g %s %s > %s 2>&1' % (sys.executable, corr_mode, options, outname, configfile, logfile), node=node, socket=socket, cwd=cwd)
+    code += run_command(f"{sys.executable} ./{corr_mode} {options} -g {outname} {configfile} > {logfile} 2>&1", node=node, socket=socket, cwd=cwd)
     if code != 0:
-        print("WARNING: failed to run correlator on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to run correlator on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
     # Gather the results
     if resultsDir is None:
         resultsDir = os.path.dirname(__file__)
-    code += run_command('rsync -e ssh -avH %s:%s/*.npz %s' % (node, cwd, resultsDir), quiet=True)
-    code += run_command('rsync -e ssh -avH %s:%s/*.log %s' % (node, cwd, resultsDir), quiet=True)
+    code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.npz {resultsDir}", quiet=True)
+    code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.log {resultsDir}", quiet=True)
     if code != 0:
-        print("WARNING: failed to sync results on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to sync results on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
     # Cleanup
-    code += run_command('rm -rf %s' % cwd, node=node, quiet=True)
+    code += run_command(f"rm -rf {cwd}", node=node, quiet=True)
     if code != 0:
-        print("WARNING: failed to remove directory on %s - %s" % (node, os.path.basename(configfile)))
+        print(f"WARNING: failed to remove directory on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
         return False
         
@@ -262,7 +258,7 @@ def get_idle_slot(threads):
 def create_lock_file(node):
     node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
-        fh = open('/home/%s/correlator%s' % (getuser(), node[6:]), 'w')
+        fh = open(f"/home/{getuser()}/correlator{node[6:]}", 'w')
         fh.close()
     return True
 
@@ -271,7 +267,7 @@ def remove_lock_file(node):
     node = node.replace('10.1.1.10', 'lwaucf')
     if node[:6] == 'lwaucf':
         try:
-            os.unlink('/home/%s/correlator%s' % (getuser(), node[6:]))
+            os.unlink(f"/home/{getuser()}/correlator{node[6:]}")
         except OSError:
             pass
     return True
@@ -289,9 +285,9 @@ def main(args):
     for p in range(args.processes_per_node):
         for node in args.nodes:
             n = p + 0
-            while '%s-%02i' % (node, n) in threads:
+            while f"{node}-{n:02d}" in threads:
                 n += 1
-            threads['%s-%02i' % (node, n)] = None
+            threads[f"{node}-{n:02d}"] = None
     ## Build the configfile/correlation options/results directory sets
     jobs = []
     for configfile in configfiles:
@@ -318,7 +314,7 @@ def main(args):
             threads[slot].daemon = True
             threads[slot].start()
             create_lock_file(node)
-            print("%s - %s started" % (slot, threads[slot].name))
+            print(f"{slot} - {threads[slot].name} started")
             time.sleep(2)
         except IndexError:
             pass
@@ -328,7 +324,7 @@ def main(args):
         ## Check for completed jobs
         done = get_done_slot(threads)
         if done is not None:
-            print("%s - %s finished" % (done, threads[done].name))
+            print(f"{done} - {threads[done].name} finished")
             threads[done] = None
             
         ## Schedule new jobs
@@ -342,7 +338,7 @@ def main(args):
                 threads[slot] = threading.Thread(name=configfile, target=job, args=(node, socket, configfile,), kwargs={'options':coptions, 'resultsDir':resultsdir, 'isPulsar':is_pulsar})
                 threads[slot].daemon = True
                 threads[slot].start()
-                print("%s - %s started" % (slot, threads[slot].name))
+                print(f"{slot} - {threads[slot].name} started")
                 time.sleep(2)
             except IndexError:
                 pass
@@ -381,7 +377,7 @@ def main(args):
         except:
             pass
             
-    print("Completed %i jobs (with %i failues) in %i hr, %i min, %.0f sec" % (nJobs, failed, h, m, s))
+    print(f"Completed {nJobs} jobs (with {failed} failues) in {h} hr, {m} min, {s:.0f} sec")
     sys.exit(failed)
 
 
@@ -409,9 +405,8 @@ if __name__ == "__main__":
     if args.gpu:
         args.options += " --gpu"
     if not os.path.exists(args.results_dir):
-        print("Warning: %s does not exist, creating" % args.results_dir)
+        print(f"Warning: {args.results_dir} does not exist, creating")
         os.mkdir(args.results_dir)
     elif not os.path.isdir(args.results_dir):
-        raise RuntimeError('%s is not a directory' % args.results_dir)
+        raise RuntimeError(f"{args.results_dir} is not a directory")
     main(args)
-    

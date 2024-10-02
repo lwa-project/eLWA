@@ -12,7 +12,7 @@ import sys
 import glob
 import time
 import ephem
-import numpy
+import numpy as np
 import argparse
 import tempfile
 import warnings
@@ -41,7 +41,7 @@ def cmpNPZ(x, y):
     try:
         xT = _CMP_CACHE[x]
     except KeyError:
-        xDD = numpy.load(x)
+        xDD = np.load(x)
         _CMP_CACHE[x] = xDD['tStart'].item()
         xDD.close()
         xT = _CMP_CACHE[x]
@@ -49,7 +49,7 @@ def cmpNPZ(x, y):
     try:
         yT = _CMP_CACHE[y]
     except KeyError:
-        yDD = numpy.load(y)
+        yDD = np.load(y)
         _CMP_CACHE[y] = yDD['tStart'].item()
         yDD.close()
         yT = _CMP_CACHE[y]
@@ -157,7 +157,7 @@ def main(args):
     observer = site.get_observer()
     
     # Load in the file file to figure out what to do
-    dataDict = numpy.load(lownames[0])
+    dataDict = np.load(lownames[0])
     tStart = dataDict['tStart'].item()
     tInt = dataDict['tInt']
     
@@ -178,17 +178,17 @@ def main(args):
             args.linear = False
             args.circular = False
             args.stokes = True
-        print("NOTE:  Set output polarization basis to '%s' per user defined configuration" % config['basis'])
+        print(f"NOTE:  Set output polarization basis to \'{config['basis']}\' per user defined configuration")
     except (TypeError, KeyError):
         pass
         
-    visXX = dataDict['vis1XX'].astype(numpy.complex64)
-    visXY = dataDict['vis1XY'].astype(numpy.complex64)
-    visYX = dataDict['vis1YX'].astype(numpy.complex64)
-    visYY = dataDict['vis1YY'].astype(numpy.complex64)
+    visXX = dataDict['vis1XX'].astype(np.complex64)
+    visXY = dataDict['vis1XY'].astype(np.complex64)
+    visYX = dataDict['vis1YX'].astype(np.complex64)
+    visYY = dataDict['vis1YY'].astype(np.complex64)
     dataDict.close()
     
-    dataDict = numpy.load(highnames[0])
+    dataDict = np.load(highnames[0])
     freqH = dataDict['freq1']
     dataDict.close()
     
@@ -207,7 +207,7 @@ def main(args):
     for filename in filenames:
         group = os.path.basename(filename).split('-vis2', 1)[0]
         if group not in obs_groups:
-            dataDict = numpy.load(filename)
+            dataDict = np.load(filename)
             config, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
             del dataDict
             
@@ -222,7 +222,7 @@ def main(args):
         
     print("Antennas:")
     for ant in master_antennas:
-        print("  Antenna %i: Stand %i, Pol. %i" % (ant.id, ant.stand.id, ant.pol))
+        print(f"  Antenna {ant.id}: Stand {ant.stand.id}, Pol. {ant.pol}")
         
     nchan = visXX.shape[1]
     master_blList = uvutils.get_baselines([ant for ant in master_antennas if ant.pol == 0], include_auto=True)
@@ -238,12 +238,6 @@ def main(args):
             freq = freq[:to_trim]
         freq.shape = (freq.size//args.decimate, args.decimate)
         freq = freq.mean(axis=1)
-        
-    # Figure out the visibility conjugation problem in LSL, pre-1.1.4
-    conjugateVis = False
-    if float(fitsidi.__version__) < 0.9:
-        print("Warning: Applying conjugate to visibility data")
-        conjugateVis = True
         
     # Figure out our revision
     try:
@@ -266,7 +260,7 @@ def main(args):
     for i,(lowname,highname) in enumerate(zip(lownames,highnames)):
         ## Load in the integration - lower band
         group = os.path.basename(filename).split('-vis2', 1)[0]
-        dataDict = numpy.load(lowname)
+        dataDict = np.load(lowname)
         junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
         try:
             refSrc.name = refSrc.name.upper()	# For AIPS
@@ -281,8 +275,7 @@ def main(args):
         ## Make sure the frequencies are compatible - lower band
         cFreq = dataDict['freq1']
         if cFreq.size != freqL.size:
-            error_msg = "Incompatible frequencies at %s, lower band: %i != %i" % (group,
-                                                                                  cFreq.size, freqL.size)
+            error_msg = f"Incompatible frequencies at {group}, lower band: {cFreq.size} != {freqL.size}"
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
@@ -300,21 +293,21 @@ def main(args):
                 
         tStartL = dataDict['tStart'].item()
         tIntL = dataDict['tInt'].item()
-        visXXL = dataDict['vis1XX'].astype(numpy.complex64)
-        visXYL = dataDict['vis1XY'].astype(numpy.complex64)
-        visYXL = dataDict['vis1YX'].astype(numpy.complex64)
-        visYYL = dataDict['vis1YY'].astype(numpy.complex64)
+        visXXL = dataDict['vis1XX'].astype(np.complex64)
+        visXYL = dataDict['vis1XY'].astype(np.complex64)
+        visYXL = dataDict['vis1YX'].astype(np.complex64)
+        visYYL = dataDict['vis1YY'].astype(np.complex64)
         
         dataDict.close()
         
         ## Load in the integration - upper band
         group = os.path.basename(filename).split('-vis2', 1)[0]
-        dataDict = numpy.load(highname)
+        dataDict = np.load(highname)
         
         ## Make sure the frequencies are compatible - upper band
         cFreq = dataDict['freq1']
         if cFreq.size != freqH.size:
-            error_msg = "Incompatible frequencies at %s, upper band: %i != %i" % (group, cFreq.size, freqH.size)
+            error_msg = f"Incompatible frequencies at {group}, upper band: {cFreq.size} != {freqH.size}"
             if args.ignore_incompatible:
                 warnings.warn(error_msg, RuntimeWarning)
                 continue
@@ -332,20 +325,20 @@ def main(args):
                 
         tStartH = dataDict['tStart'].item()
         tIntH = dataDict['tInt'].item()
-        visXXH = dataDict['vis1XX'].astype(numpy.complex64)
-        visXYH = dataDict['vis1XY'].astype(numpy.complex64)
-        visYXH = dataDict['vis1YX'].astype(numpy.complex64)
-        visYYH = dataDict['vis1YY'].astype(numpy.complex64)
+        visXXH = dataDict['vis1XX'].astype(np.complex64)
+        visXYH = dataDict['vis1XY'].astype(np.complex64)
+        visYXH = dataDict['vis1YX'].astype(np.complex64)
+        visYYH = dataDict['vis1YY'].astype(np.complex64)
         
         dataDict.close()
         
         ## Combine
         tStart = tStartL
         tInt = tIntL
-        visXX = numpy.concatenate([visXXL, visXXH], axis=1)
-        visXY = numpy.concatenate([visXYL, visXYH], axis=1)
-        visYX = numpy.concatenate([visYXL, visYXH], axis=1)
-        visYY = numpy.concatenate([visYYL, visYYH], axis=1)
+        visXX = np.concatenate([visXXL, visXXH], axis=1)
+        visXY = np.concatenate([visXYL, visXYH], axis=1)
+        visYX = np.concatenate([visYXL, visYXH], axis=1)
+        visYY = np.concatenate([visYYL, visYYH], axis=1)
         
         if args.decimate > 1:
             if to_drop != 0:
@@ -362,12 +355,6 @@ def main(args):
             visYX = visYX.mean(axis=2)
             visYY.shape = (visYY.shape[0], visYY.shape[1]//args.decimate, args.decimate)
             visYY = visYY.mean(axis=2)
-            
-        if conjugateVis:
-            visXX = visXX.conj()
-            visXY = visXY.conj()
-            visYX = visYX.conj()
-            visYY = visYY.conj()
             
         if args.circular or args.stokes:
             visI = visXX + visYY
@@ -392,21 +379,21 @@ def main(args):
             ## Create the FITS-IDI file as needed
             ### What to call it
             if args.tag is None:
-                outname = 'buildIDI.FITS_%i' % (i//args.split+1,)
+                outname = f"buildIDI.FITS_{i//args.split+1}"
             else:
-                outname = 'buildIDI_%s.FITS_%i' % (args.tag, i//args.split+1,)
+                outname = f"buildIDI_{args.tag}.FITS_{i//args.split+1}"
                 
             ### Does it already exist or not
             if os.path.exists(outname):
                 if not args.force:
-                    yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                    yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
                 else:
                     yn = 'y'
                     
                 if yn not in ('n', 'N'):
                     os.unlink(outname)
                 else:
-                    raise RuntimeError("Output file '%s' already exists" % outname)
+                    raise RuntimeError(f"Output file '{outname}' already exists")
                     
             ### Create the file
             fits = fitsidi.Idi(outname, ref_time=tStart)
@@ -446,10 +433,10 @@ def main(args):
         ## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
         obsTime = astro.unix_to_taimjd(tStart)
         if args.circular:
-            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)
-            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)
+            fits.add_data_set(obsTime, tInt, blList, visRR, pol='RR', source=refSrc)        # pylint: disable=used-before-assignment 
+            fits.add_data_set(obsTime, tInt, blList, visRL, pol='RL', source=refSrc)        # pylint: disable=used-before-assignment
+            fits.add_data_set(obsTime, tInt, blList, visLR, pol='LR', source=refSrc)        # pylint: disable=used-before-assignment
+            fits.add_data_set(obsTime, tInt, blList, visLL, pol='LL', source=refSrc)        # pylint: disable=used-before-assignment
         elif args.stokes:
             fits.add_data_set(obsTime, tInt, blList, visI, pol='I', source=refSrc)
             fits.add_data_set(obsTime, tInt, blList, visQ, pol='Q', source=refSrc)
@@ -496,4 +483,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    

@@ -8,7 +8,7 @@ import os
 import git
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -41,10 +41,10 @@ def get_source_blocks(hdulist):
     
     # Find the source blocks to see if there is something we can use
     # to help the dedispersion
-    usrc = numpy.unique(srcs)
+    usrc = np.unique(srcs)
     blocks = []
     for src in usrc:
-        valid = numpy.where( src == srcs )[0]
+        valid = np.where( src == srcs )[0]
         
         blocks.append( [valid[0],valid[0]] )
         for v in valid[1:]:
@@ -94,7 +94,7 @@ def get_flags_as_mask(hdulist, selection=None, version=0):
         flux_rows = len(selection)
         
     # Create the mask
-    mask = numpy.zeros((flux_rows, nBand, nFreq, nStk), dtype=bool)
+    mask = np.zeros((flux_rows, nBand, nFreq, nStk), dtype=bool)
     if fgdata is not None:
         reltimes = obsdates - obsdates[0] + obstimes
         maxtimes = reltimes + inttimes / 2.0 / 86400.0
@@ -121,14 +121,14 @@ def get_flags_as_mask(hdulist, selection=None, version=0):
             pol = row['PFLAGS'].astype(bool)
             
             if ant1 == 0 and ant2 == 0:
-                btmask = numpy.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             elif ant1 == 0 or ant2 == 0:
                 ant1 = max([ant1, ant2])
-                btmask = numpy.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
-                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (bls_ant1 == ant1) | (bls_ant2 == ant1) ) \
+                                  & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             else:
-                btmask = numpy.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
-                                     & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
+                btmask = np.where( ( (bls_ant1 == ant1) & (bls_ant2 == ant2) ) \
+                                  & ( (maxtimes >= tStart) & (mintimes <= tStop) ) )[0]
             for b,v in enumerate(band):
                 if not v:
                     continue
@@ -148,7 +148,7 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
     except ValueError:
         ext = -100
     ext += 1
-    nextname = "%s_%i" % (nextname, ext)
+    nextname = f"{nextname}_{ext}"
     
     if os.path.exists(nextname):
         # Open up the next file
@@ -175,19 +175,19 @@ def get_trailing_scan(filename, src_name, needed, drop_mask=False):
         # Check and see if the first block in 'nextname' matches the last in 'filename'
         next_src_name = srdata.data['SOURCE'][srcs[match[0]]-1]
         if src_name == next_src_name:
-            bbls = numpy.unique(bls[match])
+            bbls = np.unique(bls[match])
             next_needed = inttimes[match[0]]
-            next_needed = int(numpy.ceil(needed/next_needed))
+            next_needed = int(np.ceil(needed/next_needed))
             next_needed_rows = next_needed*len(bbls)
             
             match = range(match[0], min([match[0]+next_needed_rows, match[-1]+1]))
-            flux = uvdata.data['FLUX'][match].astype(numpy.float32)
+            flux = uvdata.data['FLUX'][match].astype(np.float32)
             
             # Convert the visibilities to something that we can easily work with
             nComp = flux.shape[1] // nBand // nFreq // nStk
             if nComp == 2:
                 ## Case 1) - Just real and imaginary data
-                flux = flux.view(numpy.complex64)
+                flux = flux.view(np.complex64)
             else:
                 ## Case 2) - Real, imaginary data + weights (drop the weights)
                 flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
@@ -209,7 +209,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -223,9 +223,9 @@ def main(args):
         
         # Verify we can flag this data
         if uvdata.header['STK_1'] > 0:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # NOTE: Assumes that the Stokes parameters increment by -1
         polMapper = {}
@@ -251,36 +251,36 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines and scans to work on
-        ubls = numpy.unique(bls)
+        ubls = np.unique(bls)
         blocks = get_source_blocks(hdulist)
         
         # Create a mask of the old flags, if needed
         old_flag_mask = get_flags_as_mask(hdulist, version=0-args.drop)
         
         # Dedisperse
-        mask = numpy.zeros(flux.shape, dtype=bool)
+        mask = np.zeros(flux.shape, dtype=bool)
         for i,block in enumerate(blocks):
             tS = time.time()
-            print('  Working on scan %i of %i' % (i+1, len(blocks)))
+            print(f"  Working on scan {i+1} of {len(blocks)}")
             match = range(block[0],block[1]+1)
             
-            bbls = numpy.unique(bls[match])
+            bbls = np.unique(bls[match])
             times = obstimes[match] * 86400.0
             ints = inttimes[match]
             scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
@@ -290,7 +290,7 @@ def main(args):
             freq_comb = []
             for b,offset in enumerate(fqoffsets):
                 freq_comb.append( freq + offset)
-            freq_comb = numpy.concatenate(freq_comb)
+            freq_comb = np.concatenate(freq_comb)
             
             nBL = len(bbls)
             vis = flux[match,:,:,:]
@@ -306,9 +306,9 @@ def main(args):
                                                        max(delay(freq_comb, args.DM)))
                 if nextmask is not None and nextflux is not None:
                     to_trim = ofm.shape[0]
-                    vis = numpy.concatenate([vis, nextflux])
-                    ofm = numpy.concatenate([ofm, nextmask])
-                    print('      Appended %i times from the next file in the sequence' % (nextflux.shape[0]//nBL))
+                    vis = np.concatenate([vis, nextflux])
+                    ofm = np.concatenate([ofm, nextmask])
+                    print(f"      Appended {nextflux.shape[0]//nBL} times from the next file in the sequence")
                     
             vis.shape = (vis.shape[0]//nBL, nBL, vis.shape[1]*vis.shape[2], vis.shape[3])
             ofm.shape = (ofm.shape[0]//nBL, nBL, ofm.shape[1]*ofm.shape[2], ofm.shape[3])
@@ -316,12 +316,12 @@ def main(args):
             
             if vis.shape[0] < 5:
                 print('        Too few integrations, skipping')
-                vis[:,:,:,:] = numpy.nan
+                vis[:,:,:,:] = np.nan
                 ofm[:,:,:,:] = True
             else:
                 for j in range(nBL):
                     for k in range(nStk):
-                        vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=numpy.nan)
+                        vis[:,j,:,k] = incoherent(freq_comb, vis[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=np.nan)
                         ofm[:,j,:,k] = incoherent(freq_comb, ofm[:,j,:,k], ints[0], args.DM, boundary='fill', fill_value=True)
             vis.shape = (vis.shape[0]*vis.shape[1], len(fqoffsets), vis.shape[2]//len(fqoffsets), vis.shape[3])
             ofm.shape = (ofm.shape[0]*ofm.shape[1], len(fqoffsets), ofm.shape[2]//len(fqoffsets), ofm.shape[3])
@@ -333,14 +333,14 @@ def main(args):
             flux[match,:,:,:] = vis
             
             print('      Saving polarization masks')
-            submask = numpy.where(numpy.isfinite(vis), False, True)
+            submask = np.where(np.isfinite(vis), False, True)
             submask.shape = (len(match), flux.shape[1], flux.shape[2], flux.shape[3])
             mask[match,:,:,:] = submask
             
             print('      Statistics for this scan')
-            print('      -> %s      - %.1f%% flagged' % (polMapper[0], 100.0*mask[match,:,:,0].sum()/mask[match,:,:,0].size,))
-            print('      -> %s      - %.1f%% flagged' % (polMapper[1], 100.0*mask[match,:,:,1].sum()/mask[match,:,:,0].size,))
-            print('      -> Elapsed - %.3f s' % (time.time()-tS,))
+            print(f"      -> {polMapper[0]}      - {mask[match,:,:,0].sum()/mask[match,:,:,0].size:.1%} flagged")
+            print(f"      -> {polMapper[1]}      - {mask[match,:,:,1].sum()/mask[match,:,:,1].size:.1%} flagged")
+            print(f"      -> Elapsed - {time.time()-tS:.3f} s")
             
             # Add in the original flag mask
             mask[match,:,:,:] |= ofm
@@ -351,10 +351,10 @@ def main(args):
         ## New Flags
         nBL = len(ubls)
         for i in range(nBL):
-            blset = numpy.where( bls == ubls[i] )[0]
+            blset = np.where( bls == ubls[i] )[0]
             ant1, ant2 = (ubls[i]>>8)&0xFF, ubls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             if len(blset) == 0:
                 continue
@@ -406,16 +406,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -430,7 +430,7 @@ def main(args):
             except KeyError:
                 pass
         flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        flags.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
+        flags.header['HISTORY'] = f"Dedispersed at {args.DM:.6f} pc / cm^3"
         
         # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
         if args.drop:
@@ -448,7 +448,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -457,18 +457,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_DM%.4f%s' % (outname, args.DM, outext)
+        outname = f"{outname}_DM{args.DM:.4f}{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =   astrofits.PrimaryHDU()
@@ -483,15 +483,15 @@ def main(args):
             else:
                 primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
         primary.header['HISTORY'] = 'Dedispersed with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        primary.header['HISTORY'] = 'Dedispersed at %.6f pc / cm^3' % args.DM
+        primary.header['HISTORY'] = f"Dedispersed at {args.DM:.6f} pc / cm^3"
         hdulist2.append(primary)
         hdulist2.flush()
         ## Copy the extensions over to the new file
         for hdu in hdulist[1:]:
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the dedispersed data
-                flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
-                flux = flux.view(numpy.float32) # pylint: disable=no-member
+                flux = np.where(np.isfinite(flux), flux, 0.0)
+                flux = flux.view(np.float32) # pylint: disable=no-member
                 flux = flux.astype(hdu.data['FLUX'].dtype)
                 flux.shape = hdu.data['FLUX'].shape
                 hdu.data['FLUX'][...] = flux
@@ -500,8 +500,8 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Dedispersed FITS IDI file is '%s'" % outname)
-        print("  Finished in %.3f s" % (time.time()-t0,))
+        print(f"  -> Dedispersed FITS IDI file is '{outname}'")
+        print(f"  Finished in {time.time()-t0:.3f} s")
 
 
 if __name__ == "__main__":
@@ -519,4 +519,3 @@ if __name__ == "__main__":
                         help='force overwriting of existing FITS-IDI files')
     args = parser.parse_args()
     main(args)
-    

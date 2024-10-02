@@ -10,10 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.8', '3.10']
-        include:
-          - os: ubuntu-20.04
-            python-version: '3.6'
+        python-version: ['3.8', '3.10', '3.12']
       fail-fast: false
     steps:
         - name: "Software Install - Ubuntu"
@@ -27,9 +24,10 @@ jobs:
               libfftw3-dev \
               libhdf5-dev \
               libgdbm-dev \
+              libgsl-dev \
               pkg-config \
               tar
-        - uses: actions/setup-python@v2
+        - uses: actions/setup-python@v5.0.0
           with:
             python-version: ${{ matrix.python-version }}
         - uses: actions/checkout@v2
@@ -43,8 +41,7 @@ jobs:
               h5py \
               jinja2 \
               GitPython
-            pip install \
-              git+https://github.com/lwa-project/lsl.git
+            pip install lsl
             pip install \
              pylint
         - name: Test

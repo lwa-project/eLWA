@@ -5,11 +5,12 @@ Utility module for the various scripts needed to correlate LWA and VLA data.
 
 import os
 import re
+import math
 import time
 import ephem
 import errno
 import fcntl
-import numpy
+import numpy as np
 import shutil
 import tempfile
 import subprocess
@@ -25,12 +26,12 @@ from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '1.1'
+__version__ = '1.2'
 __all__ = ['get_numa_node_count', 'get_numa_support', 'get_gpu_count',
            'get_gpu_support', 'InterProcessLock', 'EnhancedFixedBody',
            'EnhancedSun', 'EnhancedJupiter', 'multi_column_print',
-           'parse_time_string', 'nsround', 'read_correlator_configuration',
-           'get_better_time', 'PolyCos']
+           'best_freq_units', 'parse_time_string', 'nsround',
+           'read_correlator_configuration', 'get_better_time', 'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -49,9 +50,8 @@ _srcs = ["ForA,f|J,03:22:41.70,-37:12:30.0,1",
 def get_numa_node_count():
     # Query lscpu
     lscpu = subprocess.Popen(['lscpu',], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, error = lscpu.communicate()
+    output, _ = lscpu.communicate()
     output = output.decode()
-    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes
@@ -67,9 +67,8 @@ def get_numa_support():
     nn = get_numa_node_count()
             
     # Check for the numactl utility
-    with open('/dev/null',  'wb') as devnull:
-        numactl = subprocess.call(['which', 'numactl'], stdout=devnull, stderr=devnull)
-        
+    numactl = subprocess.call(['which', 'numactl'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
     # If we have more than one NUMA node and numactl we are good to go
     status = False
     if numactl == 0 and nn > 1:
@@ -81,9 +80,8 @@ def get_numa_support():
 def get_gpu_count():
     # Query nvidia-smi
     smi = subprocess.Popen(['nvidia-smi', '-q'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, error = smi.communicate()
+    output, _ = smi.communicate()
     output = output.decode()
-    error = error.decode()
     output = output.split('\n')
     
     # Look for the number of NUMA nodes
@@ -116,7 +114,7 @@ def get_gpu_support():
 class InterProcessLock(object):
     def __init__(self, name):
         self.name = name
-        self.fh = open("%s.lock" % self.name, 'w+')
+        self.fh = open(f"{self.name}.lock", 'w+')
         self.locked = False
         
     def __del__(self):
@@ -306,6 +304,41 @@ def multi_column_print(items, sep=';  ', width=86):
         print(out)
 
 
+def best_freq_units(freq):
+    """Given a numpy array of frequencies in Hz, return a new array with the
+    frequencies in the best units possible (kHz, MHz, etc.)."""
+    
+    # Figure out how large the data are
+    try:
+        scale = int(math.log10(max(freq)))
+    except TypeError:
+        scale = int(math.log10(freq))
+    if scale >= 9:
+        divis = 1e9
+        units = 'GHz'
+    elif scale >= 6:
+        divis = 1e6
+        units = 'MHz'
+    elif scale >= 3:
+        divis = 1e3
+        units = 'kHz'
+    elif scale >= 0:
+        divis = 1
+        units = 'Hz'
+    elif scale >= -3:
+        divis = 1e-3
+        units = 'mHz'
+    else:
+        divis = 1e-6
+        units = 'uHz'
+        
+    # Convert the frequency
+    newFreq = freq / divis
+    
+    # Return units and freq
+    return (newFreq, units)
+
+
 _timeRE = re.compile('^[ \t]*(?P<value>[+-]?\d*\.?\d*([Ee][+-]?\d*)?)[ \t]*(?P<unit>(([kmun]?s)|h|m))?[ \t]*$')
 def parse_time_string(value):
     """
@@ -327,7 +360,7 @@ def parse_time_string(value):
     except ValueError:
         mtch = _timeRE.match(value)
         if mtch is None:
-            raise ValueError("Invalid literal for parse_time_string(): %s" % value)
+            raise ValueError(f"Invalid literal for parse_time_string(): {value}")
         value = float(mtch.group('value'))
         unit = mtch.group('unit')
         if unit is not None:
@@ -464,14 +497,14 @@ def _read_correlator_configuration(filename):
                 refSource = srcs[i]
                 break
         if refSource is None:
-            raise ValueError("Unknown source '%s'" % sources[0]['name'])
+            raise ValueError(f"Unknown source '{sources[0]['name']}'")
     refSource.intent = sources[0]['intent']
     refSource.duration = sources[0]['duration']
     try:
         if not os.path.exists(sources[0]['polyco']):
             # Maybe it is relative to the configuration file's path?
             sources[0]['polyco'] = os.path.join(os.path.dirname(filename), sources[0]['polyco'])
-        refSource._polycos = PolyCos(sources[0]['polyco'], psrname=refSource.name.replace('PSR', '').replace('_', ''))
+        refSource._polycos = PolyCos(sources[0]['polyco'], psrname=refSource.name.replace('PSR', '').replace('_', '').replace(' ',''))
     except KeyError:
         pass
         
@@ -508,6 +541,10 @@ def _read_correlator_configuration(filename):
             aid = 51
         elif name.lower() in ('lwasv', 'lwa-sv'):
             aid = 52
+        elif name.lower() in ('lwana', 'lwa-na'):
+            aid = 53
+        elif name.lower() in ('ovrolwa', 'ovro-lwa'):
+            aid = 54
         else:
             for j in range(len(name)):
                 try:
@@ -526,7 +563,7 @@ def _read_correlator_configuration(filename):
         clock_offsets = block['clockOffset']
         
         if aid is None:
-            raise RuntimeError("Cannot convert antenna name '%s' to a number" % name)
+            raise RuntimeError(f"Cannot convert antenna name '{name}' to a number")
             
         stand = stations.Stand(aid, *location)
         try:
@@ -542,6 +579,7 @@ def _read_correlator_configuration(filename):
             else:
                 antenna = stations.Antenna(i, stand=stand, cable=cable, pol=1)
             antenna.apparent_stand = apparent_stand
+            antenna.config_name = name.upper().replace('-', '')
             
             antennas.append( antenna )
             i += 1
@@ -564,13 +602,13 @@ def read_correlator_configuration(filename_or_npz):
     """
     
     # Sort out what to do depending on what we were given
-    if isinstance(filename_or_npz, numpy.lib.npyio.NpzFile):
+    if isinstance(filename_or_npz, np.lib.npyio.NpzFile):
         ## An open .npz file, just work with it
         dataDict = filename_or_npz
         to_close = False
     elif os.path.splitext(filename_or_npz)[1] == '.npz':
         ## A .npz file, open and and then work with it
-        dataDict = numpy.load(filename_or_npz)
+        dataDict = np.load(filename_or_npz)
         to_close = True
     else:
         ## Something else, just try some stuff

@@ -21,19 +21,19 @@ def run_command(cmd, node=None, cwd=None, quiet=False):
         else:
             pcmd = shlex.split(cmd)
     elif cwd is None:
-        pcmd = ['ssh', '-t', '-t', node, 'bash -c "%s"' % cmd]
+        pcmd = ['ssh', '-t', '-t', node, f'bash -c "{cmd}"']
     else:
-        pcmd = ['ssh', '-t', '-t', node, 'bash -c "cd %s && %s"' % (cwd, cmd)]
+        pcmd = ['ssh', '-t', '-t', node, f'bash -c "cd {cwd} && {cmd}"']
         
     outdev = subprocess.PIPE
     if quiet:
-        outdev = open(os.devnull, 'wb')
+        outdev = subprocess.DEVNULL
     p = subprocess.Popen(pcmd, stdout=outdev, stderr=outdev)
     stdout, stderr = p.communicate()
+    stdout = stdout.decode('ascii', errors='ignore')
+    stderr = stderr.decode('ascii', errors='ignore')
     status = p.returncode
-    if quiet:
-        outdev.close()
-        
+    
     return status, stdout, stderr
 
 
@@ -42,7 +42,6 @@ def get_directories(node):
     if status != 0:
         dirnames = []
     else:
-        dirnames = dirnames.decode(encoding='ascii', errors='ignore')
         dirnames = dirnames.split('\n')[:-1]
         dirnames = [dirname.strip().rstrip() for dirname in dirnames]
     return dirnames
@@ -53,25 +52,23 @@ def get_processes(node):
     if status != 0:
         processes = []
     else:
-        processes = processes.decode(encoding='ascii', errors='ignore')
         processes = processes.split('\n')[:-1]
         processes = [process.strip().rstrip() for process in processes]
     return processes
 
 
 def get_directory_contents(node, dirname):
-    status, filenames, errors = run_command('ls -d -1 %s/*' % dirname, node=node)
+    status, filenames, errors = run_command(f"ls -d -1 {dirname}/*", node=node)
     if status != 0:
         filenames = []
     else:
-        filenames = filenames.decode(encoding='ascii', errors='ignore')
         filenames = filenames.split('\n')[:-1]
         filenames = [filename.strip().rstrip() for filename in filenames]
     return filenames
 
 
 def remove_directory(node, dirname):
-    status, _, errors = run_command('rm -rf %s' % dirname, node=node)
+    status, _, errors = run_command(f"rm -rf {dirname}", node=node)
     return True if status == 0 else False
 
 
@@ -139,12 +136,12 @@ def main(args):
             nFiles = status['progress'][dirname]
             if dirname not in status['active']:
                 if nFiles == 0:
-                    print("%s @ %s -> stale and empty" % (node, dirname))
+                    print(f"{node} @ {dirname} -> stale and empty")
                     if not args.dry_run:
                         if remove_directory(node, dirname):
                             print("  removed")
                 else:
-                     print("%s @ %s -> stale and *not* empty" % (node, dirname))
+                     print(f"{node} @ {dirname} -> stale and *not* empty")
 
 
 if __name__ == "__main__":
@@ -159,4 +156,3 @@ if __name__ == "__main__":
                         help='dry run; report but do not clean')
     args = parser.parse_args()
     main(args)
-    

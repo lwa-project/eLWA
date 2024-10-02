@@ -8,7 +8,7 @@ to FITS-IDI files containing eLWA data.
 import os
 import sys
 import time
-import numpy
+import numpy as np
 from astropy.io import fits as astrofits
 import argparse
 from datetime import datetime
@@ -32,7 +32,7 @@ def main(args):
     
     for filename in filenames:
         t0 = time.time()
-        print("Working on '%s'" % os.path.basename(filename))
+        print(f"Working on '{os.path.basename(filename)}'")
         # Open the FITS IDI file and access the UV_DATA extension
         hdulist = astrofits.open(filename, mode='readonly')
         andata = hdulist['ANTENNA']
@@ -45,9 +45,9 @@ def main(args):
         
         # Verify we can flag this data - only linear for now
         if uvdata.header['STK_1'] > -5:
-            raise RuntimeError("Cannot flag data with STK_1 = %i" % uvdata.header['STK_1'])
+            raise RuntimeError(f"Cannot flag data with STK_1 = {uvdata.header['STK_1']}")
         if uvdata.header['NO_STKD'] < 4:
-            raise RuntimeError("Cannot flag data with NO_STKD = %i" % uvdata.header['NO_STKD'])
+            raise RuntimeError(f"Cannot flag data with NO_STKD = {uvdata.header['NO_STKD']}")
             
         # Pull out various bits of information we need to flag the file
         ## Antenna look-up table
@@ -74,29 +74,29 @@ def main(args):
         ## Band information
         fqoffsets = fqdata.data['BANDFREQ'].ravel()
         ## Frequency channels
-        freq = (numpy.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
+        freq = (np.arange(nFreq)-(uvdata.header['CRPIX3']-1))*uvdata.header['CDELT3']
         freq += uvdata.header['CRVAL3']
         ## UVW coordinates
         try:
             u, v, w = uvdata.data['UU'], uvdata.data['VV'], uvdata.data['WW']
         except KeyError:
             u, v, w = uvdata.data['UU---SIN'], uvdata.data['VV---SIN'], uvdata.data['WW---SIN']
-        uvw = numpy.array([u, v, w]).T
+        uvw = np.array([u, v, w]).T
         ## The actual visibility data
-        flux = uvdata.data['FLUX'].astype(numpy.float32)
+        flux = uvdata.data['FLUX'].astype(np.float32)
         
         # Convert the visibilities to something that we can easily work with
         nComp = flux.shape[1] // nBand // nFreq // nStk
         if nComp == 2:
             ## Case 1) - Just real and imaginary data
-            flux = flux.view(numpy.complex64)
+            flux = flux.view(np.complex64)
         else:
             ## Case 2) - Real, imaginary data + weights (drop the weights)
             flux = flux[:,0::nComp] + 1j*flux[:,1::nComp]
         flux.shape = (flux.shape[0], nBand, nFreq, nStk)
         
         # Find unique baselines to work with
-        ubls = numpy.unique(bls)
+        ubls = np.unique(bls)
         nBL = len(ubls)
         
         # Filter the SDM values for what is relevant for this file
@@ -115,7 +115,7 @@ def main(args):
         print("  Scaling")
         for i in range(nBL_Ints):
             if i % 10000 == 0 or i+1 == nBL_Ints:
-                print("    Baseline/integration %i of %i" % (i+1, nBL_Ints))
+                print(f"    Baseline/integration {i+1} of {nBL_Ints}")
                 
             intbl = bls[i]
             ant0, ant1 = sdmLookup[(intbl >> 8) & 0xFF], sdmLookup[intbl & 0xFF]
@@ -177,7 +177,7 @@ def main(args):
                 i1 = 1 if polName[0] == 'X' else 0  ## how LWA1 correlates with the VLA
                 
                 ### From EVLA memo 145
-                scale = numpy.sqrt(diode0[i0]*diode1[i1]/pdiff0[i0]/pdiff1[i1])
+                scale = np.sqrt(diode0[i0]*diode1[i1]/pdiff0[i0]/pdiff1[i1])
                 
                 ### Adjust to keep LWA at about the same level
                 scale /= args.norm     # A fudge factor
@@ -192,15 +192,15 @@ def main(args):
                 flux[i,:,:,pol] *= scale
                 
         # Report
-        scales = numpy.array(scales)
-        print("  Mean scale factor applied is %.6f" % (numpy.mean(scales),))
-        print("  Median scale factor applied is %.6f" % (numpy.median(scales),))
-        print("  Std. dev. scale factor applied is %.6f" % (numpy.std(scales),))
+        scales = np.array(scales)
+        print("  Mean scale factor applied is %.6f" % (np.mean(scales),))
+        print("  Median scale factor applied is %.6f" % (np.median(scales),))
+        print("  Std. dev. scale factor applied is %.6f" % (np.std(scales),))
         if len(not_applied):
             print("  WARNING: amplitude scaling not applied for: %s" % ", ".join([ant.replace('EA', 'LWA0') for ant in not_applied]))
             
         # Build up the mask
-        mask = numpy.where(numpy.isfinite(flux), False, True)
+        mask = np.where(np.isfinite(flux), False, True)
         
         # Convert the masks into a format suitable for writing to a FLAG table
         print("  Building FLAG table")
@@ -227,7 +227,7 @@ def main(args):
         for i in range(nBL):
             ant1, ant2 = (bls[i]>>8)&0xFF, bls[i]&0xFF
             if i % 100 == 0 or i+1 == nBL:
-                print("    Baseline %i of %i" % (i+1, nBL))
+                print(f"    Baseline {i+1} of {nBL}")
                 
             for b,offset in enumerate(fqoffsets):
                 maskXX = mask[:,i,b,:,0]    # pylint: disable=invalid-sequence-index
@@ -259,16 +259,16 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',           array=numpy.array(ants, dtype=numpy.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',           array=numpy.zeros((nFlags,), dtype=numpy.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',           array=numpy.array(times, dtype=numpy.float32))
-        c6 = astrofits.Column(name='BANDS',     format='%iJ' % nBand,  array=numpy.array(bands, dtype=numpy.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',           array=numpy.array(chans, dtype=numpy.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',           array=numpy.array(pols, dtype=numpy.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',          array=numpy.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',           array=numpy.array(sevs, dtype=numpy.int32))
+        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
         colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
         ### The table itself
         flags = astrofits.BinTableHDU.from_columns(colDefs)
@@ -300,7 +300,7 @@ def main(args):
             for hdu in toRemove: 
                 ver = hdu.header['EXTVER'] 
                 del hdulist[hdulist.index(hdu)] 
-                print("  WARNING: removing old FLAG table - version %i" % ver )
+                print(f"  WARNING: removing old FLAG table - version {ver}")
         ## Insert the new table right before UV_DATA 
         hdulist.insert(-1, flags)
         
@@ -309,18 +309,18 @@ def main(args):
         ## What to call it
         outname = os.path.basename(filename)
         outname, outext = os.path.splitext(outname)
-        outname = '%s_scaled%s' % (outname, outext)
+        outname = f"{outname}_scaled{outext}"
         ## Does it already exist or not
         if os.path.exists(outname):
             if not args.force:
-                yn = input("WARNING: '%s' exists, overwrite? [Y/n] " % outname)
+                yn = input(f"WARNING: '{outname}' exists, overwrite? [Y/n] ")
             else:
                 yn = 'y'
                 
             if yn not in ('n', 'N'):
                 os.unlink(outname)
             else:
-                raise RuntimeError("Output file '%s' already exists" % outname)
+                raise RuntimeError(f"Output file '{outname}' already exists")
         ## Open and create a new primary HDU
         hdulist2 = astrofits.open(outname, mode='append')
         primary =   astrofits.PrimaryHDU()
@@ -335,15 +335,15 @@ def main(args):
             else:
                 primary.header[key] = (hdulist[0].header[key], hdulist[0].header.comments[key])
         primary.header['HISTORY'] = 'Amplitude scale with %s, revision $Rev$' % os.path.basename(__file__)
-        primary.header['HISTORY'] = 'Switched power values from %s' % os.path.basename(os.path.abspath(args.sdm))
+        primary.header['HISTORY'] = f"Switched power values from {os.path.basename(os.path.abspath(args.sdm))}"
         hdulist2.append(primary)
         hdulist2.flush()
         ## Copy the extensions over to the new file
         for hdu in hdulist[1:]:
             if hdu.header['EXTNAME'] == 'UV_DATA':
                 ### Updated the UV_DATA table with the dedispersed data
-                flux = numpy.where(numpy.isfinite(flux), flux, 0.0)
-                flux = flux.view(numpy.float32) # pylint: disable=no-member
+                flux = np.where(np.isfinite(flux), flux, 0.0)
+                flux = flux.view(np.float32) # pylint: disable=no-member
                 flux = flux.astype(hdu.data['FLUX'].dtype)
                 flux.shape = hdu.data['FLUX'].shape
                 hdu.data['FLUX'][...] = flux
@@ -352,12 +352,12 @@ def main(args):
             hdulist2.flush()
         hdulist2.close()
         hdulist.close()
-        print("  -> Amplitude scaled FITS IDI file is '%s'" % outname)
+        print(f"  -> Amplitude scaled FITS IDI file is '{outname}'")
         print("  Finished in %.3f s" % (time.time()-t0,))
 
 
 if __name__ == "__main__":
-    numpy.seterr(all='ignore')
+    np.seterr(all='ignore')
     parser = argparse.ArgumentParser(
         description='Amplitude scale FITS-IDI files using the switched power data contained in a VLA SDM', 
         formatter_class=argparse.ArgumentDefaultsHelpFormatter

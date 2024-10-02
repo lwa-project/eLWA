@@ -2,7 +2,7 @@
 
 import os
 import sys
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime
 
@@ -78,7 +78,7 @@ def main(args):
     print(" ")
 
     # Go!
-    data = numpy.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=numpy.complex64)
+    data = np.zeros((beampols, vdif.DATA_LENGTH*nFrames), dtype=np.complex64)
     count = [0 for i in range(data.shape[0])]
     for i in range(beampols*nFrames):
         try:
@@ -95,7 +95,7 @@ def main(args):
         
     # Plot
     nBins = 2**junkFrame.header.bits_per_sample
-    weights = numpy.ones(data.shape[1], dtype=numpy.float32) * 100.0/data.shape[1]
+    weights = np.ones(data.shape[1], dtype=np.float32) * 100.0/data.shape[1]
     
     fig = plt.figure()
     ## X

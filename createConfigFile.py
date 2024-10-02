@@ -10,9 +10,12 @@ import re
 import git
 import sys
 import ephem
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime, timedelta
+
+from astropy import units as astrounits
+from astropy.coordinates import EarthLocation, AltAz, ITRS
 
 from lsl.reader import drx, vdif, errors
 from lsl.common import metabundle, metabundleADP
@@ -22,28 +25,27 @@ from utils import *
 from get_vla_ant_pos import database
 
 
-VLA_ECEF = numpy.array((-1601185.4, -5041977.5, 3554875.9)) 
+VLA_ECEF = np.array((-1601185.4, -5041977.5, 3554875.9)) 
 
 
 ## Derived from the 2018 Feb 28 observations of 3C295 and Virgo A
 ## with LWA1 and EA03/EA01
-LWA1_ECEF = numpy.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
-LWA1_LAT =   34.068956328 * numpy.pi/180
-LWA1_LON = -107.628103026 * numpy.pi/180
-LWA1_ROT = numpy.array([[ numpy.sin(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.sin(LWA1_LAT)*numpy.sin(LWA1_LON), -numpy.cos(LWA1_LAT)], 
-                        [-numpy.sin(LWA1_LON),                     numpy.cos(LWA1_LON),                      0                  ],
-                        [ numpy.cos(LWA1_LAT)*numpy.cos(LWA1_LON), numpy.cos(LWA1_LAT)*numpy.sin(LWA1_LON),  numpy.sin(LWA1_LAT)]])
+LWA1_ECEF = np.array((-1602235.14380825, -5042302.73757814, 3553980.03506238))
 
 ## Derived from the 2018 Feb 23 observations of 3C295 and 3C286
 ## with LWA1 and LWA-SV.  This also includes the shift detailed
 ## above for LWA1
-LWASV_ECEF = numpy.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
-LWASV_LAT =   34.34841153053564 * numpy.pi/180
-LWASV_LON = -106.88582216960029 * numpy.pi/180
-LWASV_ROT = numpy.array([[ numpy.sin(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.sin(LWASV_LAT)*numpy.sin(LWASV_LON), -numpy.cos(LWASV_LAT)], 
-                         [-numpy.sin(LWASV_LON),                      numpy.cos(LWASV_LON),                       0                   ],
-                         [ numpy.cos(LWASV_LAT)*numpy.cos(LWASV_LON), numpy.cos(LWASV_LAT)*numpy.sin(LWASV_LON),  numpy.sin(LWASV_LAT)]])
+LWASV_ECEF = np.array((-1531556.98709475, -5045435.8720832, 3579254.27947458))
 
+## Derived from the center of array position
+## taken from the North Arm Site survey on 
+## 3/16/2015 by van Gulick Surveying. 
+## To be replaced with astronomical calibration 
+## during ongoing station commissioning.
+LWANA_ECEF = np.array((-1599959.5818680217,-5031398.357418212,3570335.8808517447))
+
+## Based on CASA Observatories data added by helpdesk ticket NRAO-32983
+OVROLWA_ECEF = np.array((-2409247.2041188804, -4477889.562214502, 3839327.8281910145))
 
 ## Correlator configuration regexs
 CORR_CHANNELS = re.compile('corrchannels:(?P<channels>\d+)')
@@ -56,6 +58,21 @@ ALT_TARGET = re.compile('alttarget(?P<id>\d+):(?P<target>.*);;')
 ALT_INTENT = re.compile('altintent(?P<id>\d+):(?P<intent>.*);;')
 ALT_RA = re.compile('altra(?P<id>\d+):(?P<ra>\d+(.\d*)?)')
 ALT_DEC = re.compile('altdec(?P<id>\d+):(?P<dec>[-+]?\d+(.\d*)?)')
+
+
+def get_enz_offset(ecef_from, ecef_to):
+    """
+    Given two geocentric positions in m, find the east-north-zenith
+    offset needed to go from the first position to the second.
+    """
+    
+    ecef_from = EarthLocation.from_geocentric(*ecef_from, unit='m')
+    ecef_to = EarthLocation.from_geocentric(*ecef_to, unit='m')
+    aa = AltAz(location=ecef_from.itrs, obstime=ecef_to.itrs.obstime, pressure=0)
+    pd = ecef_to.itrs.transform_to(aa)
+    return np.array([np.sin(pd.az.rad)*np.cos(pd.alt.rad),
+                     np.cos(pd.az.rad)*np.cos(pd.alt.rad),
+                     np.sin(pd.alt.rad)])*pd.distance.to('m').value
 
 
 def main(args):
@@ -75,7 +92,7 @@ def main(args):
     try:
         db = database('params')
     except Exception as e:
-        sys.stderr.write("WARNING: %s" % str(e))
+        sys.stderr.write(f"WARNING: {str(e)}")
         sys.stderr.flush()
         db = None
         
@@ -188,23 +205,31 @@ def main(args):
                 for obsID in fileInfo.keys():
                     metadata[fileInfo[obsID]['tag']] = filename
                     
-                ## Figure out LWA1 vs LWA-SV
-                try:
-                    cs = metabundle.get_command_script(filename)
-                    for c in cs:
-                        if c['subsystem_id'] == 'DP':
+                ## Figure out LWA1 vs LWA-SV vs OVRO-LWA
+                sta = metabundle.get_station(filename)
+                if sta is not None:
+                    sta = EarthLocation.from_geodetic(sta.long*astrounits.rad, sta.lat*astrounits.rad,
+                                                      height=sta.elev*astrounits.m,
+                                                      ellipsoid='WGS84')
+                    site = np.array([sta.x.to('m').value, sta.y.to('m').value, sta.z.to('m').value])
+                else:
+                    try:
+                        sstyle = metabundle.get_style(filename)
+                        if sstyle.endswith('metabundleDP'):
                             site = 'LWA1'
-                            break
-                        elif c['subsystem_id'] == 'ADP':
+                        elif sstyle.endswith('metabundleADP'):
                             site = 'LWA-SV'
-                            break
-                except (RuntimeError, ValueError):
-                    site = 'LWA-SV'
+                        elif sstyle.endswith('metabundleNDP'):
+                            site = 'LWA-NA'
+                        else:
+                            raise ValueError("This should not happen")
+                    except (RuntimeError, ValueError):
+                        site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
             except Exception as e:
-                sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
                 sys.stderr.flush()
                 
     # Setup what we need to write out a configuration file
@@ -232,24 +257,45 @@ def main(args):
                 try:
                     sitename = lwasite[os.path.basename(filename)]
                 except KeyError:
-                    sitename = 'LWA1'
-                    
+                    _, optag = filename.rsplit('_', 1)
+                    if len(optag) > 12:
+                        sitename = 'OVRO-LWA'
+                    else:
+                        sitename = 'LWA1'
+                        
                 ## Get the location so that we can set site-specific parameters
-                if sitename == 'LWA1':
-                    xyz = LWA1_ECEF
-                    off = args.lwa1_offset
-                elif sitename == 'LWA-SV':
-                    xyz = LWASV_ECEF
-                    off = args.lwasv_offset
+                if isinstance(sitename, np.ndarray):
+                    found_site = False
+                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, LWANA_ECEF, OVROLWA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.lwana_offset, args.ovrolwa_offset)):
+                        d = np.sqrt(((sitename - ref_pos)^2).sum())
+                        if d < 200:
+                            found_site = True
+                            xyz = sitename
+                            off = ref_off
+                            break
+                            
+                    if not found_site:
+                        sys.stderr.write(f"WARNING: Unknown LWA site '{sitename}', no clock offset applied")
+                        
                 else:
-                    raise RuntimeError("Unknown LWA site '%s'" % site)
-                    
+                    if sitename == 'LWA1':
+                        xyz = LWA1_ECEF
+                        off = args.lwa1_offset
+                    elif sitename == 'LWA-SV':
+                        xyz = LWASV_ECEF
+                        off = args.lwasv_offset
+                    elif sitename == 'LWA-NA':
+                        xyz = LWANA_ECEF
+                        off = args.lwana_offset
+                    elif sitename == 'OVRO-LWA':
+                        xyz = OVROLWA_ECEF
+                        off = args.ovrolwa_offset
+                    else:
+                        raise RuntimeError(f"Unknown LWA site '{sitename}'")
+                        
                 ## Move into the LWA1 coordinate system
                 ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                enz[1] *= -1
+                enz = get_enz_offset(LWA1_ECEF, xyz)
                 
                 ## Read in the first few frames to get the start time
                 frames = [drx.read_frame(fh) for i in range(1024)]
@@ -267,12 +313,12 @@ def main(args):
                 tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
-                    sys.stderr.write("WARNING: Stale data found at the start of '%s', ignoring\n" % os.path.basename(filename))
+                    sys.stderr.write(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
                     sys.stderr.flush()
                     tStart = tStartAlt
                 ### ^ Adjustment to the start time to deal with occasional problems
                 ###   with stale data in the DR buffers at LWA-SV
-                    
+                
                 ## Read in the last few frames to find the end time
                 fh.seek(os.path.getsize(filename) - 1024*drx.FRAME_SIZE)
                 backed = 0
@@ -304,7 +350,7 @@ def main(args):
                                               'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
                                         
             except Exception as e:
-                sys.stderr.write("ERROR reading DRX file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading DRX file: {str(e)}\n")
                 sys.stderr.flush()
                 
         elif ext == '.vdif':
@@ -333,29 +379,23 @@ def main(args):
                         break
                         
                 ## Find the antenna location
-                pad, edate = db.get_pad('EA%02i' % antID, tStart)
+                pad, edate = db.get_pad(f"EA{antID:02d}", tStart)
                 x,y,z = db.get_xyz(pad, tStart)
                 #print("  Pad: %s" % pad)
                 #print("  VLA relative XYZ: %.3f, %.3f, %.3f" % (x,y,z))
                 
                 ## Move into the LWA1 coordinate system
                 ### relative to ECEF
-                xyz = numpy.array([x,y,z])
+                xyz = np.array([x,y,z])
                 xyz += VLA_ECEF
                 ### ECEF to LWA1
-                rho = xyz - LWA1_ECEF
-                sez = numpy.dot(LWA1_ROT, rho)
-                enz = sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                enz[1] *= -1
+                enz = get_enz_offset(LWA1_ECEF, xyz)
                 
                 ## Set an apparent position if WiDAR is already applying a delay model
                 apparent_enz = (None, None, None)
                 if args.no_vla_delay_model:
                     apparent_xyz = VLA_ECEF
-                    apparent_rho = apparent_xyz - LWA1_ECEF
-                    apparent_sez = numpy.dot(LWA1_ROT, apparent_rho)
-                    apparent_enz = apparent_sez[[1,0,2]]  # pylint: disable=invalid-sequence-index
-                    apparent_enz[1] *= -1
+                    apparent_enz = get_enz_offset(LWA1_ECEF, apparent_xyz)
                     
                 ## VLA time offset
                 off = args.vla_offset
@@ -381,7 +421,7 @@ def main(args):
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
-                sys.stderr.write("ERROR reading VDIF file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading VDIF file: {str(e)}\n")
                 sys.stderr.flush()
                 
         elif ext == '.tgz':
@@ -393,7 +433,7 @@ def main(args):
                     metadata[fileInfo[obsID]['tag']] = filename
                     
             except Exception as e:
-                sys.stderr.write("ERROR reading metadata file: %s\n" % str(e))
+                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
                 sys.stderr.flush()
                 
         # Done
@@ -441,10 +481,10 @@ def main(args):
     for cinp in toPurge:
         del corrConfig['inputs'][corrConfig['inputs'].index(cinp)]
         
-    # Sort the inputs based on the antenna name - this puts LWA1 first, 
-    # LWA-SV second, and the VLA at the end in 'EA' antenna order, i.e., 
-    # EA01, EA02, etc.
-    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else int(x['antenna'][2:], 10)))
+    # Sort the inputs based on the antenna name - this puts LWA1 first, LWA-SV
+    # second, LWA-NA third, OVRO-LWA fourth, and the VLA at the end in 'EA'
+    # antenna order, i.e., EA01, EA02, etc.
+    corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else (3 if x['antenna'] == 'OVRO-LWA' else int(x['antenna'][2:], 10)))))
     
     # VDIF/DRX warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
@@ -459,7 +499,7 @@ def main(args):
             antCounts[cinp['antenna']] = 1
     for ant in antCounts.keys():
         if antCounts[ant] != 1:
-            sys.stderr.write("WARNING: Antenna '%s' is defined %i times" % (ant, antCounts[ant]))
+            sys.stderr.write(f"WARNING: Antenna '{ant}' is defined {antCounts[ant]} times")
             
     # Update the file offsets to get things lined up better
     tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
@@ -652,12 +692,15 @@ if __name__ == "__main__":
                         help='LWA1 clock offset')
     parser.add_argument('-s', '--lwasv-offset', type=time_string, default='0.0', 
                         help='LWA-SV clock offset')
+    parser.add_argument('-a', '--lwana-offset', type=time_string, default='0.0',
+                        help='LWA-NA clock offset')
+    parser.add_argument('-r', '--ovrolwa-offset', type=time_string, default='0.0', 
+                        help='OVRO-LWA clock offset')
     parser.add_argument('-v', '--vla-offset', type=time_string, default='0.0',
                         help='VLA clock offset')
-    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-numpy.inf,
+    parser.add_argument('-m', '--minimum-scan-length', type=float, default=-np.inf,
                         help='minimum scan length in seconds to write a configuration file for')
     parser.add_argument('-o', '--output', type=str, 
                         help='write the configuration to the specified file')
     args = parser.parse_args()
     main(args)
-    

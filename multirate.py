@@ -4,10 +4,10 @@ different sample rates.
 """
 
 import ephem
-import numpy
+import numpy as np
 
 from astropy.constants import c as vLight
-from astropy.coordinates import AltAz as AstroAltAz
+from astropy.coordinates import AltAz, SkyCoord
 
 from lsl.common import dp as dp_common
 from lsl.correlator import _core
@@ -40,42 +40,45 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     # Create a reasonable mock setup for computing the delays
     if sample_rate is None:
         sample_rate = dp_common.fS
-    freq = numpy.fft.fftfreq(LFFT, d=1.0/sample_rate)
+    freq = np.fft.fftfreq(LFFT, d=1.0/sample_rate)
     freq += float(central_freq)
-    freq = numpy.fft.fftshift(freq)
+    freq = np.fft.fftshift(freq)
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
     if phase_center == 'z':
         azPC = 0.0
-        elPC = numpy.pi/2.0
+        elPC = np.pi/2.0
     else:
-        if isinstance(phase_center, ephem.Body):
-            azPC = phase_center.az * 1.0
-            elPC = phase_center.alt * 1.0
-        elif isinstance(phase_center, AstroAltAz):
+        if isinstance(phase_center, AltAz):
             azPC = phase_center.az.radian
             elPC = phase_center.alt.radian
+        elif isinstance(phase_center, SkyCoord) and isinstance(phase_center.frame, AltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
+        elif isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phase_center[0]*numpy.pi/180.0
-            elPC = phase_center[1]*numpy.pi/180.0
+            azPC = phase_center[0]*np.pi/180.0
+            elPC = phase_center[1]*np.pi/180.0
             
-    source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
-                    numpy.cos(elPC)*numpy.cos(azPC), 
-                    numpy.sin(elPC)])
-                    
+    source = np.array([np.cos(elPC)*np.sin(azPC), 
+                       np.cos(elPC)*np.cos(azPC), 
+                       np.sin(elPC)])
+    
     # Define the cable/signal delay caches to help correlate along and compute 
     # the delays that we need to apply to align the signals
     dlyRef = len(freq)//2
-    delays1 = numpy.zeros((nStands,LFFT))
+    delays1 = np.zeros((nStands,LFFT))
     for i in list(range(nStands)):
-        xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+        xyz1 = np.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
         
-        delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight
+        delays1[i,:] = antennas1[i].cable.delay(freq) - np.dot(source, xyz1) / vLight
     minDelay = delays1[:,dlyRef].min()
     
     # Round to the next lowest 5 us, negate, and return
-    minDelay = numpy.floor( minDelay / 5e-6) * 5e-6
+    minDelay = np.floor( minDelay / 5e-6) * 5e-6
     return -minDelay
 
 
@@ -111,45 +114,48 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
         
     if sample_rate is None:
         sample_rate = dp_common.fS
-    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
+    freq = np.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
-        freq = numpy.fft.fftshift(freq)
+        freq = np.fft.fftshift(freq)
     freq = freq[:LFFT]
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
     if phase_center == 'z':
         azPC = 0.0
-        elPC = numpy.pi/2.0
+        elPC = np.pi/2.0
     else:
-        if isinstance(phase_center, ephem.Body):
-            azPC = phase_center.az * 1.0
-            elPC = phase_center.alt * 1.0
-        elif isinstance(phase_center, AstroAltAz):
+        if isinstance(phase_center, AltAz):
             azPC = phase_center.az.radian
             elPC = phase_center.alt.radian
+        elif isinstance(phase_center, SkyCoord) and isinstance(phase_center.frame, AltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
+        elif isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phase_center[0]*numpy.pi/180.0
-            elPC = phase_center[1]*numpy.pi/180.0
+            azPC = phase_center[0]*np.pi/180.0
+            elPC = phase_center[1]*np.pi/180.0
             
-    source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
-                    numpy.cos(elPC)*numpy.cos(azPC), 
-                    numpy.sin(elPC)])
-                    
+    source = np.array([np.cos(elPC)*np.sin(azPC), 
+                       np.cos(elPC)*np.cos(azPC), 
+                       np.sin(elPC)])
+            
     # Define the cable/signal delay caches to help correlate along and compute 
     # the delays that we need to apply to align the signals
     dlyRef = len(freq)//2
-    delays1 = numpy.zeros((nStands,LFFT))
+    delays1 = np.zeros((nStands,LFFT))
     for i in list(range(nStands)):
         try:
-            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+            xyz1 = np.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
         except AttributeError:
-            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            xyz1 = np.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
             
-        delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
+        delays1[i,:] = antennas1[i].cable.delay(freq) - np.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
-        raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))
+        raise RuntimeError(f"Minimum data stream delay is negative: {minDelay*1e6:.3f} us")
         
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:
@@ -192,45 +198,48 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose
         
     if sample_rate is None:
         sample_rate = dp_common.fS
-    freq = numpy.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
+    freq = np.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
-        freq = numpy.fft.fftshift(freq)
+        freq = np.fft.fftshift(freq)
     freq = freq[:LFFT]
     
     # Get the location of the phase center in radians and create a 
     # pointing vector
     if phase_center == 'z':
         azPC = 0.0
-        elPC = numpy.pi/2.0
+        elPC = np.pi/2.0
     else:
-        if isinstance(phase_center, ephem.Body):
-            azPC = phase_center.az * 1.0
-            elPC = phase_center.alt * 1.0
-        elif isinstance(phase_center, AstroAltAz):
+        if isinstance(phase_center, AltAz):
             azPC = phase_center.az.radian
             elPC = phase_center.alt.radian
+        elif isinstance(phase_center, SkyCoord) and isinstance(phase_center.frame, AltAz):
+            azPC = phase_center.az.radian
+            elPC = phase_center.alt.radian
+        elif isinstance(phase_center, ephem.Body):
+            azPC = phase_center.az * 1.0
+            elPC = phase_center.alt * 1.0
         else:
-            azPC = phase_center[0]*numpy.pi/180.0
-            elPC = phase_center[1]*numpy.pi/180.0
+            azPC = phase_center[0]*np.pi/180.0
+            elPC = phase_center[1]*np.pi/180.0
             
-    source = numpy.array([numpy.cos(elPC)*numpy.sin(azPC), 
-                    numpy.cos(elPC)*numpy.cos(azPC), 
-                    numpy.sin(elPC)])
-                    
+    source = np.array([np.cos(elPC)*np.sin(azPC), 
+                       np.cos(elPC)*np.cos(azPC), 
+                       np.sin(elPC)])
+        
     # Define the cable/signal delay caches to help correlate along and compute 
     # the delays that we need to apply to align the signals
     dlyRef = len(freq)//2
-    delays1 = numpy.zeros((nStands,LFFT))
+    delays1 = np.zeros((nStands,LFFT))
     for i in list(range(nStands)):
         try:
-            xyz1 = numpy.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
+            xyz1 = np.array([antennas1[i].apparent_stand.x, antennas1[i].apparent_stand.y, antennas1[i].apparent_stand.z])
         except AttributeError:
-            xyz1 = numpy.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
+            xyz1 = np.array([antennas1[i].stand.x, antennas1[i].stand.y, antennas1[i].stand.z])
             
-        delays1[i,:] = antennas1[i].cable.delay(freq) - numpy.dot(source, xyz1) / vLight + delayPadding
+        delays1[i,:] = antennas1[i].cable.delay(freq) - np.dot(source, xyz1) / vLight + delayPadding
     minDelay = delays1[:,dlyRef].min()
     if minDelay < 0:
-        raise RuntimeError('Minimum data stream delay is negative: %.3f us' % (minDelay*1e6,))
+        raise RuntimeError(f"Minimum data stream delay is negative: {minDelay*1e6:.3f} us")
         
     # F - defaults to running parallel in C via OpenMP
     if len(signalsIndex1) != signals.shape[0]:

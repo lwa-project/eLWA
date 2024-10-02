@@ -9,7 +9,7 @@ import os
 import sys
 import h5py
 import math
-import numpy
+import numpy as np
 import argparse
 from datetime import datetime
 
@@ -143,10 +143,8 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         else:
             pass
     fh.seek(-4*vdif.FRAME_SIZE, 1)
-    freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    freq = np.fft.fftshift(np.fft.fftfreq(LFFT, d=2/srate))
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
@@ -154,7 +152,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -174,7 +172,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = framesRemaining
             
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
+        data = np.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=np.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
@@ -202,7 +200,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=possibly-used-before-assignment,used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -339,10 +337,8 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         else:
             pass
     fh.seek(-4*vdif.FRAME_SIZE, 1)
-    freq = numpy.fft.fftshift(numpy.fft.fftfreq(LFFT, d=2/srate))
-    if float(fxc.__version__) < 0.8:
-        freq = freq[1:]
-        
+    freq = np.fft.fftshift(np.fft.fftfreq(LFFT, d=2/srate))
+    
     dataSets['obs%i-freq1' % obsID][:] = freq + central_freq1
     dataSets['obs%i-freq2' % obsID][:] = freq + central_freq2
     
@@ -350,7 +346,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     obs.attrs['tInt'] = args.average
     obs.attrs['tInt_Unit'] = 's'
     obs.attrs['LFFT'] = LFFT
-    obs.attrs['nchan'] = LFFT-1 if float(fxc.__version__) < 0.8 else LFFT
+    obs.attrs['nchan'] = LFFT
     obs.attrs['RBW'] = freq[1]-freq[0]
     obs.attrs['RBW_Units'] = 'Hz'
     
@@ -370,7 +366,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             framesWork = framesRemaining
             
         count = {0:0, 1:0, 2:0, 3:0}
-        data = numpy.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=numpy.csingle)
+        data = np.zeros((4,framesWork*vdif.DATA_LENGTH//beampols), dtype=np.csingle)
         # If there are fewer frames than we need to fill an FFT, skip this chunk
         if data.shape[1] < LFFT:
             break
@@ -398,7 +394,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 raise RuntimeError("Invalid Shape")
                 
         # Save out some easy stuff
-        dataSets['obs%i-time' % obsID][i] = float(cTime)
+        dataSets['obs%i-time' % obsID][i] = float(cTime)        # pylint: disable=possibly-used-before-assignment,used-before-assignment
         
         if not args.without_sats:
             sats = ((data.real**2 + data.imag**2) >= 49).sum(axis=1)
@@ -450,11 +446,11 @@ def main(args):
     # Length of the FFT
     LFFT = args.fft_length
     if args.bartlett:
-        window = numpy.bartlett
+        window = np.bartlett
     elif args.blackman:
-        window = numpy.blackman
+        window = np.blackman
     elif args.hanning:
-        window = numpy.hanning
+        window = np.hanning
     else:
         window = fxc.null_window
     args.window = window
@@ -617,14 +613,14 @@ def main(args):
         else:
             raise RuntimeError("Output file '%s' already exists" % outname)
             
-    f = hdfData.createNewFile(outname)
+    f = hdfData.create_new_file(outname)
     
     # Look at the metadata and come up with a list of observations.  If 
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
     obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
-    hdfData.fillMinimum(f, 1, beam, srate)
+    hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):
         data_products = ['XX', 'YY']
@@ -633,7 +629,7 @@ def main(args):
         
     for o in sorted(obsList.keys()):
         for t in (1,2):
-            hdfData.createDataSets(f, o, t, numpy.arange(LFFT-1 if float(fxc.__version__) < 0.8 else LFFT, dtype=numpy.float32), int(round(obsList[o][2]/args.average)), data_products)
+            hdfData.create_observation_set(f, o, t, np.arange(LFFT, dtype=np.float32), int(round(obsList[o][2]/args.average)), data_products)
             
     f.attrs['FileGenerator'] = 'hdfWaterfall.py'
     f.attrs['InputData'] = os.path.basename(filename)
@@ -641,7 +637,7 @@ def main(args):
     # Create the various HDF group holders
     ds = {}
     for o in sorted(obsList.keys()):
-        obs = hdfData.getObservationSet(f, o)
+        obs = hdfData.get_observation_set(f, o)
         
         ds['obs%i' % o] = obs
         ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
