@@ -50,7 +50,7 @@ class database(object):
         return True""")
             
         # Raw data
-       if not os.path.exists(_RAW):
+        if not os.path.exists(_RAW):
             download_file(f"https://fornax.phys.unm.edu/lwa/data/{_RAW}", _RAW)
             subprocess.check_call(['tar', 'xzf', _RAW])
             
