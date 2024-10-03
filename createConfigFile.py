@@ -266,12 +266,13 @@ def main(args):
                 ## Get the location so that we can set site-specific parameters
                 if isinstance(sitename, np.ndarray):
                     found_site = False
-                    for ref_pos,ref_off in zip((LWA1_ECEF, LWASV_ECEF, LWANA_ECEF, OVROLWA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.lwana_offset, args.ovrolwa_offset)):
-                        d = np.sqrt(((sitename - ref_pos)^2).sum())
+                    for ref_name,ref_pos,ref_off in zip(('LWA1', 'LWA-SV', 'LWA-NA', 'OVRO-LWA'), (LWA1_ECEF, LWASV_ECEF, LWANA_ECEF, OVROLWA_ECEF), (args.lwa1_offset, args.lwasv_offset, args.lwana_offset, args.ovrolwa_offset)):
+                        d = np.sqrt(((sitename - ref_pos)**2).sum())
                         if d < 200:
                             found_site = True
                             xyz = sitename
                             off = ref_off
+                            sitename = ref_name
                             break
                             
                     if not found_site:
