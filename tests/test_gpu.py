@@ -12,6 +12,8 @@ import numpy
 from astropy.io import fits as astrofits
 import subprocess
 
+from lsl.common.data_access import download_file
+
 _RAW = 'eLWA_test_raw.tar.gz'
 _REF = 'eLWA_test_ref.tar.gz'
 
@@ -48,10 +50,8 @@ class database(object):
         return True""")
             
         # Raw data
-        if not os.path.exists(_RAW):
-            subprocess.check_call(['curl',
-                                   'https://fornax.phys.unm.edu/lwa/data/%s' % _RAW,
-                                   '-o', _RAW])
+       if not os.path.exists(_RAW):
+            download_file(f"https://fornax.phys.unm.edu/lwa/data/{_RAW}", _RAW)
             subprocess.check_call(['tar', 'xzf', _RAW])
             
         # Other variables
