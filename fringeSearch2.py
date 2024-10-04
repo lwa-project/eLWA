@@ -67,12 +67,18 @@ def main(args):
             try:
                 pair[0] = int(pair[0], 10)
             except ValueError:
-                pair[0] = antLookup[pair[0]]
+                try:
+                    pair[0] = antLookup[pair[0]]
+                except KeyError:
+                    continue
             try:
                 pair[1] = int(pair[1], 10)
             except ValueError:
-                pair[1] = antLookup[pair[1]]
-                
+                try:
+                    pair[1] = antLookup[pair[1]]
+                except KeyError:
+                    continue
+                    
             ## Fill the baseline list with the conjugates, if needed
             newBaselines.append(tuple(pair))
             newBaselines.append((pair[1], pair[0]))
