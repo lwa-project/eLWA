@@ -119,7 +119,7 @@ def main(args):
                 raise RuntimeError("Cannot file reference antenna %s in the data" % args.ref_ant)
                 
         # Process the baseline list
-        if args.baseline is not None:
+        if isinstance(args.baseline, str):
             newBaselines = []
             for bl in args.baseline.split(','):
                 ## Split and sort out antenna number vs. name
