@@ -201,7 +201,7 @@ def main(args):
                 for b,v in enumerate(band):
                     if not v:
                         continue
-                    mask[btmask,b,cStart-1:cStop,:] |= pol
+                    mask[btmask,b*nFreq+cStart-1:b*nFreq+cStop,:] |= pol
                     
         plot_bls = []
         cross = []
