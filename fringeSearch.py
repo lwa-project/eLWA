@@ -37,6 +37,7 @@ def main(args):
     
     dataDict = np.load(filenames[0])
     tInt = dataDict['tInt']
+    freq = dataDict['freq1']
     nBL, nchan = dataDict['vis1XX'].shape
     
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
