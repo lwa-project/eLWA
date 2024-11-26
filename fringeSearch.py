@@ -39,6 +39,7 @@ def main(args):
     tInt = dataDict['tInt']
     freq = dataDict['freq1']
     nBL, nchan = dataDict['vis1XX'].shape
+    freq = dataDict['freq1']
     
     junk0, refSrc, junk1, junk2, junk3, junk4, antennas = read_correlator_configuration(dataDict)
     antLookup = {ant.config_name: ant.stand.id for ant in antennas}
