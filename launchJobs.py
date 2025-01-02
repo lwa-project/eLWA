@@ -204,7 +204,16 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     # Gather the results
     if resultsDir is None:
         resultsDir = os.path.dirname(__file__)
-    code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.npz {resultsDir}", quiet=True)
+    tcode, toutput = run_command(f"cat {cwd}/*.log | tail -n100", node=node, return_output=True)
+    code += tcode
+    nint = 0
+    for line in toutput.split('\n'):
+        if line.find('writing integration') != -1:
+            _, nint = line.split('writing integration', 1)
+            nint, _ = nint.split('to disk', 1)
+            nint = ((int(nint) - 1) // 10000 + 1)*10000
+    for vs in range(nint//10000):
+        code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*-vis2-{vs}*.npz {resultsDir}", quiet=True)
     code += run_command(f"rsync -e ssh -avH {node}:{cwd}/*.log {resultsDir}", quiet=True)
     if code != 0:
         print(f"WARNING: failed to sync results on {node} - {os.path.basename(configfile)}")
