@@ -362,7 +362,7 @@ def main(args):
     tFinish = time.time()
     tElapsed = tFinish - tStart
     
-    h = int(tElapsed / 60.0) / 60
+    h = int(tElapsed / 60.0) // 60
     m = int(tElapsed / 60.0) % 60
     s = tElapsed % 60.0
     
