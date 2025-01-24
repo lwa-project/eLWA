@@ -311,7 +311,11 @@ def main(args):
             smth[i] = np.median(spec[mn:mx])
         smth /= robust.mean(smth)
         bp = spec / smth
-        good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+        try:
+            good = np.where( (smth > 0.1) & (np.abs(bp-robust.mean(bp)) < 3*robust.std(bp)) )[0]
+        except ValueError:
+            # Fall back to NumPy
+            good = np.where( (smth > 0.1) & (np.abs(bp-np.mean(bp)) < 3*np.std(bp)) )[0]
         nBad = nBand*nFreq - len(good)
         print(f"Masking {nBad} of {nBand*nFreq} channels ({100.0*nBad/nBand/nFreq:.1f}%)")
         
