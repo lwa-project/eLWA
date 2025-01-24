@@ -86,13 +86,13 @@ def run_command(cmd, node=None, socket=None, cwd=None, return_output=False, quie
     if return_output:
         OUT = subprocess.PIPE
         ERR = subprocess.PIPE
-    p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR)
+    if cmd.find('rsync') != -1:
+        ERR = None
+    p = subprocess.Popen(pcmd, stdout=OUT, stderr=ERR, text=True)
     output, err = p.communicate()
     status = p.returncode
     
     if return_output:
-        output = output.decode('ascii', errors='ignore')
-        err = err.decode('ascii', errors='ignore')
         status = (status, output)
         
     return status
