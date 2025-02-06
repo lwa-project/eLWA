@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from astropy import units as astrounits
 from astropy.coordinates import EarthLocation, AltAz, ITRS
 
-from lsl.reader import drx, vdif, errors
+from lsl.reader import drx, drx8, vdif, errors
 from lsl.common import metabundle, metabundleADP
 from lsl.common.mcs import mjdmpm_to_datetime
 
@@ -251,7 +251,7 @@ def main(args):
         # Figure out what to do with the file
         ext = os.path.splitext(filename)[1]
         if ext == '':
-            ## DRX
+            ## DRX/DRX8
             try:
                 ## Get the site
                 try:
@@ -299,7 +299,13 @@ def main(args):
                 enz = get_enz_offset(LWA1_ECEF, xyz)
                 
                 ## Read in the first few frames to get the start time
-                frames = [drx.read_frame(fh) for i in range(1024)]
+                try:
+                    is_drx8 = False
+                    frames = [rdr.read_frame(fh) for i in range(1024)]
+                except:
+                    fh.seek(-drx.FRAME_SIZE, 1)
+                    rdr = drx8
+                    frames = [rdr.read_frame(fh) for i in range(1024)]
                 streams = []
                 freq1, freq2 = 0.0, 0.0
                 for frame in frames:
@@ -321,19 +327,19 @@ def main(args):
                 ###   with stale data in the DR buffers at LWA-SV
                 
                 ## Read in the last few frames to find the end time
-                fh.seek(os.path.getsize(filename) - 1024*drx.FRAME_SIZE)
+                fh.seek(os.path.getsize(filename) - 1024*rdr.FRAME_SIZE)
                 backed = 0
-                while backed < 2*drx.FRAME_SIZE:
+                while backed < 2*rdr.FRAME_SIZE:
                     try:
-                        drx.read_frame(fh)
-                        fh.seek(-drx.FRAME_SIZE, 1)
+                        rdr.read_frame(fh)
+                        fh.seek(-rdr.FRAME_SIZE, 1)
                         break
                     except errors.SyncError:
                         backed += 1
-                        fh.seek(-drx.FRAME_SIZE-1, 1)
+                        fh.seek(-rdr.FRAME_SIZE-1, 1)
                 for i in range(32):
                     try:
-                        frame = drx.read_frame(fh)
+                        frame = rdr.read_frame(fh)
                         beam, tune, _ = frame.id
                         if tune == 1:
                             freq1 = frame.central_freq
@@ -344,14 +350,14 @@ def main(args):
                 tStop = frame.time.datetime
                 
                 ## Save
-                corrConfig['inputs'].append( {'file': filename, 'type': 'DRX', 
+                corrConfig['inputs'].append( {'file': filename, 'type': 'DRX' if rdr == drx else 'DRX8', 
                                               'antenna': sitename, 'pols': 'X, Y', 
                                               'location': (enz[0], enz[1], enz[2]), 
                                               'clockoffset': (off, off), 'fileoffset': 0, 
                                               'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
                                         
             except Exception as e:
-                sys.stderr.write(f"ERROR reading DRX file: {str(e)}\n")
+                sys.stderr.write(f"ERROR reading DRX/DRX8 file: {str(e)}\n")
                 sys.stderr.flush()
                 
         elif ext == '.vdif':
@@ -447,27 +453,27 @@ def main(args):
         pass
         
     # Choose a VDIF reference file, if there is one, and mark whether or 
-    # not DRX files were found
+    # not DRX/DRX8 files were found
     vdifRefFile = None
     isDRX = False
     for cinp in corrConfig['inputs']:
         if cinp['type'] == 'VDIF':
             if vdifRefFile is None:
                 vdifRefFile = cinp
-        elif cinp['type'] == 'DRX':
+        elif cinp['type'] in ('DRX', 'DRX8'):
                 isDRX = True
             
     # Set a state variable so that we can generate a warning about missing
-    # DRX files
+    # DRX/DRX8 files
     drxFound = False
     
-    # Purge DRX files that don't make sense
+    # Purge DRX/DRX8 files that don't make sense
     toPurge = []
     drxFound = False
     lwasvFound = False
     for cinp in corrConfig['inputs']:
-        ### Sort out multiple DRX files - this only works if we have only one LWA station
-        if cinp['type'] == 'DRX':
+        ### Sort out multiple DRX/DRX8 files - this only works if we have only one LWA station
+        if cinp['type'] in ('DRX', 'DRX8'):
             if vdifRefFile is not None:
                 l0, l1 = cinp['tstart'], cinp['tstop']
                 v0, v1 = vdifRefFile['tstart'], vdifRefFile['tstop']
@@ -487,9 +493,9 @@ def main(args):
     # antenna order, i.e., EA01, EA02, etc.
     corrConfig['inputs'].sort(key=lambda x: 0 if x['antenna'] == 'LWA1' else (1 if x['antenna'] == 'LWA-SV' else (2 if x['antenna'] == 'LWA-NA' else (3 if x['antenna'] == 'OVRO-LWA' else int(x['antenna'][2:], 10)))))
     
-    # VDIF/DRX warning check/report
+    # VDIF/DRX/DRX8 warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
-        sys.stderr.write("WARNING: DRX files provided but none overlapped with VDIF data")
+        sys.stderr.write("WARNING: DRX/DRX8 files provided but none overlapped with VDIF data")
         
     # Duplicate antenna check
     antCounts = {}
@@ -634,7 +640,7 @@ def main(args):
                 metaname = metadata[os.path.basename(cinp['file'])]
                 fh.write("  MetaData         %s\n" % metaname)
             except KeyError:
-                if cinp['type'] == 'DRX':
+                if cinp['type'] in ('DRX', 'DRX8'):
                     sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(cinp['file']), s+1))
                     sys.stderr.flush()
                 pass

@@ -25,9 +25,9 @@ from lsl.correlator import fx as fxc
 from lsl.writer import fitsidi
 from lsl.correlator.uvutils import compute_uvw
 
-from lsl.reader import drx, vdif, errors
+from lsl.reader import drx, drx8, vdif, errors
 from lsl.reader.base import FrameTimestamp
-from lsl.reader.buffer import DRXFrameBuffer, VDIFFrameBuffer
+from lsl.reader.buffer import DRXFrameBuffer, DRX8FrameBuffer, VDIFFrameBuffer
 from lsl.reader.base import CI8
 
 from lsl.misc.dedispersion import delay as dispDelay
@@ -107,7 +107,7 @@ def main(args):
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
-        elif readers[i] is drx:
+        elif readers[i] in (drx, drx8):
             junkFrame = readers[i].read_frame(fh[i])
             while junkFrame.header.decimation == 0:
                 junkFrame = readers[i].read_frame(fh[i])
@@ -121,7 +121,7 @@ def main(args):
         if readers[i] is vdif:
             tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
-        elif readers[i] is drx:
+        elif readers[i] is (drx, drx8):
             beampols.append( max(readers[i].get_frames_per_obs(fh[i])) )
             
         skip = args.skip + foffset
@@ -152,7 +152,7 @@ def main(args):
                     cFreq1 = junkFrame.central_freq
                 else:
                     pass
-            elif readers[i] is drx:
+            elif readers[i] in (drx, drx8):
                 junkFrame = readers[i].read_frame(fh[i])
                 b,t,p = junkFrame.id
                 if p == 0:
@@ -174,6 +174,8 @@ def main(args):
             buffers.append( VDIFFrameBuffer(threads=[0,1]) )
         elif readers[i] is drx:
             buffers.append( DRXFrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
+        elif readers[i] is drx8:
+            buffers.append( DRX8FrameBuffer(beams=[beam,], tunes=[1,2], pols=[0,1], nsegments=16) )
     for i in range(len(filenames)):
         # Align the files as close as possible by the time tags
         if readers[i] is vdif:
@@ -190,7 +192,7 @@ def main(args):
             
             nFramesFile[i] -= j
             
-        elif readers[i] is drx:
+        elif readers[i] in (drx, drx8):
             pass
             
         # Align the files as close as possible by the time tags
@@ -282,8 +284,8 @@ def main(args):
     print(" ")
     
     nVDIFInputs = sum([1 for reader in readers if reader is vdif])
-    nDRXInputs = sum([1 for reader in readers if reader is drx])
-    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX input streams")
+    nDRXInputs = sum([1 for reader in readers if reader in (drx, drx8)])
+    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX/DRX8 input streams")
     print(" ")
     
     nFramesV = int(round(tRead*srate[0]/readers[0].DATA_LENGTH))
@@ -458,7 +460,7 @@ def main(args):
                             dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                             k += 1
                             
-                elif readers[j] is drx:
+                elif readers[j] in (drx, drx8):
                     ## DRX
                     k = 0
                     while k < beampols[j]*nFramesD:
@@ -466,7 +468,7 @@ def main(args):
                             cFrame = readers[j].read_frame_ci8(f)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
-                            print(f"Error - DRX @ {i}, {j}")
+                            print(f"Error - {'DRX' if readers[j] is drx else 'DRX8'} @ {i}, {j}")
                             continue
                         except errors.EOFError:
                             done = True

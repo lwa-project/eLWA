@@ -9,7 +9,7 @@ from datetime import datetime
 
 from lsl.common import stations
 from lsl.correlator import uvutils
-from lsl.reader import drx, vdif
+from lsl.reader import drx, drx8, vdif
 
 from utils import *
 
@@ -70,7 +70,7 @@ def main(args):
     print("Antennas:")
     print("  Total: %i" % len(readers))
     print("  VDIF: %i" % sum([1 for rdr in readers if rdr is vdif]))
-    print("  DRX: %i" % sum([1 for rdr in readers if rdr is drx]))
+    print("  DRX/DRX8: %i" % sum([1 for rdr in readers if rdr in (drx, drx8)]))
     print("Baselines:")
     print("  Total: %i" % (uvw.shape[0]*uvw.shape[1]))
     ## Minimum basline length
