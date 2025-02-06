@@ -300,9 +300,11 @@ def main(args):
                 
                 ## Read in the first few frames to get the start time
                 try:
+                    ### Assume it's normal DRX
                     is_drx8 = False
                     frames = [rdr.read_frame(fh) for i in range(1024)]
-                except:
+                except errors.SyncError:
+                    ### Nope, it's DRX8
                     fh.seek(-drx.FRAME_SIZE, 1)
                     rdr = drx8
                     frames = [rdr.read_frame(fh) for i in range(1024)]
