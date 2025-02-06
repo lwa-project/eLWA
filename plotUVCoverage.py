@@ -70,7 +70,7 @@ def main(args):
     print("Antennas:")
     print("  Total: %i" % len(readers))
     print("  VDIF: %i" % sum([1 for rdr in readers if rdr is vdif]))
-    print("  DRX/DRX8: %i" % sum([1 for rdr in readers if rdr in (drx, drx8)]))
+    print("  DRX: %i" % sum([1 for rdr in readers if not rdr is vdif]))
     print("Baselines:")
     print("  Total: %i" % (uvw.shape[0]*uvw.shape[1]))
     ## Minimum basline length
