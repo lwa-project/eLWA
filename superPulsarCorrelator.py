@@ -167,7 +167,7 @@ def main(args):
         try:
             bitDepths.append( junkFrame.header.bits_per_sample )
         except AttributeError:
-            bitDepths.append( 8 )
+            bitDepths.append( 8 if readers[i] is drx else 16 )
             
         # Setup the frame buffers
         if readers[i] is vdif:
