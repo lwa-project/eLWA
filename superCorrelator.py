@@ -100,7 +100,7 @@ def main(args):
             junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             readers[i].DATA_LENGTH = junkFrame.payload.data.size
             beam, pol = junkFrame.id
-        elif readers[i] in (drx, drx8):
+        else:
             junkFrame = readers[i].read_frame(fh[i])
             while junkFrame.header.decimation == 0:
                 junkFrame = readers[i].read_frame(fh[i])
@@ -114,7 +114,7 @@ def main(args):
         if readers[i] is vdif:
             tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
-        elif readers[i] in (drx, drx8):
+        else:
             beampols.append( max(readers[i].get_frames_per_obs(fh[i])) )
             
         skip = args.skip + foffset
@@ -145,7 +145,7 @@ def main(args):
                     cFreq1 = junkFrame.central_freq
                 else:
                     pass
-            elif readers[i] in (drx, drx8):
+            else:
                 junkFrame = readers[i].read_frame(fh[i])
                 b,t,p = junkFrame.id
                 if p == 0:
@@ -185,7 +185,7 @@ def main(args):
             
             nFramesFile[i] -= j
             
-        elif readers[i] in (drx, drx8):
+        else:
             pass
             
         # Align the files as close as possible by the time tags
@@ -277,8 +277,8 @@ def main(args):
     print(" ")
     
     nVDIFInputs = sum([1 for reader in readers if reader is vdif])
-    nDRXInputs = sum([1 for reader in readers if reader in (drx, drx8)])
-    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX/DRX8 input streams")
+    nDRXInputs = sum([1 for reader in readers if not reader is vdif])
+    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX or DRX8 input streams")
     print(" ")
     
     nFramesV = int(round(tRead*srate[0]/readers[0].DATA_LENGTH))
@@ -414,8 +414,8 @@ def main(args):
                             dataV[sid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data
                             k += 1
                                                        
-                elif readers[j] in (drx, drx8):
-                    ## DRX
+                else:
+                    ## DRX/DRX8
                     k = 0
                     while k < beampols[j]*nFramesD:
                         try:
