@@ -18,7 +18,7 @@ from datetime import datetime
 
 from lsl import astro
 from lsl.common import stations
-from lsl.reader import base, drx, vdif
+from lsl.reader import base, drx, drx8, vdif
 from lsl.common.dp import fS
 from lsl.common.mcs import datetime_to_mjdmpm, delay_to_mcsd, mcsd_to_delay
 from lsl.common.metabundle import get_command_script
@@ -528,6 +528,8 @@ def _read_correlator_configuration(filename):
             readers.append( vdif )
         elif block['type'] == 'drx':
             readers.append( drx )
+        elif block['type'] == 'drx8':
+            readers.append( drx8 )
         else:
             readers.append( None )
             
@@ -666,14 +668,14 @@ def read_correlator_configuration(filename_or_npz):
 
 def get_better_time(frame):
     """
-    Given a lsl.reader.vdif.Frame or lsl.reader.drx.Frame instance, return a
-    more accurate time for the frame.  Unlike the Frame.get_time() functions,
-    this function returns a two-element tuple of:
+    Given a lsl.reader.vdif.Frame, lsl.reader.drx.Frame instance, or
+    lsl.reader.drx8.Frame, return a more accurate time for the frame.  Unlike the
+    Frame.get_time() functions, this function returns a two-element tuple of:
       * integer seconds since the UNIX epoch and
       * fractional second
     """
     
-    if isinstance(frame, drx.Frame):
+    if isinstance(frame, (drx.Frame, drx8.Frame)):
         # HACK - What should T_NOM really be at LWA1???
         tt = frame.payload.timetag
         to = 6660 if frame.header.time_offset else 0
