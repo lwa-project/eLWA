@@ -303,11 +303,23 @@ def main(args):
                     ### Assume it's normal DRX
                     rdr = drx
                     frames = [rdr.read_frame(fh) for i in range(1024)]
+                    
+                    mark = fh.tell()
+                    fh.seek(((8*1024**2-1)//rdr.FRAME_SIZE+1)*rdr.FRAME_SIZE, 1)
+                    frames.extend([rdr.read_frame(fh) for i in range(4)])
+                    fh.seek(mark, 0)
+                    
                 except errors.SyncError:
                     ### Nope, it's DRX8
                     fh.seek(-2*rdr.FRAME_SIZE, 1)
                     rdr = drx8
                     frames = [rdr.read_frame(fh) for i in range(1024)]
+                    
+                    mark = fh.tell()
+                    fh.seek(((8*1024**2-1)//rdr.FRAME_SIZE+1)*rdr.FRAME_SIZE, 1)
+                    frames.extend([rdr.read_frame(fh) for i in range(4)])
+                    fh.seek(mark, 0)
+                    
                 streams = []
                 freq1, freq2 = 0.0, 0.0
                 for frame in frames:
@@ -319,7 +331,7 @@ def main(args):
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
                 tStart = frames[0].time.datetime
-                tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
+                tStartAlt = (frames[-1].time - (1023 + 2033)//len(streams)*4096/frames[-1].sample_rate).datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
                     sys.stderr.write(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
@@ -511,11 +523,15 @@ def main(args):
             sys.stderr.write(f"WARNING: Antenna '{ant}' is defined {antCounts[ant]} times")
             
     # Update the file offsets to get things lined up better
+    tMin = min([cinp['tstart'] for cinp in corrConfig['inputs']])
     tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
+    if tMax - tMin > (sources[0]['stop'] - sources[0]['start'])/2:
+        tMax = tMin + min([timedelta(seconds=10),
+                           (sources[0]['stop'] - sources[0]['start']) / 2])
     for cinp in corrConfig['inputs']:
         diff = tMax - cinp['tstart']
         offset = diff.days*86400 + diff.seconds + diff.microseconds/1e6
-        cinp['fileoffset'] = max([0, offset])
+        cinp['fileoffset'] = offset
         
     # Reconcile the source lists for when we have eLWA data.  This is needed so
     # that we use the source information contained in the VDIF files rather than
@@ -621,6 +637,11 @@ def main(args):
         fh.write("\n")
         ## Input files
         for cinp in corrConfig['inputs']:
+            if startOffset + cinp['fileoffset'] < 0:
+                sys.stderr.write("WARNING: '%s' starts after source %i ends, skipping\n" % (os.path.basename(cinp['file']), s+1))
+                sys.stderr.flush()
+                continue
+                
             fh.write("Input\n")
             fh.write("# Start time is %s\n" % cinp['tstart'])
             fh.write("# Stop time is %s\n" % cinp['tstop'])
