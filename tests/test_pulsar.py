@@ -75,16 +75,15 @@ class database(object):
 
         # Manually create a minimal config file since createConfigFile.py
         # doesn't work well with DRX-only data without source info
-        config_content = f"""Configuration
+        config_content = f"""Context
 Observer TestObserver
 Project TestProject
 Session TestSession
-ID 1
-# Correlator setup
+EndContext
+Configuration
 Channels 512
 IntTime 1.0
-AvgTime 0.1
-# Source definition
+EndConfiguration
 Source
 Intent target
 Name TESTPSR
@@ -93,7 +92,6 @@ Dec2000 +12:34:56.78
 Polyco {self._BASENAME}.polyco
 Duration 2.0
 SourceDone
-# Input files
 Input
 File {files[0]}
 Type DRX
@@ -102,7 +100,6 @@ Pols XX,YY
 Location 0.000, 0.000, 0.000
 ClockOffset 0.0, 0.0
 InputDone
-ConfigDone
 """
 
         with open(f'{self._BASENAME}.config', 'w') as fh:
