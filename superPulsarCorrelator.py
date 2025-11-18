@@ -324,8 +324,26 @@ def main(args):
     if nVDIFInputs*nDRXInputs:
         print(f"VDIF appears to correspond to tuning #{vdifPivot} in DRX")
     elif nDRXInputs:
-        print(f"Correlating DRX tuning #{vdifPivot}")
+        if args.which == 0:
+            print(f"Correlating both DRX tunings")
+        else:
+            print(f"Correlating DRX tuning #{vdifPivot}")
     print(" ")
+
+    # Determine which tunings to process
+    if nVDIFInputs > 0 and nDRXInputs > 0:
+        # VDIF+DRX: only process the matching DRX tuning
+        tunings_to_process = [vdifPivot-1]
+    elif nVDIFInputs > 0 and nDRXInputs == 0:
+        # VDIF-only: use dummy tuning 0 to ensure loop executes once for VDIF processing
+        # The tuning value won't be used since all DRX-specific code checks nDRXInputs > 0
+        tunings_to_process = [0]
+    else:
+        # LWA-only: process both tunings unless user specified a single tuning
+        if args.which == 0:
+            tunings_to_process = [0, 1]
+        else:
+            tunings_to_process = [args.which-1]
     
     nChunks = int(tFile/tRead)
     tSub = args.subint_time
@@ -383,14 +401,24 @@ def main(args):
         tDelay = dispDelay(oFreq, pulsarDM)
         tDiff = np.diff(tDelay)
         
-    subIntTimes = [[] for i in range(nProfileBins)]
-    subIntCount = [0 for i in range(nProfileBins)]
-    subIntWeight = [0 for i in range(nProfileBins)]
-    fileCount   = [0 for i in range(nProfileBins)]
-    visXX = [0 for i in range(nProfileBins)]
-    visXY = [0 for i in range(nProfileBins)]
-    visYX = [0 for i in range(nProfileBins)]
-    visYY = [0 for i in range(nProfileBins)]
+    # Per-tuning state tracking (each tuning has its own bin arrays)
+    tuning_state = {}
+    for tid in tunings_to_process:
+        tuning_state[tid] = {
+            'subIntTimes': [[] for i in range(nProfileBins)],
+            'subIntCount': [0 for i in range(nProfileBins)],
+            'subIntWeight': [0 for i in range(nProfileBins)],
+            'fileCount': [0 for i in range(nProfileBins)],
+            'visXX': [0 for i in range(nProfileBins)],
+            'visXY': [0 for i in range(nProfileBins)],
+            'visYX': [0 for i in range(nProfileBins)],
+            'visYY': [0 for i in range(nProfileBins)],
+            'goodD': None,
+            'aXD': None,
+            'aYD': None
+        }
+    # VDIF state (shared across tunings)
+    vdif_state = {'goodV': None, 'aXV': None, 'aYV': None}
     wallStart = time.time()
     done = False
     oldStartRel = [0 for i in range(nVDIFInputs+nDRXInputs)]
@@ -409,11 +437,12 @@ def main(args):
         with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
                 dataV[...] = 0              # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                dataD['re'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                dataD['im'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                dataD_view[...] = 0         # pylint: disable=possibly-used-before-assignment,used-before-assignment
             except NameError:
                 dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.int8)
-                dataD = np.zeros((len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=CI8)
+                # Store both DRX tunings: (2 tunings, nPols, samples)
+                # This keeps data C-contiguous when slicing a single tuning
+                dataD = np.zeros((2, len(drxRef),  readers[-1].DATA_LENGTH*nFramesD), dtype=CI8)
                 dataD_view = dataD.view(np.int16)
             for j,f in enumerate(fh):
                 if readers[j] is vdif:
@@ -463,7 +492,10 @@ def main(args):
                 else:
                     ## DRX/DRX8
                     k = 0
-                    while k < beampols[j]*nFramesD:
+                    # Read enough frames for both tunings since we're no longer filtering by tuning
+                    # Original code had tuning filter, so it read ~2x frames to get enough for one tuning
+                    # Without filter, we need to explicitly read 2x frames to populate both tunings
+                    while k < beampols[j]*nFramesD*2:
                         try:
                             cFrame = readers[j].read_frame_ci8(f)
                             buffers[j].append( cFrame )
@@ -473,27 +505,26 @@ def main(args):
                         except errors.EOFError:
                             done = True
                             break
-                            
+
                         frames = buffers[j].get()
                         if frames is None:
                             continue
-                            
+
                         for cFrame in frames:
                             beam,tune,pol = cFrame.id
-                            if tune != vdifPivot:
-                                continue
+                            tid = tune - 1  # 0 for tuning 1, 1 for tuning 2
                             bid = 2*(j-nVDIFInputs) + pol
-                            
+
                             cFrame.payload.timetag += int(grossOffsets[j]*196e6)
-                            
+
                             if k == 0:
                                 tStart.append( cFrame.time )
                                 tStartB.append( get_better_time(cFrame) )
-                                
+
                                 for p in (0,1):
                                     pbid = 2*(j-nVDIFInputs) + p
                                     drxRef[pbid] = cFrame.payload.timetag
-                                    
+
                             count = cFrame.payload.timetag
                             count -= drxRef[bid]
                             count //= (4096*int(196e6/srate[-1]))
@@ -502,10 +533,11 @@ def main(args):
                             if count < 0:
                                 continue
                             try:
-                                dataD_view[bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data.view(np.int16)     # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                                # Store in tuning-first structure: dataD_view[tuning, pol, samples]
+                                dataD_view[tid, bid, count*readers[j].DATA_LENGTH:(count+1)*readers[j].DATA_LENGTH] = cFrame.payload.data.view(np.int16)     # pylint: disable=possibly-used-before-assignment,used-before-assignment
                                 k += beampols[j]//2
                             except ValueError:
-                                k = beampols[j]*nFramesD
+                                k = beampols[j]*nFramesD*2
                                 break
                                 
         print(f"RR - Read finished in {time.time()-wallTime:.3f} s for {tRead:.3f} s of data")
@@ -555,8 +587,9 @@ def main(args):
                     while tStartB[j][1] < 0.0:
                         tStartB[j][0] -= 1
                         tStartB[j][1] += 1
-                    dataD[idx0,:] = np.roll(dataD[idx0,:], -offset)
-                    dataD[idx1,:] = np.roll(dataD[idx1,:], -offset)
+                    # dataD is now (2, nPols, samples), roll along both tunings
+                    dataD[:, idx0, :] = np.roll(dataD[:, idx0, :], -offset, axis=1)
+                    dataD[:, idx1, :] = np.roll(dataD[:, idx1, :], -offset, axis=1)
                     
         vdifOffsets = offsets[:nVDIFInputs]
         drxOffsets = offsets[nVDIFInputs:]
@@ -582,7 +615,8 @@ def main(args):
         
         #tV = i*tRead + np.arange(dataV.shape[1]-max(vdifOffsets), dtype=np.float64)/srate[ 0]
         if nDRXInputs > 0:
-            tD = i*tRead + np.arange(dataD.shape[1]-max(drxOffsets), dtype=np.float64)/srate[-1]
+            # dataD is now (2, nPols, samples), so shape[2] is the samples dimension
+            tD = i*tRead + np.arange(dataD.shape[2]-max(drxOffsets), dtype=np.float64)/srate[-1]
             
         # Loop over sub-integrations
         for j in range(nSub):
@@ -597,61 +631,70 @@ def main(args):
             #	dataVSub = dataVSub[:,:tVSub.size]
             #if tVSub.size == 0:
             #	continue
-            dataDSub = dataD[:,j*nSampD:(j+1)*nSampD]
-            if nDRXInputs > 0:
-                if dataDSub.shape[1] != tDSub.size:
-                    dataDSub = dataDSub[:,:tDSub.size]
-                if tDSub.size == 0:
-                    continue
-                    
-                try:
-                    if dataDSubF.shape[1] != dataDSub.shape[1]:
-                        del dataDSubF
-                    dataDSubF.real[...] = dataDSub['re']
-                    dataDSubF.imag[...] = dataDSub['im']
-                except NameError:
-                    dataDSubF = dataDSub['re'] + 1j*dataDSub['im']
-                    dataDSubF = dataDSubF.astype(np.complex64)
-                    
+
             ## Update the observation
             observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
             refSrc.compute(observer)
-            
-            ## Correct for the LWA dipole power pattern
-            if nDRXInputs > 0:
-                dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][vdifPivot-1])
-                dataDSubF[0::2,:] /= np.sqrt(dipoleX) * 7
-                dataDSubF[1::2,:] /= np.sqrt(dipoleY) * 7
-                
-            ## Get the Jones matrices and apply
-            ## NOTE: This moves the LWA into the frame of the VLA
-            if nVDIFInputs*nDRXInputs > 0:
-                lwaToSky = jones.get_matrix_lwa(observer, refSrc)
-                skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
-                dataDSubF = jones.apply_matrix(dataDSubF, np.matrix(skyToVLA)*np.matrix(lwaToSky))
-                
-            ## Correlate
+
+            ## Calculate delayPadding once per sub-integration
+            ## Use the first tuning to be processed for the DRX frequency
+            tid_for_delay = tunings_to_process[0] if len(tunings_to_process) > 0 else 0
             delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
-                                                               LFFT=drxLFFT, sample_rate=srate[-1], 
-                                                               central_freq=cFreqs[-1][vdifPivot-1], 
+                                                               LFFT=drxLFFT, sample_rate=srate[-1],
+                                                               central_freq=cFreqs[-1][tid_for_delay] if nDRXInputs > 0 else 0.0,
                                                                pol='*', phase_center=refSrc)
+
+            ## Process VDIF data once per sub-integration (outside tuning loop)
+            ## VDIF data is the same regardless of which DRX tuning we're processing
             if nVDIFInputs > 0:
                 freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
                                                             sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
-                                                            pol='*', phase_center=refSrc, 
+                                                            pol='*', phase_center=refSrc,
                                                             delayPadding=delayPadding)
-                
                 if feoV.shape[2] == 0:
-                    continue
-                    
-            if nDRXInputs > 0:
-                freqD, feoD, veoD, deoD = multirate.fengine(dataDSubF, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
-                                                            sample_rate=srate[-1], central_freq=cFreqs[-1][vdifPivot-1], 
-                                                            pol='*', phase_center=refSrc, 
-                                                            delayPadding=delayPadding)
-                
-                if feoD.shape[2] == 0:
-                    continue
+                    continue  # Skip this entire sub-integration
+
+            # Process each tuning
+            for tid in tunings_to_process:
+                # Select data for this tuning
+                if nDRXInputs > 0:
+                    dataDSub = dataD[tid, :, j*nSampD:(j+1)*nSampD]
+                    if dataDSub.shape[1] != tDSub.size:
+                        dataDSub = dataDSub[:,:tDSub.size]
+                    if tDSub.size == 0:
+                        continue
+
+                    try:
+                        if dataDSubF.shape[1] != dataDSub.shape[1]:
+                            del dataDSubF
+                        dataDSubF.real[...] = dataDSub['re']
+                        dataDSubF.imag[...] = dataDSub['im']
+                    except NameError:
+                        dataDSubF = dataDSub['re'] + 1j*dataDSub['im']
+                        dataDSubF = dataDSubF.astype(np.complex64)
+
+                ## Correct for the LWA dipole power pattern
+                if nDRXInputs > 0:
+                    dipoleX, dipoleY = jones.get_lwa_antenna_gain(observer, refSrc, freq=cFreqs[-1][tid])
+                    dataDSubF[0::2,:] /= np.sqrt(dipoleX) * 7
+                    dataDSubF[1::2,:] /= np.sqrt(dipoleY) * 7
+
+                ## Get the Jones matrices and apply
+                ## NOTE: This moves the LWA into the frame of the VLA
+                if nVDIFInputs*nDRXInputs > 0:
+                    lwaToSky = jones.get_matrix_lwa(observer, refSrc)
+                    skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
+                    dataDSubF = jones.apply_matrix(dataDSubF, np.matrix(skyToVLA)*np.matrix(lwaToSky))
+
+                ## Correlate DRX data for this tuning
+                if nDRXInputs > 0:
+                    freqD, feoD, veoD, deoD = multirate.fengine(dataDSubF, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
+                                                                sample_rate=srate[-1], central_freq=cFreqs[-1][tid],
+                                                                pol='*', phase_center=refSrc,
+                                                                delayPadding=delayPadding)
+
+                    if feoD.shape[2] == 0:
+                        continue  # Skip this tuning, move to next tuning
                     
             ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
             if nDRXInputs*nVDIFInputs > 0:
