@@ -50,8 +50,9 @@ class database(object):
         # Create a simple polyco file for a 1-second period pulsar
         # Format based on TEMPO polyco format
         # Note: pulsar name must match config name with 'PSR' removed
-        polyco_content = """TEST      20-Oct-19   00:00:00.00   58778.00000000    0.000  1.0000    -8.50
-   0.000000    1.000000000   6    60   12   1400.00
+        # MJD 58761.98 matches the test data at MJD ~58761.984133
+        polyco_content = """TEST      05-Oct-19   23:30:00.00   58761.98000000    0.000  1.0000    -8.50
+   0.000000    1.000000000   6   120   12   1400.00
    1.0000000000000D+00  0.0000000000000D+00  0.0000000000000D+00
    0.0000000000000D+00  0.0000000000000D+00  0.0000000000000D+00
    0.0000000000000D+00  0.0000000000000D+00  0.0000000000000D+00
