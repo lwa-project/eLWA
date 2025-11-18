@@ -664,6 +664,8 @@ def main(args):
                 ## Sort out what goes where (channels and antennas) if we don't already know
                 if vdif_state['goodV'] is not None and tuning_state[tid]['goodD'] is not None:
                     # Use cached channel selections
+                    # pylint: disable=unsubscriptable-object
+                    # goodV and goodD are guaranteed to not be None due to the if condition above
                     if nVDIFInputs > 0:
                         goodV = vdif_state['goodV']
                         freqV = freqV[goodV]
@@ -693,6 +695,8 @@ def main(args):
 
                     ### Validate the channel alignent and fix it if needed
                     if nVDIFInputs*nDRXInputs != 0:
+                        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                        # goodV and goodD are guaranteed to be defined here since both nVDIFInputs > 0 and nDRXInputs > 0
                         pd = freqV[goodV[0]] - freqD[goodD[0]]
                         # Need to shift?
                         if abs(pd) >= 1.01*abs(subChanFreqOffset):
