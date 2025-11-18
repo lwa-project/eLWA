@@ -837,8 +837,11 @@ def main(args):
 
                     ### CD = correlator dump
                     # Add tuning suffix for multi-tuning case
+                    # Use 'L' for low freq (tuning 1) and 'H' for high freq (tuning 2)
+                    # to maintain compatibility with buildMultiBandIDI.py
                     if len(tunings_to_process) > 1:
-                        outfile = f"{outbase}-t{tid+1}-vis2-{tuning_state[tid]['fileCount']:05d}.npz"
+                        tuning_suffix = 'L' if tid == 0 else 'H'
+                        outfile = f"{outbase}{tuning_suffix}-vis2-{tuning_state[tid]['fileCount']:05d}.npz"
                     else:
                         outfile = f"{outbase}-vis2-{tuning_state[tid]['fileCount']:05d}.npz"
 

@@ -84,8 +84,9 @@ class database(object):
         self.assertEqual(status, 0)
 
         # Verify both tuning output files were created
-        files_t1 = glob.glob('%s_dual-t1-*.npz' % self._BASENAME)
-        files_t2 = glob.glob('%s_dual-t2-*.npz' % self._BASENAME)
+        # Dual-tuning mode uses 'L' and 'H' suffixes for compatibility with buildMultiBandIDI.py
+        files_t1 = glob.glob('%s_dualL-*.npz' % self._BASENAME)
+        files_t2 = glob.glob('%s_dualH-*.npz' % self._BASENAME)
         self.assertGreater(len(files_t1), 0, "No tuning 1 output files found")
         self.assertGreater(len(files_t2), 0, "No tuning 2 output files found")
         self.assertEqual(len(files_t1), len(files_t2), "Tuning 1 and 2 should have same number of files")
@@ -116,8 +117,8 @@ class database(object):
         """Compare dual-tuning output with single-tuning output to verify correctness."""
 
         # Load dual-tuning outputs
-        files_dual_t1 = sorted(glob.glob('%s_dual-t1-*.npz' % self._BASENAME))
-        files_dual_t2 = sorted(glob.glob('%s_dual-t2-*.npz' % self._BASENAME))
+        files_dual_t1 = sorted(glob.glob('%s_dualL-*.npz' % self._BASENAME))
+        files_dual_t2 = sorted(glob.glob('%s_dualH-*.npz' % self._BASENAME))
 
         # Load single-tuning outputs (from test_1_correlate)
         files_single_t1 = sorted(glob.glob('%sL-*.npz' % self._BASENAME))
