@@ -72,11 +72,12 @@ class database(object):
             files.extend(glob.glob(regex))
         files.sort()
 
-        if len(files) < 1:
-            self.skipTest("No DRX files found")
+        if len(files) < 2:
+            self.skipTest("Need at least 2 DRX files (LWA1 and LWA-SV)")
 
         # Manually create a minimal config file since createConfigFile.py
         # doesn't work well with DRX-only data without source info
+        # Need two antennas for correlation: LWA1 and LWA-SV
         config_content = f"""Context
 Observer TestObserver
 Project TestProject
@@ -99,7 +100,15 @@ File {files[0]}
 Type DRX
 Antenna LWA1
 Pols X, Y
-Location 0.000, 0.000, 0.000
+Location -187.973523, 380.893372, 1.203428
+ClockOffset 0.0, 0.0
+InputDone
+Input
+File {files[1]}
+Type DRX
+Antenna LWA-SV
+Pols X, Y
+Location 68127.541828, 31632.511219, -1091.455199
 ClockOffset 0.0, 0.0
 InputDone
 """
