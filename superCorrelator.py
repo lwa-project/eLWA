@@ -594,6 +594,24 @@ def main(args):
             observer.date = astro.unix_to_utcjd(tSubInt) - astro.DJD_OFFSET
             refSrc.compute(observer)
 
+            ## Calculate delayPadding once per sub-integration
+            ## Use the first tuning to be processed for the DRX frequency
+            tid_for_delay = tunings_to_process[0] if len(tunings_to_process) > 0 else 0
+            delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
+                                                               LFFT=drxLFFT, sample_rate=srate[-1],
+                                                               central_freq=cFreqs[-1][tid_for_delay] if nDRXInputs > 0 else 0.0,
+                                                               pol='*', phase_center=refSrc)
+
+            ## Process VDIF data once per sub-integration (outside tuning loop)
+            ## VDIF data is the same regardless of which DRX tuning we're processing
+            if nVDIFInputs > 0:
+                freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
+                                                            sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
+                                                            pol='*', phase_center=refSrc,
+                                                            delayPadding=delayPadding)
+                if feoV.shape[2] == 0:
+                    continue  # Skip this entire sub-integration
+
             # Process each tuning
             for tid in tunings_to_process:
                 # Select data for this tuning
@@ -626,19 +644,7 @@ def main(args):
                     skyToVLA = jones.get_matrix_vla(observer, refSrc, inverse=True)
                     dataDSubF = jones.apply_matrix(dataDSubF, np.matrix(skyToVLA)*np.matrix(lwaToSky))
 
-                ## Correlate
-                delayPadding = multirate.get_optimal_delay_padding(antennas[:2*nVDIFInputs], antennas[2*nVDIFInputs:],
-                                                                   LFFT=drxLFFT, sample_rate=srate[-1],
-                                                                   central_freq=cFreqs[-1][tid],
-                                                                   pol='*', phase_center=refSrc)
-                if nVDIFInputs > 0:
-                    freqV, feoV, veoV, deoV = multirate.fengine(dataVSub, antennas[:2*nVDIFInputs], LFFT=vdifLFFT,
-                                                                sample_rate=srate[0], central_freq=cFreqs[0][0]-srate[0]/4,
-                                                                pol='*', phase_center=refSrc,
-                                                                delayPadding=delayPadding)
-                    if feoV.shape[2] == 0:
-                        continue
-
+                ## Correlate DRX data for this tuning
                 if nDRXInputs > 0:
                     freqD, feoD, veoD, deoD = multirate.fengine(dataDSubF, antennas[2*nVDIFInputs:], LFFT=drxLFFT,
                                                                 sample_rate=srate[-1], central_freq=cFreqs[-1][tid],
@@ -646,7 +652,7 @@ def main(args):
                                                                 delayPadding=delayPadding)
 
                     if feoD.shape[2] == 0:
-                        continue
+                        continue  # Skip this tuning, move to next tuning
 
                 ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
                 if nDRXInputs*nVDIFInputs > 0:
