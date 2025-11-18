@@ -324,9 +324,13 @@ def main(args):
     print(" ")
 
     # Determine which tunings to process
-    if nVDIFInputs > 0:
-        # VDIF present: only process the matching DRX tuning
+    if nVDIFInputs > 0 and nDRXInputs > 0:
+        # VDIF+DRX: only process the matching DRX tuning
         tunings_to_process = [vdifPivot-1]
+    elif nVDIFInputs > 0 and nDRXInputs == 0:
+        # VDIF-only: use dummy tuning 0 to ensure loop executes once for VDIF processing
+        # The tuning value won't be used since all DRX-specific code checks nDRXInputs > 0
+        tunings_to_process = [0]
     else:
         # LWA-only: process both tunings unless user specified a single tuning
         if args.which == 0:
