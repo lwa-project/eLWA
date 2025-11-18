@@ -71,6 +71,7 @@ class database(object):
                '-g', '%sH' % self._BASENAME, '%s.config' % self._BASENAME]
         with open('%s-correlate-H.log' % self._BASENAME, 'w') as logfile:
             status = subprocess.check_call(cmd, stdout=logfile)
+        self.assertEqual(status, 0)
 
     def test_1a_correlate_dual_tuning(self):
         """Run the correlator on eLWA data with dual-tuning mode."""
