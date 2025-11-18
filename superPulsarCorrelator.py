@@ -865,11 +865,8 @@ def main(args):
                 svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
 
                 # Get a most precise representation of the current time
-                # tSubIntB is (unix_seconds, frac_seconds), convert to MJD
-                # MJD = Unix_time / 86400.0 + 40587.0
-                mjd_total = (tSubIntB[0] + tSubIntB[1]) / 86400.0 + 40587.0
-                mjdi = int(mjd_total)
-                mjdf = mjd_total - mjdi
+                mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
+                mjdf += mjdsf/86400.0
 
                 # Determine the pulsar phase as a function of frequency
                 refSrc.compute_pulsar(mjdi, mjdf)
