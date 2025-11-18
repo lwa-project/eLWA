@@ -121,7 +121,7 @@ def main(args):
         if readers[i] is vdif:
             tunepols.append( readers[i].get_thread_count(fh[i]) )
             beampols.append( tunepols[i] )
-        elif readers[i] is (drx, drx8):
+        else:
             beampols.append( max(readers[i].get_frames_per_obs(fh[i])) )
             
         skip = args.skip + foffset
