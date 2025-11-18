@@ -126,11 +126,11 @@ InputDone
         """Run the pulsar correlator on single tuning."""
 
         cmd = [sys.executable, '../superPulsarCorrelator.py',
-               '-t', '1',           # 1 second integration
+               '-t', '0.5',         # 0.5 second integration (smaller for more files per bin)
                '-s', '0.5',         # 0.5 second sub-integration
                '-l', '512',         # 512 channel FFT
                '-w', '1',           # Process tuning 1 only
-               '-b', '2',           # 2 profile bins (enough for ~2s of test data)
+               '-b', '2',           # 2 profile bins
                '-g', f'{self._BASENAME}_t1',
                f'{self._BASENAME}.config']
 
@@ -162,11 +162,11 @@ InputDone
         """Run the pulsar correlator on both tunings."""
 
         cmd = [sys.executable, '../superPulsarCorrelator.py',
-               '-t', '1',
-               '-s', '0.5',
+               '-t', '0.5',         # 0.5 second integration (smaller for more files per bin)
+               '-s', '0.5',         # 0.5 second sub-integration
                '-l', '512',
                '-w', '0',           # Process both tunings
-               '-b', '2',           # 2 profile bins (enough for ~2s of test data)
+               '-b', '2',           # 2 profile bins
                '-g', f'{self._BASENAME}_dual',
                f'{self._BASENAME}.config']
 
