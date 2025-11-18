@@ -88,8 +88,8 @@ EndConfiguration
 Source
 Intent target
 Name TESTPSR
-RA2000 12:34:56.78
-Dec2000 +12:34:56.78
+RA2000 19:59:28.35
+Dec2000 40:44:02.0
 Polyco {self._BASENAME}.polyco
 Duration 2.0
 SourceDone
