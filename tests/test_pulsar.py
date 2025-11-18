@@ -97,7 +97,7 @@ Input
 File {files[0]}
 Type DRX
 Antenna LWA1
-Pols XX,YY
+Pols X, Y
 Location 0.000, 0.000, 0.000
 ClockOffset 0.0, 0.0
 InputDone
