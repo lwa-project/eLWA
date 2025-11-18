@@ -394,8 +394,8 @@ def main(args):
         with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
             try:
                 dataV[...] = 0              # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                dataD['re'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                dataD['im'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                # dataD is now (2, nPols, samples) with CI8 dtype
+                dataD_view[...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
             except NameError:
                 dataV = np.zeros((len(vdifRef), readers[ 0].DATA_LENGTH*nFramesV), dtype=np.int8)
                 # Store both DRX tunings: (2 tunings, nPols, samples)
