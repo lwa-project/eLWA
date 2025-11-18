@@ -454,7 +454,10 @@ def main(args):
                 else:
                     ## DRX/DRX8
                     k = 0
-                    while k < beampols[j]*nFramesD:
+                    # Read enough frames for both tunings since we're no longer filtering by tuning
+                    # Original code had tuning filter, so it read ~2x frames to get enough for one tuning
+                    # Without filter, we need to explicitly read 2x frames to populate both tunings
+                    while k < beampols[j]*nFramesD*2:
                         try:
                             cFrame = readers[j].read_frame_ci8(f)
                             buffers[j].append( cFrame )
