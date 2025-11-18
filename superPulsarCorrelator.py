@@ -695,248 +695,284 @@ def main(args):
 
                     if feoD.shape[2] == 0:
                         continue  # Skip this tuning, move to next tuning
-                    
-            ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
-            if nDRXInputs*nVDIFInputs > 0:
-                subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][vdifPivot-1]) % (freqD[1]-freqD[0])
-                
-                if i == 0 and j == 0:
-                    ## FC = frequency correction
-                    tv,tu = best_freq_units(subChanFreqOffset)
-                    print(f"FC - Applying fringe rotation rate of {tv:.3f} {tu} to the DRX data")
-                    
-                freqD += subChanFreqOffset
-                for w in range(feoD.shape[2]):
-                    feoD[:,:,w] *= np.exp(-2j*np.pi*subChanFreqOffset*tDSub[w*drxLFFT])
-                    
-            ## Sort out what goes where (channels and antennas) if we don't already know
-            try:
-                if nVDIFInputs > 0:
-                    freqV = freqV[goodV]        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                    feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
-                if nDRXInputs > 0:
-                    freqD = freqD[goodD]        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                    feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
-                    
-            except NameError:
-                ### Frequency overlap
-                fMin, fMax = -1e12, 1e12
-                if nVDIFInputs > 0:
-                    fMin, fMax = max([fMin, freqV.min()]), min([fMax, freqV.max()])
-                if nDRXInputs > 0:
-                    fMin, fMax = max([fMin, freqD.min()]), min([fMax, freqD.max()])
-                    
-                ### Channels and antennas (X vs. Y)
-                if nVDIFInputs > 0:
-                    goodV = np.where( (freqV >= fMin) & (freqV <= fMax) )[0]
-                    aXV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
-                    aYV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
-                if nDRXInputs > 0:
-                    goodD = np.where( (freqD >= fMin) & (freqD <= fMax) )[0]
-                    aXD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
-                    aYD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
-                    
-                ### Validate the channel alignent and fix it if needed
-                if nVDIFInputs*nDRXInputs != 0:
-                    pd = freqV[goodV[0]] - freqD[goodD[0]]
-                    # Need to shift?
-                    if abs(pd) >= 1.01*abs(subChanFreqOffset):
-                        ## Need to shift
-                        if pd < 0.0:
-                            goodV = goodV[1:]
+
+                ## Rotate the phase in time to deal with frequency offset between the VLA and LWA
+                if nDRXInputs*nVDIFInputs > 0:
+                    subChanFreqOffset = (cFreqs[0][0]-cFreqs[-1][tid]) % (freqD[1]-freqD[0])
+
+                    if i == 0 and j == 0 and tid == tunings_to_process[0]:
+                        ## FC = frequency correction
+                        tv,tu = best_freq_units(subChanFreqOffset)
+                        print(f"FC - Applying fringe rotation rate of {tv:.3f} {tu} to tuning {tid+1}")
+
+                    freqD += subChanFreqOffset
+                    for w in range(feoD.shape[2]):
+                        feoD[:,:,w] *= np.exp(-2j*np.pi*subChanFreqOffset*tDSub[w*drxLFFT])
+
+                ## Sort out what goes where (channels and antennas) if we don't already know
+                if vdif_state['goodV'] is not None and tuning_state[tid]['goodD'] is not None:
+                    # Use cached channel selections
+                    # pylint: disable=unsubscriptable-object
+                    # goodV and goodD are guaranteed to not be None due to the if condition above
+                    if nVDIFInputs > 0:
+                        goodV = vdif_state['goodV']
+                        freqV = freqV[goodV]
+                        feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    if nDRXInputs > 0:
+                        goodD = tuning_state[tid]['goodD']
+                        freqD = freqD[goodD]
+                        feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
+                else:
+                    ### Frequency overlap
+                    fMin, fMax = -1e12, 1e12
+                    if nVDIFInputs > 0:
+                        fMin, fMax = max([fMin, freqV.min()]), min([fMax, freqV.max()])
+                    if nDRXInputs > 0:
+                        fMin, fMax = max([fMin, freqD.min()]), min([fMax, freqD.max()])
+
+                    ### Channels and antennas (X vs. Y)
+                    if nVDIFInputs > 0:
+                        goodV = np.where( (freqV >= fMin) & (freqV <= fMax) )[0]
+                        aXV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 0]
+                        aYV = [k for (k,a) in enumerate(antennas[:2*nVDIFInputs]) if a.pol == 1]
+                    if nDRXInputs > 0:
+                        goodD = np.where( (freqD >= fMin) & (freqD <= fMax) )[0]
+                        aXD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 0]
+                        aYD = [k for (k,a) in enumerate(antennas[2*nVDIFInputs:]) if a.pol == 1]
+
+
+                    ### Validate the channel alignent and fix it if needed
+                    if nVDIFInputs*nDRXInputs != 0:
+                        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                        # goodV and goodD are guaranteed to be defined here since both nVDIFInputs > 0 and nDRXInputs > 0
+                        pd = freqV[goodV[0]] - freqD[goodD[0]]
+                        # Need to shift?
+                        if abs(pd) >= 1.01*abs(subChanFreqOffset):
+                            ## Need to shift
+                            if pd < 0.0:
+                                goodV = goodV[1:]
+                            else:
+                                goodD = goodD[1:]
+
+                        # Need to trim?
+                        if len(goodV) > len(goodD):
+                            ## Yes, goodV is too long
+                            goodV = goodV[:len(goodD)]
+                        elif len(goodD) > len(goodV):
+                            ## Yes, goodD is too long
+                            goodD = goodD[:len(goodV)]
                         else:
-                            goodD = goodD[1:]
-                            
-                    # Need to trim?
-                    if len(goodV) > len(goodD):
-                        ## Yes, goodV is too long
-                        goodV = goodV[:len(goodD)]
-                    elif len(goodD) > len(goodV):
-                        ## Yes, goodD is too long
-                        goodD = goodD[:len(goodV)]
-                    else:
-                        ## No, nothing needs to be done
-                        pass
-                        
-                    # Validate
-                    fd = freqV[goodV] - freqD[goodD]
-                    try:
-                        assert(fd.min() >= -1.01*subChanFreqOffset)
-                        assert(fd.max() <=  1.01*subChanFreqOffset)
-                        
-                        ## FS = frequency selection
-                        tv,tu = best_freq_units(freqV[1]-freqV[0])
-                        print(f"FS - Found {len(goodV)}, {tv:.3f} {tu} overalapping channels")
-                        tv,tu = best_freq_units(freqV[goodV[-1]]-freqV[goodV[0]])
-                        print(f"FS - Bandwidth is {tv:.3f} {tu}")
-                        print(f"FS - Channels span {freqV[goodV[0]]/1e6:.3f} MHz to {freqV[goodV[-1]]/1e6:.3f} MHz")
-                            
-                    except AssertionError:
-                        raise RuntimeError(f"Cannot find a common frequency set between the input data: offsets range between {fd.min():.3f} Hz and {fd.max():.3f} Hz, expected {subChanFreqOffset:.3f} Hz")
-                        
-                ### Apply
+                            ## No, nothing needs to be done
+                            pass
+
+                        # Validate
+                        fd = freqV[goodV] - freqD[goodD]
+                        try:
+                            assert(fd.min() >= -1.01*subChanFreqOffset)
+                            assert(fd.max() <=  1.01*subChanFreqOffset)
+
+                            ## FS = frequency selection
+                            if tid == tunings_to_process[0]:
+                                tv,tu = best_freq_units(freqV[1]-freqV[0])
+                                print(f"FS - Found {len(goodV)}, {tv:.3f} {tu} overalapping channels")
+                                tv,tu = best_freq_units(freqV[goodV[-1]]-freqV[goodV[0]])
+                                print(f"FS - Bandwidth is {tv:.3f} {tu}")
+                                freq_low = freqV[goodV[0]]/1e6
+                                freq_high = freqV[goodV[-1]]/1e6
+                                print(f"FS - Channels span {freq_low:.3f} MHz to {freq_high:.3f} MHz")
+                                print(f"FS - Channels span {freq_low:.3f} MHz to {freq_high:.3f} MHz")
+
+                        except AssertionError:
+                            raise RuntimeError(f"Cannot find a common frequency set between the input data: offsets range between {fd.min():.3f} Hz and {fd.max():.3f} Hz, expected {subChanFreqOffset:.3f} Hz")
+
+                    ### Apply and cache
+                    if nVDIFInputs > 0:
+                        freqV = freqV[goodV]
+                        feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                        vdif_state['goodV'] = goodV
+                        vdif_state['aXV'] = aXV
+                        vdif_state['aYV'] = aYV
+                    if nDRXInputs > 0:
+                        freqD = freqD[goodD]
+                        feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
+                        tuning_state[tid]['goodD'] = goodD
+                        tuning_state[tid]['aXD'] = aXD
+                        tuning_state[tid]['aYD'] = aYD
+                # Get cached antenna polarization indices
                 if nVDIFInputs > 0:
-                    freqV = freqV[goodV]
-                    feoV = np.roll(feoV, -goodV[0], axis=1)[:,:len(goodV),:]
+                    aXV = vdif_state['aXV']
+                    aYV = vdif_state['aYV']
                 if nDRXInputs > 0:
-                    freqD = freqD[goodD]
-                    feoD = np.roll(feoD, -goodD[0], axis=1)[:,:len(goodD),:]
-            try:
-                nchan = freqV.size
-                fdt = feoV.dtype
-                vdt = veoV.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-            except NameError:
-                nchan = freqD.size
-                fdt = feoD.dtype
-                vdt = veoD.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-            ## Setup the intermediate F-engine products and trim the data
-            ### Figure out the minimum number of windows
-            nWin = 1e12
-            if nVDIFInputs > 0:
-                nWin = min([nWin, feoV.shape[2]])
-                nWin = min([nWin, np.argmax(np.cumsum(veoV.sum(axis=0)))+1])
-            if nDRXInputs > 0:
-                nWin = min([nWin, feoD.shape[2]])
-                nWin = min([nWin, np.argmax(np.cumsum(veoD.sum(axis=0)))+1])
-                
-            ### Initialize the intermediate arrays
-            try:
-                assert(feoX.shape[2] == nWin)       # pylint: disable=possibly-used-before-assignment,used-before-assignment
-            except (NameError, AssertionError):
-                feoX = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                feoY = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
-                veoX = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-                veoY = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
-                
-            ### Trim
-            if nVDIFInputs > 0:
-                feoV = feoV[:,:,:nWin]
-                veoV = veoV[:,:nWin]
-            if nDRXInputs > 0:
-                feoD = feoD[:,:,:nWin]
-                veoD = veoD[:,:nWin]
-                
-            ## Sort it all out by polarization
-            for k in range(nVDIFInputs):
-                feoX[k,:,:] = feoV[aXV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                feoY[k,:,:] = feoV[aYV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                veoX[k,:] = veoV[aXV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                veoY[k,:] = veoV[aYV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
-            for k in range(nDRXInputs):
-                feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]         # pylint: disable=possibly-used-before-assignment,used-before-assignment 
-                
-            ## Cross multiply
-            try:
-                sfreqXX = freqV
-                sfreqYY = freqV
-            except NameError:
-                sfreqXX = freqD
-                sfreqYY = freqD
-            svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
-            
-            # Get a most precise representation of the current time
-            mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
-            mjdf += mjdsf/86400.0
-            
-            # Determine the pulsar phase as a function of frequency
-            refSrc.compute_pulsar(mjdi, mjdf)
-            currentPeriod = refSrc.period
-            ## Dispersion
-            if currentDM != refSrc.dm or currentDoppler != refSrc.doppler:
-                currentDM = refSrc.dm*1.0
-                currentDoppler = refSrc.doppler*1.0
-                tDisp = dispDelay(sfreqXX*currentDoppler, currentDM)
-                tDisp += dispDelay(sfreqXX[-1]*currentDoppler, currentDM)
-            phaseDispersion = tDisp / currentPeriod
-            phaseDispersion %= 1.0
-            ## Folding
-            phaseProfile = refSrc.phase
-            ## Combined
-            profilePhase = (phaseProfile - phaseDispersion) % 1.0
-            
-            ## Map the phases to bins
-            bestBins = {}
-            for b,phs in enumerate(profilePhase):
-                bestBin = np.where( phs >= profileBins )[0][-1] % nProfileBins
+                    aXD = tuning_state[tid]['aXD']
+                    aYD = tuning_state[tid]['aYD']
+
+                ## Determine channel count and data types
                 try:
-                    bestBins[bestBin].append( b )
-                except KeyError:
-                    bestBins[bestBin] = [b,]
-                    
-            #summary = [None for i in profileBins[:-2]]
-            #for bestBin in bestBins:
-            #	summary[bestBin] = (len(bestBins[bestBin]), subIntCount[bestBin])
-            #print(summary)
-            
-            ### Accumulate
-            for bestBin in bestBins:
-                bestFreq = bestBins[bestBin]
-                if subIntCount[bestBin] == 0:
-                    subIntTimes[bestBin] = []
-                    freqXX = sfreqXX
-                    freqYY = sfreqYY
+                    nchan = freqV.size
+                    fdt = feoV.dtype
+                    vdt = veoV.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                except NameError:
+                    nchan = freqD.size
+                    fdt = feoD.dtype
+                    vdt = veoD.dtype        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+
+                ## Setup the intermediate F-engine products and trim the data
+                ### Figure out the minimum number of windows
+                nWin = int(1e12)
+                if nVDIFInputs > 0:
+                    nWin = min([nWin, feoV.shape[2]])
+                    nWin = min([nWin, np.argmax(np.cumsum(veoV.sum(axis=0)))+1])
+                if nDRXInputs > 0:
+                    nWin = min([nWin, feoD.shape[2]])
+                    nWin = min([nWin, np.argmax(np.cumsum(veoD.sum(axis=0)))+1])
+
+                ### Initialize the intermediate arrays
+                try:
+                    assert(feoX.shape[2] == nWin)       # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                except (NameError, AssertionError):
+                    feoX = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
+                    feoY = np.zeros((nVDIFInputs+nDRXInputs, nchan, nWin), dtype=fdt)
+                    veoX = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+                    veoY = np.zeros((nVDIFInputs+nDRXInputs, nWin), dtype=vdt)
+
+                ### Trim
+                if nVDIFInputs > 0:
+                    feoV = feoV[:,:,:nWin]
+                    veoV = veoV[:,:nWin]
+                if nDRXInputs > 0:
+                    feoD = feoD[:,:,:nWin]
+                    veoD = veoD[:,:nWin]
+
+                ## Sort it all out by polarization
+                for k in range(nVDIFInputs):
+                    feoX[k,:,:] = feoV[aXV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    feoY[k,:,:] = feoV[aYV[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    veoX[k,:] = veoV[aXV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    veoY[k,:] = veoV[aYV[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                for k in range(nDRXInputs):
+                    feoX[k+nVDIFInputs,:,:] = feoD[aXD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    feoY[k+nVDIFInputs,:,:] = feoD[aYD[k],:,:]      # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    veoX[k+nVDIFInputs,:] = veoD[aXD[k],:]          # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                    veoY[k+nVDIFInputs,:] = veoD[aYD[k],:]         # pylint: disable=possibly-used-before-assignment,used-before-assignment
+
+                ## Cross multiply
+                try:
+                    sfreqXX = freqV
+                    sfreqYY = freqV
+                except NameError:
+                    sfreqXX = freqD
+                    sfreqYY = freqD
+                svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
+
+                # Get a most precise representation of the current time
+                mjdi, mjdf, mjdsf = FrameTimestamp(*tSubIntB).pulsar_mjd
+                mjdf += mjdsf/86400.0
+
+                # Determine the pulsar phase as a function of frequency
+                refSrc.compute_pulsar(mjdi, mjdf)
+                currentPeriod = refSrc.period
+                ## Dispersion
+                if currentDM != refSrc.dm or currentDoppler != refSrc.doppler:
+                    currentDM = refSrc.dm*1.0
+                    currentDoppler = refSrc.doppler*1.0
+                    tDisp = dispDelay(sfreqXX*currentDoppler, currentDM)
+                    tDisp += dispDelay(sfreqXX[-1]*currentDoppler, currentDM)
+                phaseDispersion = tDisp / currentPeriod
+                phaseDispersion %= 1.0
+                ## Folding
+                phaseProfile = refSrc.phase
+                ## Combined
+                profilePhase = (phaseProfile - phaseDispersion) % 1.0
+
+                ## Map the phases to bins
+                bestBins = {}
+                for b,phs in enumerate(profilePhase):
+                    bestBin = np.where( phs >= profileBins )[0][-1] % nProfileBins
                     try:
-                        okToZero = np.where( subIntWeight[bestBin] ==  subIntWeight[bestBin].max() )[0]
-                        subIntWeight[bestBin] *= 0
-                    except AttributeError:
-                        subIntWeight[bestBin] = np.zeros(freqXX.size)
-                        
-                    visXX[bestBin] = svisXX*0.0
-                    visXY[bestBin] = svisXY*0.0
-                    visYX[bestBin] = svisYX*0.0
-                    visYY[bestBin] = svisYY*0.0
-                    
-                subIntTimes[bestBin].append( float(tSubInt) )
-                visXX[bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
-                visXY[bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
-                visYX[bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
-                visYY[bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
-                subIntCount[bestBin] += 1
-                subIntWeight[bestBin][bestFreq] += 1
-            
-            ## Save
-            anyFilesSaved = False
-            for bestBin in bestBins:
-                if subIntCount[bestBin] == nDump:
-                    subIntCount[bestBin] = 0
-                    fileCount[bestBin] += 1
-                    
-                    visXX[bestBin] *= nDump / subIntWeight[bestBin]
-                    visXY[bestBin] *= nDump / subIntWeight[bestBin]
-                    visYX[bestBin] *= nDump / subIntWeight[bestBin]
-                    visYY[bestBin] *= nDump / subIntWeight[bestBin]
-                    
-                    ### Compute the effective integration time - this should be
-                    ### tDump/nProfileBins but let's use the actual median number
-                    ### of accumulations at tSub instead
-                    try:
-                        tDumpAct        # pylint: disable=possibly-used-before-assignment,used-before-assignment
-                    except NameError:
-                        tDumpAct = np.median(subIntWeight[bestBin]) * tSub
-                        
-                    ### CD = correlator dump
-                    outfile = f"{outbase}-vis2-bin{bestBin:03d}-{fileCount[bestBin]:05d}.npz"
-                    np.savez(outfile, config=rawConfig, polycos=rawPolycos, 
-                                srate=srate[0]/2.0, freq1=freqXX, 
-                                vis1XX=visXX[bestBin], vis1XY=visXY[bestBin], 
-                                vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
-                                tStart=np.mean(np.array(subIntTimes[bestBin], dtype=np.float64)), tInt=tDumpAct)
-                    anyFilesSaved = True
-                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, np.mean(np.array(subIntTimes[bestBin], dtype=np.float64))))
-                    if bestBin == 0:
-                        if fileCount[0] == 1:
-                            print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
-                            print("CD - effective integration time is %.3f s" % tDumpAct)
-                        if (fileCount[0]-1) % 25 == 0:
-                            print("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),))
-                            etc = (nInt - max(fileCount)) * (time.time() - wallStart)/max(fileCount)
-                            eth = int(etc/60.0) // 60
-                            etm = int(etc/60.0) % 60
-                            ets = etc % 60
-                            print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
+                        bestBins[bestBin].append( b )
+                    except KeyError:
+                        bestBins[bestBin] = [b,]
+
+                #summary = [None for i in profileBins[:-2]]
+                #for bestBin in bestBins:
+                #	summary[bestBin] = (len(bestBins[bestBin]), tuning_state[tid]['subIntCount'][bestBin])
+                #print(summary)
+
+                ### Accumulate per-tuning
+                for bestBin in bestBins:
+                    bestFreq = bestBins[bestBin]
+                    if tuning_state[tid]['subIntCount'][bestBin] == 0:
+                        tuning_state[tid]['subIntTimes'][bestBin] = []
+                        freqXX = sfreqXX
+                        freqYY = sfreqYY
+                        try:
+                            okToZero = np.where( tuning_state[tid]['subIntWeight'][bestBin] ==  tuning_state[tid]['subIntWeight'][bestBin].max() )[0]
+                            tuning_state[tid]['subIntWeight'][bestBin] *= 0
+                        except AttributeError:
+                            tuning_state[tid]['subIntWeight'][bestBin] = np.zeros(freqXX.size)
+
+                        tuning_state[tid]['visXX'][bestBin] = svisXX*0.0
+                        tuning_state[tid]['visXY'][bestBin] = svisXY*0.0
+                        tuning_state[tid]['visYX'][bestBin] = svisYX*0.0
+                        tuning_state[tid]['visYY'][bestBin] = svisYY*0.0
+
+                    tuning_state[tid]['subIntTimes'][bestBin].append( float(tSubInt) )
+                    tuning_state[tid]['visXX'][bestBin][:,bestFreq] += svisXX[:,bestFreq] / nDump
+                    tuning_state[tid]['visXY'][bestBin][:,bestFreq] += svisXY[:,bestFreq] / nDump
+                    tuning_state[tid]['visYX'][bestBin][:,bestFreq] += svisYX[:,bestFreq] / nDump
+                    tuning_state[tid]['visYY'][bestBin][:,bestFreq] += svisYY[:,bestFreq] / nDump
+                    tuning_state[tid]['subIntCount'][bestBin] += 1
+                    tuning_state[tid]['subIntWeight'][bestBin][bestFreq] += 1
+
+                ## Save per-tuning
+                anyFilesSaved = False
+                for bestBin in bestBins:
+                    if tuning_state[tid]['subIntCount'][bestBin] == nDump:
+                        tuning_state[tid]['subIntCount'][bestBin] = 0
+                        tuning_state[tid]['fileCount'][bestBin] += 1
+
+                        tuning_state[tid]['visXX'][bestBin] *= nDump / tuning_state[tid]['subIntWeight'][bestBin]
+                        tuning_state[tid]['visXY'][bestBin] *= nDump / tuning_state[tid]['subIntWeight'][bestBin]
+                        tuning_state[tid]['visYX'][bestBin] *= nDump / tuning_state[tid]['subIntWeight'][bestBin]
+                        tuning_state[tid]['visYY'][bestBin] *= nDump / tuning_state[tid]['subIntWeight'][bestBin]
+
+                        ### Compute the effective integration time - this should be
+                        ### tDump/nProfileBins but let's use the actual median number
+                        ### of accumulations at tSub instead
+                        try:
+                            tDumpAct        # pylint: disable=possibly-used-before-assignment,used-before-assignment
+                        except NameError:
+                            tDumpAct = np.median(tuning_state[tid]['subIntWeight'][bestBin]) * tSub
+
+                        ### CD = correlator dump
+                        # Add tuning suffix for multi-tuning case
+                        # Use 'L' for low freq (tuning 1) and 'H' for high freq (tuning 2)
+                        if len(tunings_to_process) > 1:
+                            tuning_suffix = 'L' if tid == 0 else 'H'
+                            outfile = f"{outbase}{tuning_suffix}-vis2-bin{bestBin:03d}-{tuning_state[tid]['fileCount'][bestBin]:05d}.npz"
+                        else:
+                            outfile = f"{outbase}-vis2-bin{bestBin:03d}-{tuning_state[tid]['fileCount'][bestBin]:05d}.npz"
+
+                        np.savez(outfile, config=rawConfig, polycos=rawPolycos,
+                                    srate=srate[0]/2.0, freq1=freqXX,
+                                    vis1XX=tuning_state[tid]['visXX'][bestBin], vis1XY=tuning_state[tid]['visXY'][bestBin],
+                                    vis1YX=tuning_state[tid]['visYX'][bestBin], vis1YY=tuning_state[tid]['visYY'][bestBin],
+                                    tStart=np.mean(np.array(tuning_state[tid]['subIntTimes'][bestBin], dtype=np.float64)), tInt=tDumpAct)
+                        anyFilesSaved = True
+                        print("CD - writing integration %i, bin %i, tuning %i to disk, timestamp is %.3f s" % (tuning_state[tid]['fileCount'][bestBin], bestBin, tid+1, np.mean(np.array(tuning_state[tid]['subIntTimes'][bestBin], dtype=np.float64))))
+                        if bestBin == 0:
+                            if tuning_state[tid]['fileCount'][0] == 1:
+                                print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
+                                print("CD - effective integration time is %.3f s" % tDumpAct)
+                            if (tuning_state[tid]['fileCount'][0]-1) % 25 == 0:
+                                # Calculate max fileCount across all tunings and bins
+                                max_fileCount = max([tuning_state[t]['fileCount'][b] for t in tunings_to_process for b in range(nProfileBins)])
+                                print("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(max_fileCount, 1),))
+                                etc = (nInt - max_fileCount) * (time.time() - wallStart)/max(max_fileCount, 1)
+                                eth = int(etc/60.0) // 60
+                                etm = int(etc/60.0) % 60
+                                ets = etc % 60
+                                print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
                             
         if done:
             break
@@ -947,7 +983,9 @@ def main(args):
     etm = int(etc/60.0) % 60
     ets = etc % 60
     print("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))
-    print(f"Average time per integration was {etc/max(fileCount):.3f} s")
+    # Calculate max fileCount across all tunings and bins
+    max_fileCount = max([tuning_state[t]['fileCount'][b] for t in tunings_to_process for b in range(nProfileBins)])
+    print(f"Average time per integration was {etc/max(max_fileCount, 1):.3f} s")
     for f in fh:
         f.close()
 
