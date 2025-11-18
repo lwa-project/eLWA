@@ -415,7 +415,8 @@ def main(args):
             'visYY': [0 for i in range(nProfileBins)],
             'goodD': None,
             'aXD': None,
-            'aYD': None
+            'aYD': None,
+            'freqXX': None  # Frequency array for this tuning
         }
     # VDIF state (shared across tunings)
     vdif_state = {'goodV': None, 'aXV': None, 'aYV': None}
@@ -862,6 +863,10 @@ def main(args):
                 except NameError:
                     sfreqXX = freqD
                     sfreqYY = freqD
+
+                # Store frequency array for this tuning
+                tuning_state[tid]['freqXX'] = sfreqXX
+
                 svisXX, svisXY, svisYX, svisYY = multirate.xengine_full(feoX, veoX, feoY, veoY)
 
                 # Get a most precise representation of the current time
@@ -954,7 +959,7 @@ def main(args):
                             outfile = f"{outbase}-vis2-bin{bestBin:03d}-{tuning_state[tid]['fileCount'][bestBin]:05d}.npz"
 
                         np.savez(outfile, config=rawConfig, polycos=rawPolycos,
-                                    srate=srate[0]/2.0, freq1=freqXX,
+                                    srate=srate[0]/2.0, freq1=tuning_state[tid]['freqXX'],
                                     vis1XX=tuning_state[tid]['visXX'][bestBin], vis1XY=tuning_state[tid]['visXY'][bestBin],
                                     vis1YX=tuning_state[tid]['visYX'][bestBin], vis1YY=tuning_state[tid]['visYY'][bestBin],
                                     tStart=np.mean(np.array(tuning_state[tid]['subIntTimes'][bestBin], dtype=np.float64)), tInt=tDumpAct)
