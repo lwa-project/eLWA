@@ -211,14 +211,14 @@ InputDone
                         "L and H tuning frequencies should be different")
 
     def test_4_build_single(self):
-        """Build a FITS-IDI file from single-tuning pulsar data (bin 0)."""
+        """Build a FITS-IDI file from single-tuning pulsar data."""
 
-        # Use only bin 0 files for building FITS-IDI
-        files = glob.glob(f'{self._BASENAME}_t1-vis2-bin000-*.npz')
+        # Use all bin files for building FITS-IDI (more data for fringe search)
+        files = glob.glob(f'{self._BASENAME}_t1-vis2-bin*.npz')
         if len(files) == 0:
-            self.skipTest("No bin 0 output files found")
+            self.skipTest("No output files found")
 
-        cmd = [sys.executable, '../buildIDI.py', '-f', '-t', f'{self._BASENAME}_t1_bin0']
+        cmd = [sys.executable, '../buildIDI.py', '-f', '-t', f'{self._BASENAME}_t1']
         cmd.extend(files)
         with open(f'{self._BASENAME}_t1-build.log', 'w') as logfile:
             try:
@@ -235,7 +235,7 @@ InputDone
     def test_5_flag_single(self):
         """Flag interference in the single-tuning FITS-IDI file."""
 
-        cmd = [sys.executable, '../flagIDI.py', '-f', f'buildIDI_{self._BASENAME}_t1_bin0.FITS_1']
+        cmd = [sys.executable, '../flagIDI.py', '-f', f'buildIDI_{self._BASENAME}_t1.FITS_1']
         with open(f'{self._BASENAME}_t1-flag.log', 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile, stderr=subprocess.STDOUT)
@@ -252,7 +252,7 @@ InputDone
         """Search for fringes in the single-tuning FITS-IDI file."""
 
         cmd = [sys.executable, '../fringeSearchIDI.py', '-r', 'LWA1',
-               f'buildIDI_{self._BASENAME}_t1_bin0_flagged.FITS_1']
+               f'buildIDI_{self._BASENAME}_t1_flagged.FITS_1']
         with open(f'{self._BASENAME}_t1-fringe.log', 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile, stderr=subprocess.STDOUT)
@@ -266,14 +266,14 @@ InputDone
         self.assertEqual(status, 0)
 
     def test_7_build_dual(self):
-        """Build a FITS-IDI file from dual-tuning pulsar data (bin 0, both L and H)."""
+        """Build a FITS-IDI file from dual-tuning pulsar data."""
 
-        # Use only bin 0 files for both tunings
-        files = glob.glob(f'{self._BASENAME}_dual[LH]-vis2-bin000-*.npz')
+        # Use all bin files for both tunings (more data for fringe search)
+        files = glob.glob(f'{self._BASENAME}_dual[LH]-vis2-bin*.npz')
         if len(files) == 0:
-            self.skipTest("No bin 0 output files found for dual tuning")
+            self.skipTest("No output files found for dual tuning")
 
-        cmd = [sys.executable, '../buildMultiBandIDI.py', '-f', '-t', f'{self._BASENAME}_dual_bin0']
+        cmd = [sys.executable, '../buildMultiBandIDI.py', '-f', '-t', f'{self._BASENAME}_dual']
         cmd.extend(files)
         with open(f'{self._BASENAME}_dual-build.log', 'w') as logfile:
             try:
@@ -290,7 +290,7 @@ InputDone
     def test_8_flag_dual(self):
         """Flag interference in the dual-tuning FITS-IDI file."""
 
-        cmd = [sys.executable, '../flagIDI.py', '-f', f'buildIDI_{self._BASENAME}_dual_bin0.FITS_1']
+        cmd = [sys.executable, '../flagIDI.py', '-f', f'buildIDI_{self._BASENAME}_dual.FITS_1']
         with open(f'{self._BASENAME}_dual-flag.log', 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile, stderr=subprocess.STDOUT)
@@ -307,7 +307,7 @@ InputDone
         """Search for fringes in the dual-tuning FITS-IDI file."""
 
         cmd = [sys.executable, '../fringeSearchIDI.py', '-r', 'LWA1',
-               f'buildIDI_{self._BASENAME}_dual_bin0_flagged.FITS_1']
+               f'buildIDI_{self._BASENAME}_dual_flagged.FITS_1']
         with open(f'{self._BASENAME}_dual-fringe.log', 'w') as logfile:
             try:
                 status = subprocess.check_call(cmd, stdout=logfile, stderr=subprocess.STDOUT)
