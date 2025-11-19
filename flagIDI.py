@@ -252,50 +252,55 @@ def main(args):
         print('    FITS HDU')
         ### Columns
         nFlags = len(ants)
-        c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
-        c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
-        c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
-        c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
-        c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
-        c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
-        c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
-        c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
-        c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
-        c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
-        colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
-        ### The table itself
-        flags = astrofits.BinTableHDU.from_columns(colDefs)
-        ### The header
-        flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
-        flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number') 
-        flags.header['TABREV'] = (2, 'table format revision number')
-        for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ',
-                    'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
-            try:
-                flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
-            except KeyError:
-                pass
-        flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
-        
-        # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be 
-        if args.drop:
-            ## Reset the EXTVER on the new FLAG table
-            flags.header['EXTVER'] = (1, 'table instance number')
-            ## Find old tables 
-            toRemove = [] 
-            for hdu in hdulist: 
-                try: 
-                    if hdu.header['EXTNAME'] == 'FLAG': 
-                        toRemove.append( hdu ) 
-                except KeyError: 
-                    pass 
-            ## Remove old tables 
-            for hdu in toRemove: 
-                ver = hdu.header['EXTVER'] 
-                del hdulist[hdulist.index(hdu)] 
-                print(f"  WARNING: removing old FLAG table - version {ver}")
-        ## Insert the new table right before UV_DATA 
-        hdulist.insert(-1, flags)
+
+        # Skip FLAG table creation if no flags were generated (e.g., all scans skipped)
+        if nFlags == 0:
+            print("  WARNING: No flags generated, skipping FLAG table creation")
+        else:
+            c1 = astrofits.Column(name='SOURCE_ID', format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+            c2 = astrofits.Column(name='ARRAY',     format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+            c3 = astrofits.Column(name='ANTS',      format='2J',        array=np.array(ants, dtype=np.int32))
+            c4 = astrofits.Column(name='FREQID',    format='1J',        array=np.zeros((nFlags,), dtype=np.int32))
+            c5 = astrofits.Column(name='TIMERANG',  format='2E',        array=np.array(times, dtype=np.float32))
+            c6 = astrofits.Column(name='BANDS',     format=f"{nBand}J", array=np.array(bands, dtype=np.int32).squeeze())
+            c7 = astrofits.Column(name='CHANS',     format='2J',        array=np.array(chans, dtype=np.int32))
+            c8 = astrofits.Column(name='PFLAGS',    format='4J',        array=np.array(pols, dtype=np.int32))
+            c9 = astrofits.Column(name='REASON',    format='A40',       array=np.array(reas))
+            c10 = astrofits.Column(name='SEVERITY', format='1J',        array=np.array(sevs, dtype=np.int32))
+            colDefs = astrofits.ColDefs([c1, c2, c3, c4, c5, c6, c7, c8, c9, c10])
+            ### The table itself
+            flags = astrofits.BinTableHDU.from_columns(colDefs)
+            ### The header
+            flags.header['EXTNAME'] = ('FLAG', 'FITS-IDI table name')
+            flags.header['EXTVER'] = (1 if fgdata is None else fgdata.header['EXTVER']+1, 'table instance number')
+            flags.header['TABREV'] = (2, 'table format revision number')
+            for key in ('NO_STKD', 'STK_1', 'NO_BAND', 'NO_CHAN', 'REF_FREQ',
+                        'CHAN_BW', 'REF_PIXL', 'OBSCODE', 'ARRNAM', 'RDATE'):
+                try:
+                    flags.header[key] = (uvdata.header[key], uvdata.header.comments[key])
+                except KeyError:
+                    pass
+            flags.header['HISTORY'] = 'Flagged with %s, revision %s.%s%s' % (os.path.basename(__file__), branch, shortsha, dirty)
+
+            # Clean up the old FLAG tables, if any, and then insert the new table where it needs to be
+            if args.drop:
+                ## Reset the EXTVER on the new FLAG table
+                flags.header['EXTVER'] = (1, 'table instance number')
+                ## Find old tables
+                toRemove = []
+                for hdu in hdulist:
+                    try:
+                        if hdu.header['EXTNAME'] == 'FLAG':
+                            toRemove.append( hdu )
+                    except KeyError:
+                        pass
+                ## Remove old tables
+                for hdu in toRemove:
+                    ver = hdu.header['EXTVER']
+                    del hdulist[hdulist.index(hdu)]
+                    print(f"  WARNING: removing old FLAG table - version {ver}")
+            ## Insert the new table right before UV_DATA
+            hdulist.insert(-1, flags)
         
         # Save
         print("  Saving to disk")

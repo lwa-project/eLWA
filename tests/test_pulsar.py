@@ -130,7 +130,7 @@ InputDone
                '-s', '0.5',         # 0.5 second sub-integration
                '-l', '512',         # 512 channel FFT
                '-w', '1',           # Process tuning 1 only
-               '-b', '1',           # 1 profile bin (all data together for flagging)
+               '-b', '2',           # 2 profile bins (tests binning functionality)
                '-g', f'{self._BASENAME}_t1',
                f'{self._BASENAME}.config']
 
@@ -166,7 +166,7 @@ InputDone
                '-s', '0.5',         # 0.5 second sub-integration
                '-l', '512',
                '-w', '0',           # Process both tunings
-               '-b', '1',           # 1 profile bin (all data together for flagging)
+               '-b', '2',           # 2 profile bins (tests binning functionality)
                '-g', f'{self._BASENAME}_dual',
                f'{self._BASENAME}.config']
 
