@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ lsl.misc.datetimeutils #!/usr/bin/env python3
 
 """
 Given a VDIF file, plot the time averaged spectra for each beam output over some 
@@ -619,7 +619,7 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59,tz=timezone.utc), args.duration, srate)
+    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59, tzinfo=timezone.utc), args.duration, srate)
     hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):
