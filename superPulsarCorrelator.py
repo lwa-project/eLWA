@@ -127,7 +127,7 @@ def main(args):
         skip = args.skip + foffset
         if skip != 0:
             print(f"Skipping forward {skip:.3f} s")
-            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -137,7 +137,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.datetime})")
+            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
             
         tStart.append( junkFrame.time + grossOffsets[i] )
         
@@ -255,7 +255,7 @@ def main(args):
         fh[i].seek(-readers[i].FRAME_SIZE, 1)
         
         beginMJDs.append( (junkFrame.time + grossOffsets[i]).mjd )
-        beginDates.append( (junkFrame.time + grossOffsets[i]).datetime )
+        beginDates.append( (junkFrame.time + grossOffsets[i]).utc_datetime )
         
     # Set the output base filename
     if args.tag is None:

@@ -7,7 +7,7 @@ files.
 
 import os
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from matplotlib import pyplot as plt
 
@@ -31,8 +31,8 @@ def main(args):
                     stop = lines[i-7].rsplit('is ', 1)[1]
                     filename = lines[i-3].rsplit(None, 1)[1]
                     
-                    start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S.%f")
-                    stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S.%f")
+                    start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
+                    stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
                     filename = os.path.basename(filename)
                     
                     ### Sort it out
@@ -51,11 +51,11 @@ def main(args):
                     stop = lines[i-3].rsplit('is ', 1)[1]
                     filename = lines[i-0].rsplit(None, 1)[1]
                     
-                    start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
+                    start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
                     try:
-                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S")
+                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
                     except ValueError:
-                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S.%f")
+                        stop = datetime.strptime(stop, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
                     filename = os.path.basename(filename)
                     filename = filename.split('.')[-5]  ### We only want the scan number
                     
