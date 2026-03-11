@@ -12,7 +12,7 @@ import sys
 import ephem
 import numpy as np
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from astropy import units as astrounits
 from astropy.coordinates import EarthLocation, AltAz, ITRS
@@ -157,8 +157,8 @@ def main(args):
                             intent = obs.name
                             ra = ephem.hours(str(obs.ra))
                             dec = ephem.degrees(str(obs.dec))
-                        tStart = mjdmpm_to_datetime(obs.mjd, obs.mpm)
-                        tStop  = mjdmpm_to_datetime(obs.mjd, obs.mpm+obs.dur)
+                        tStart = mjdmpm_to_datetime(obs.mjd, obs.mpm, tz=timezone.utc)
+                        tStop  = mjdmpm_to_datetime(obs.mjd, obs.mpm+obs.dur, tz=timezone.utc)
                         sources.append( {'name':name, 'intent':intent, 'ra2000':ra, 'dec2000':dec, 'start':tStart, 'stop':tStop} )
                         
                         ### Alternate phase centers
@@ -318,8 +318,8 @@ def main(args):
                         freq2 = frame.central_freq
                     if (beam, tune, pol) not in streams:
                         streams.append( (beam, tune, pol) )
-                tStart = frames[0].time.datetime
-                tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).datetime
+                tStart = frames[0].time.utc_datetime
+                tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).utc_datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
                     sys.stderr.write(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
@@ -349,7 +349,7 @@ def main(args):
                             freq2 = frame.central_freq
                     except errors.SyncError:
                         continue
-                tStop = frame.time.datetime
+                tStop = frame.time.utc_datetime
                 
                 ## Save
                 corrConfig['inputs'].append( {'file': filename, 'type': 'DRX' if rdr == drx else 'DRX8', 
@@ -372,7 +372,7 @@ def main(args):
                 vdif.FRAME_SIZE = vdif.get_frame_size(fh)
                 frame = vdif.read_frame(fh)
                 antID = frame.id[0] - 12300
-                tStart =  frame.time.datetime
+                tStart =  frame.time.utc_datetime
                 nThread = vdif.get_thread_count(fh)
                 
                 ## Read in the last frame
@@ -383,7 +383,7 @@ def main(args):
                 while True:
                     try:
                         frame = vdif.read_frame(fh)
-                        tStop = frame.time.datetime
+                        tStop = frame.time.utc_datetime
                     except Exception as e:
                         break
                         
