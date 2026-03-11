@@ -283,8 +283,8 @@ def main(args):
             bbls = np.unique(bls[match])
             times = obstimes[match] * 86400.0
             ints = inttimes[match]
-            scanStart = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]], tz=timezone.utc ) )
-            scanStop  = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]], tz=timezone.utc ) )
+            scanStart = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]]), tz=timezone.utc )
+            scanStop  = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]]), tz=timezone.utc )
             print('    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S')))
             
             freq_comb = []
