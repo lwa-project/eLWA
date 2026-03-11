@@ -11,7 +11,7 @@ import numpy as np
 import argparse
 import tempfile
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
@@ -144,7 +144,7 @@ def main(args):
         
         dataDict.close()
             
-    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
+    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.fromtimestamp(times[0], tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), datetime.fromtimestamp(times[-1], tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):

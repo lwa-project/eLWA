@@ -9,7 +9,7 @@ import sys
 import numpy as np
 from astropy.io import fits as astrofits
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from scipy.stats import scoreatpercentile as percentile
 
@@ -324,7 +324,7 @@ def main(args):
         k += 1
         
     for f in (fig1, fig2, fig3, fig4, fig5):
-        f.suptitle("%s to %s UTC" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M")))
+        f.suptitle("%s to %s UTC" % (datetime.fromtimestamp(times[0], tz=timezone.utc).strftime("%Y/%m/%d %H:%M"), datetime.fromtimestamp(times[-1], tz=timezone.utc).strftime("%Y/%m/%d %H:%M")))
         if nBand > 1:
             f.subplots_adjust(wspace=0.0)
             

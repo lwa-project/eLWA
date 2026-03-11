@@ -10,7 +10,7 @@ import glob
 import numpy as np
 from astropy.io import fits as astrofits
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
@@ -428,7 +428,7 @@ def main(args):
         axR.set_ylabel('Rate [mHz]')
         axD.set_ylabel('Delay [$\\mu$s]')
         for ax in (axR, axD):
-            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
+            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.fromtimestamp(ref_time, tz=timezone.utc).strftime('%Y%b%d %H:%M'))
         # Set the y ranges
         axR.set_ylim((-max([100, max([abs(v) for v in axR.get_ylim()])]), max([100, max([abs(v) for v in axR.get_ylim()])])))
         axD.set_ylim((-max([0.5, max([abs(v) for v in axD.get_ylim()])]), max([0.5, max([abs(v) for v in axD.get_ylim()])])))

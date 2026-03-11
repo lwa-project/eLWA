@@ -10,7 +10,7 @@ import glob
 import numpy as np
 import argparse
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.statistics import robust
 from lsl.misc.mathutils import to_dB
@@ -146,7 +146,7 @@ def main(args):
         
         dataDict.close()
             
-    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M:%S"), datetime.utcfromtimestamp(times[-1]).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
+    print("Got %i files from %s to %s (%.1f s)" % (len(filenames), datetime.fromtimestamp(times[0], tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), datetime.fromtimestamp(times[-1], tz=timezone.utc).strftime("%Y/%m/%d %H:%M:%S"), (times[-1]-times[0])))
 
     iTimes = np.zeros(nInt-1, dtype=times.dtype)
     for i in range(1, len(times)):
@@ -333,7 +333,7 @@ def main(args):
         xticklabels = axR.get_xticklabels() + axD.get_xticklabels() + axP.get_xticklabels()
         plt.setp(xticklabels, visible=False)
         for ax in (axR, axD, axP, axA):
-            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.utcfromtimestamp(ref_time).strftime('%Y%b%d %H:%M'))
+            ax.set_xlabel('Elapsed Time [s since %s]' % datetime.fromtimestamp(ref_time, tz=timezone.utc).strftime('%Y%b%d %H:%M'))
         # Flip the y axis tick labels on every other plot
         for ax in (axR, axP):
             ax.yaxis.set_label_position('right')

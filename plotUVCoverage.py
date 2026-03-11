@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import argparse
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.common import stations
 from lsl.correlator import uvutils
@@ -48,13 +48,13 @@ def main(args):
         dataDict.close()
         
         ## Update the observation
-        observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
+        observer.date = datetime.fromtimestamp(tStart, tz=timezone.utc).strftime('%Y/%m/%d %H:%M:%S.%f')
         refSrc.compute(observer)
         HA = (observer.sidereal_time() - refSrc.ra) * 12/np.pi
         dec = refSrc.dec * 180/np.pi
         
         ## Compute u, v, and w
-        t.append( datetime.utcfromtimestamp(tStart) )
+        t.append( datetime.fromtimestamp(tStart, tz=timezone.utc) )
         uvw.append( uvutils.compute_uvw(antennas, HA=HA, dec=dec, freq=freq.mean(), site=observer) )
     uvw = np.array(uvw) / 1e3
     

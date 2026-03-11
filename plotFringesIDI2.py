@@ -10,7 +10,7 @@ import sys
 import numpy as np
 from astropy.io import fits as astrofits
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from scipy.stats import scoreatpercentile as percentile
 
@@ -288,7 +288,7 @@ def main(args):
     for blName in figs:
         fig, axA, axP = figs[blName]
         
-        fig.suptitle("%s UTC\n%s" % (datetime.utcfromtimestamp(times[0]).strftime("%Y/%m/%d %H:%M"), blName))
+        fig.suptitle("%s UTC\n%s" % (datetime.fromtimestamp(times[0], tz=timezone.utc).strftime("%Y/%m/%d %H:%M"), blName))
         
         axA.axis('auto')
         axA.set_title('Amp.')

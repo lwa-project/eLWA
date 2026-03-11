@@ -11,7 +11,7 @@ import time
 import numpy as np
 from astropy.io import fits as astrofits
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lsl.astro import utcjd_to_unix
 from lsl.writer.fitsidi import NUMERIC_STOKES
@@ -109,8 +109,8 @@ def main(args):
             
             bbls = np.unique(bls[match])
             times = obstimes[match] * 86400.0
-            scanStart = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ) )
-            scanStop  = datetime.utcfromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ) )
+            scanStart = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[ 0]] + obstimes[match[ 0]] ), tz=timezone.utc )
+            scanStop  = datetime.fromtimestamp( utcjd_to_unix( obsdates[match[-1]] + obstimes[match[-1]] ), tz=timezone.utc )
             print('    Scan spans %s to %s UTC' % (scanStart.strftime('%Y/%m/%d %H:%M:%S'), scanStop.strftime('%Y/%m/%d %H:%M:%S')))
             
             for b,offset in enumerate(fqoffsets):

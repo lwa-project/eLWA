@@ -28,7 +28,7 @@ from astropy.constants import c as speedOfLight
 from astropy.coordinates import EarthLocation, AltAz, CartesianRepresentation, ITRS
 from astropy.utils import iers
 from astropy.io import fits as astrofits
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import OrderedDict
 
 from lsl import astro
@@ -222,7 +222,7 @@ class WriterBase(object):
         timeRE = re.compile(r'\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(\.\d+)?')
         
         if type(ref_time) in (int, float):
-            refDateTime = datetime.utcfromtimestamp(ref_time)
+            refDateTime = datetime.fromtimestamp(ref_time, tz=timezone.utc)
             ref_time = refDateTime.strftime("%Y-%m-%dT%H:%M:%S")
         elif type(ref_time) == datetime:
             ref_time = ref_time.strftime("%Y-%m-%dT%H:%M:%S")

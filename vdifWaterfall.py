@@ -11,7 +11,7 @@ import h5py
 import math
 import numpy as np
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 import lsl.reader.vdif as vdif
 import lsl.reader.drspec as drspec
@@ -270,7 +270,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
         t0 = junkFrame.time
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.utcfromtimestamp(t0), srate))
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.fromtimestamp(t0, tz=timezone.utc), srate))
     tDiff = t0.datetime - tStart
     try:
         duration = duration - tDiff.total_seconds()
@@ -619,7 +619,7 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    obsList[1] = (datetime.utcfromtimestamp(t1), datetime(2222,12,31,23,59,59), args.duration, srate)
+    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59), args.duration, srate)
     hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):

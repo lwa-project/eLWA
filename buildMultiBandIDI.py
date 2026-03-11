@@ -17,7 +17,7 @@ import argparse
 import tempfile
 import warnings
 from functools import cmp_to_key
-from datetime import datetime, timedelta, tzinfo
+from datetime import datetime, timedelta, tzinfo, timezone
 
 from astropy.constants import c as vLight
 vLight = vLight.to('m/s').value
@@ -427,7 +427,7 @@ def main(args):
             print(i)
             
         ## Update the observation
-        observer.date = datetime.utcfromtimestamp(tStart).strftime('%Y/%m/%d %H:%M:%S.%f')
+        observer.date = datetime.fromtimestamp(tStart, tz=timezone.utc).strftime('%Y/%m/%d %H:%M:%S.%f')
         refSrc.compute(observer)
         
         ## Convert the setTime to a MJD and save the visibilities to the FITS IDI file
