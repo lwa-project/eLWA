@@ -168,7 +168,7 @@ def main(args):
     fh.seek(-vdif.FRAME_SIZE, 1)
     
     # Store the information about the first frame
-    prevDate = junkFrame.time.datetime
+    prevDate = junkFrame.time.utc_datetime
     prevTime = junkFrame.header.seconds_from_epoch
     prevFrame = junkFrame.header.frame_in_second
 
@@ -196,7 +196,7 @@ def main(args):
         currFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         
         station, thread = currFrame.id		
-        prevDate[thread] = currFrame.time.datetime
+        prevDate[thread] = currFrame.time.utc_datetime
         prevTime[thread] = currFrame.header.seconds_from_epoch
         prevFrame[thread] = currFrame.header.frame_in_second
         
@@ -218,7 +218,7 @@ def main(args):
         
             
         station, thread = currFrame.id
-        currDate = currFrame.time.datetime
+        currDate = currFrame.time.utc_datetime
         currTime = currFrame.header.seconds_from_epoch
         currFrame = currFrame.header.frame_in_second
         

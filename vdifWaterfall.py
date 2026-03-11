@@ -72,12 +72,12 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
     fh.seek(-vdif.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
-    while t0.datetime < tStart or srate != sample_rate:
+    while t0.utc_datetime < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
         t0 = junkFrame.time
-    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, junkFrame.time.datetime, srate))
-    tDiff = t0.datetime - tStart
+    print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, junkFrame.time.utc_datetime, srate))
+    tDiff = t0.utc_datetime - tStart
     try:
         duration = duration - tDiff.total_seconds()
     except:
@@ -130,7 +130,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
             fh.seek(vdif.FRAME_SIZE, 1)
             
     # Date & Central Frequency
-    beginDate = junkFrame.time.datetime
+    beginDate = junkFrame.time.utc_datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in range(4):
@@ -266,12 +266,12 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
     fh.seek(-vdif.FRAME_SIZE, 1)
     
     print('Looking for #%i at %s with sample rate %.1f Hz...' % (obsID, tStart, sample_rate))
-    while t0.datetime < tStart or srate != sample_rate:
+    while t0.utc_datetime < tStart or srate != sample_rate:
         junkFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
         srate = junkFrame.sample_rate
         t0 = junkFrame.time
     print('... Found #%i at %s with sample rate %.1f Hz' % (obsID, datetime.fromtimestamp(t0, tz=timezone.utc), srate))
-    tDiff = t0.datetime - tStart
+    tDiff = t0.utc_datetime - tStart
     try:
         duration = duration - tDiff.total_seconds()
     except:
@@ -324,7 +324,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
             fh.seek(vdif.FRAME_SIZE, 1)
             
     # Date & Central Frequency
-    beginDate = junkFrame.time.datetime
+    beginDate = junkFrame.time.utc_datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in range(4):
@@ -548,7 +548,7 @@ def main(args):
     
     # Date & Central Frequency
     t1  = junkFrame.time
-    beginDate = junkFrame.time.datetime
+    beginDate = junkFrame.time.utc_datetime
     central_freq1 = 0.0
     central_freq2 = 0.0
     for i in range(4):
@@ -619,7 +619,7 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59), args.duration, srate)
+    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59,tz=timezone.utc), args.duration, srate)
     hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):
