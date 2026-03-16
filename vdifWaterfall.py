@@ -1,4 +1,4 @@
- lsl.misc.datetimeutils #!/usr/bin/env python3
+#!/usr/bin/env python3
 
 """
 Given a VDIF file, plot the time averaged spectra for each beam output over some 
