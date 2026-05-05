@@ -19,19 +19,19 @@ from datetime import datetime
 from lsl import astro
 from lsl.common import stations
 from lsl.reader import base, drx, drx8, vdif
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 from lsl.common.mcs import datetime_to_mjdmpm, delay_to_mcsd, mcsd_to_delay
 from lsl.common.metabundle import get_command_script
-from lsl.common.metabundleADP import get_command_script as get_command_scriptADP
 from lsl.misc.beamformer import calc_delay
 
 
-__version__ = '1.2'
+__version__ = '1.3'
 __all__ = ['get_numa_node_count', 'get_numa_support', 'get_gpu_count',
-           'get_gpu_support', 'InterProcessLock', 'EnhancedFixedBody',
-           'EnhancedSun', 'EnhancedJupiter', 'multi_column_print',
-           'best_freq_units', 'parse_time_string', 'nsround',
-           'read_correlator_configuration', 'get_better_time', 'PolyCos']
+           'get_gpu_support', 'LOCK_PATH', 'InterProcessLock',
+           'EnhancedFixedBody', 'EnhancedSun', 'EnhancedJupiter',
+           'multi_column_print', 'best_freq_units', 'parse_time_string',
+           'nsround', 'read_correlator_configuration', 'get_better_time',
+           'PolyCos']
 
 
 # List of bright radio sources and pulsars in PyEphem format
@@ -109,6 +109,12 @@ def get_gpu_support():
         status = True
         
     return status
+
+
+# Path that can be used with an InterProcessLock
+LOCK_PATH = '/dev/shm'
+if not os.path.exists(LOCK_PATH):
+    LOCK_PATH = '/tmp'
 
 
 class InterProcessLock(object):

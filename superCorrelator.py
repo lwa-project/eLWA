@@ -11,6 +11,7 @@ import time
 import ephem
 import numpy as np
 import getpass
+import logging
 import argparse
 from datetime import datetime
 
@@ -28,7 +29,7 @@ from lsl.correlator.uvutils import compute_uvw
 from lsl.reader import drx, drx8, vdif, errors
 from lsl.reader.buffer import DRXFrameBuffer, DRX8FrameBuffer, VDIFFrameBuffer
 from lsl.reader.base import CI8
-from lsl.logger import LSL_LOGGER, enable_file_logging
+from lsl.logger import LSL_LOGGER, set_log_level, enable_file_logging
 
 import jones
 import multirate
@@ -39,6 +40,8 @@ def main(args):
     # Setup logging
     if args.logfile is not None:
         enable_file_logging(args.logfile)
+    if args.verbose:
+        set_log_level(logging.DEBUG)
         
     # Build up the station
     site = stations.lwa1
@@ -365,7 +368,7 @@ def main(args):
         drxRef  = [0 for j in range(nDRXInputs*2) ]
         
         # Read in the data
-        with InterProcessLock(f"/dev/shm/sc-reader-{username}") as lock:
+        with InterProcessLock(os.path.join(LOCK_PATH, f"sc-reader-{username}")) as lock:
             try:
                 dataV[...] = 0              # pylint: disable=possibly-used-before-assignment,used-before-assignment
                 dataD['re'][...] = 0        # pylint: disable=possibly-used-before-assignment,used-before-assignment
@@ -473,7 +476,7 @@ def main(args):
         ## Initial time tags for each stream and the relative start time for each stream
         if args.verbose:
             ### TT = time tag
-            LSL_LOGGER.info('TT - Start', tStartB)
+            LSL_LOGGER.debug(f"TT - Start {tStartB}")
         tStartMin = min([sec for sec,frac in tStartB])
         tStartRel = [(sec-tStartMin)+frac for sec,frac in tStartB]
         
@@ -482,7 +485,7 @@ def main(args):
         for j in range(nVDIFInputs+nDRXInputs):
             offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
         if args.verbose:
-            LSL_LOGGER.info('TT - Offsets', offsets)
+            LSL_LOGGER.debug(f"TT - Offsets {offsets}")
             
         ## Roll the data to apply the sample offsets and then trim the ends to get rid 
         ## of the rolled part
@@ -523,12 +526,12 @@ def main(args):
         ## Apply the corrections to the original time tags and report on the sub-sample
         ## residuals
         if args.verbose:
-            LSL_LOGGER.info('TT - Adjusted', tStartB)
+            LSL_LOGGER.debug(f"TT - Adjusted {tStartB}")
         tStartMinSec  = min([sec  for sec,frac in tStartB])
         tStartMinFrac = min([frac for sec,frac in tStartB])
         tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
         if args.verbose:
-            LSL_LOGGER.info('TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel])
+            LSL_LOGGER.debug(f"TT - Residual {['%.1f ns' % (r*1e9,) for r in tStartRel]}")
         for k in range(len(tStartRel)):
             antennas[2*k+0].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
             antennas[2*k+1].cable.clock_offset -= tStartRel[k] - oldStartRel[k]

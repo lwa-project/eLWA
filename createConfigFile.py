@@ -18,8 +18,9 @@ from astropy import units as astrounits
 from astropy.coordinates import EarthLocation, AltAz, ITRS
 
 from lsl.reader import drx, drx8, vdif, errors
-from lsl.common import metabundle, metabundleADP
+from lsl.common import metabundle
 from lsl.common.mcs import mjdmpm_to_datetime
+from lsl.logger import LSL_LOGGER
 
 from utils import *
 from get_vla_ant_pos import database
@@ -92,8 +93,7 @@ def main(args):
     try:
         db = database('params')
     except Exception as e:
-        sys.stderr.write(f"WARNING: {str(e)}")
-        sys.stderr.flush()
+        LSL_LOGGER.warning(f"WARNING: {str(e)}")
         db = None
         
     # Pass 1 - Get the LWA metadata so we know where we are pointed
@@ -110,11 +110,8 @@ def main(args):
             try:
                 ## Extract the SDF
                 if len(sources) == 0:
-                    try:
-                        sdf = metabundle.get_sdf(filename)
-                    except Exception as e:
-                        sdf = metabundleADP.get_sdf(filename)
-                        
+                    sdf = metabundle.get_sdf(filename)
+                    
                     context['observer'] = sdf.observer.name
                     context['project'] = sdf.id
                     context['session'] = sdf.sessions[0].id
@@ -134,12 +131,12 @@ def main(args):
                     if mtch is not None:
                         corr_basis = mtch.group('basis')
                     else:
-                        sys.stderr.write("WARNING: No output correlation polarization basis defined, assuming 'linear'.\n")
+                        LSL_LOGGER.warning("WARNING: No output correlation polarization basis defined, assuming 'linear'.\n")
                         corr_basis = 'linear'
                     if corr_channels is not None and corr_inttime is not None:
                         setup = {'channels': corr_channels, 'inttime': corr_inttime, 'basis': corr_basis}
                     else:
-                        sys.stderr.write("WARNING: No or incomplete correlation configuration defined, setting to be defined at correlation time.\n")
+                        LSL_LOGGER.warning("WARNING: No or incomplete correlation configuration defined, setting to be defined at correlation time.\n")
                         
                     for o,obs in enumerate(sdf.sessions[0].observations):
                         if type(obs).__name__ == 'Solar':
@@ -196,7 +193,7 @@ def main(args):
                         for alt_id in sorted(alts.keys()):
                             alt_name, alt_ra, alt_dec = alts[alt_id]
                             if alt_name is None or alt_ra is None or alt_dec is None:
-                                sys.stderr.write("WARNING: Incomplete alternate phase center %i, skipping.\n" % alt_id)
+                                LSL_LOGGER.warning("WARNING: Incomplete alternate phase center %i, skipping.\n" % alt_id)
                             else:
                                 sources.append( {'name':alt_name, 'ra2000':alt_ra, 'dec2000':alt_dec, 'start':tStart, 'stop':tStop} )
                                 
@@ -214,23 +211,15 @@ def main(args):
                     site = np.array([sta.x.to('m').value, sta.y.to('m').value, sta.z.to('m').value])
                 else:
                     try:
-                        sstyle = metabundle.get_style(filename)
-                        if sstyle.endswith('metabundleDP'):
-                            site = 'LWA1'
-                        elif sstyle.endswith('metabundleADP'):
-                            site = 'LWA-SV'
-                        elif sstyle.endswith('metabundleNDP'):
-                            site = 'LWA-NA'
-                        else:
-                            raise ValueError("This should not happen")
+                        site = metabundle.get_mcs_hostname(filename)
+                        site = site.replace('lwa', 'LWA-').replace('LWA-1', 'LWA1').upper()
                     except (RuntimeError, ValueError):
                         site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
                     lwasite[fileInfo[obsID]['tag']] = site
                     
             except Exception as e:
-                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
-                sys.stderr.flush()
+                LSL_LOGGER.error(f"ERROR reading metadata file: {str(e)}\n")
                 
     # Setup what we need to write out a configuration file
     corrConfig = {'context': context, 'setup': setup, 
@@ -276,7 +265,7 @@ def main(args):
                             break
                             
                     if not found_site:
-                        sys.stderr.write(f"WARNING: Unknown LWA site '{sitename}', no clock offset applied")
+                        LSL_LOGGER.warning(f"WARNING: Unknown LWA site '{sitename}', no clock offset applied")
                         
                 else:
                     if sitename == 'LWA1':
@@ -322,8 +311,7 @@ def main(args):
                 tStartAlt = (frames[-1].time - 1023//len(streams)*4096/frames[-1].sample_rate).utc_datetime
                 tStartDiff = tStart - tStartAlt
                 if abs(tStartDiff) > timedelta(microseconds=10000):
-                    sys.stderr.write(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
-                    sys.stderr.flush()
+                    LSL_LOGGER.warning(f"WARNING: Stale data found at the start of '{os.path.basename(filename)}', ignoring\n")
                     tStart = tStartAlt
                 ### ^ Adjustment to the start time to deal with occasional problems
                 ###   with stale data in the DR buffers at LWA-SV
@@ -359,8 +347,7 @@ def main(args):
                                               'beam':beam, 'tstart': tStart, 'tstop': tStop, 'freq':(freq1,freq2)} )
                                         
             except Exception as e:
-                sys.stderr.write(f"ERROR reading DRX/DRX8 file: {str(e)}\n")
-                sys.stderr.flush()
+                LSL_LOGGER.error(f"ERROR reading DRX/DRX8 file: {str(e)}\n")
                 
         elif ext == '.vdif':
             ## VDIF
@@ -430,8 +417,7 @@ def main(args):
                                               'pad': pad, 'tstart': tStart, 'tstop': tStop, 'freq':header['OBSFREQ']} )
                                         
             except Exception as e:
-                sys.stderr.write(f"ERROR reading VDIF file: {str(e)}\n")
-                sys.stderr.flush()
+                LSL_LOGGER.error(f"ERROR reading VDIF file: {str(e)}\n")
                 
         elif ext == '.tgz':
             ## LWA Metadata
@@ -442,8 +428,7 @@ def main(args):
                     metadata[fileInfo[obsID]['tag']] = filename
                     
             except Exception as e:
-                sys.stderr.write(f"ERROR reading metadata file: {str(e)}\n")
-                sys.stderr.flush()
+                LSL_LOGGER.error(f"ERROR reading metadata file: {str(e)}\n")
                 
         # Done
         fh.close()
@@ -497,7 +482,7 @@ def main(args):
     
     # VDIF/DRX/DRX8 warning check/report
     if vdifRefFile is not None and isDRX and not drxFound:
-        sys.stderr.write("WARNING: DRX/DRX8 files provided but none overlapped with VDIF data")
+        LSL_LOGGER.warning("WARNING: DRX/DRX8 files provided but none overlapped with VDIF data")
         
     # Duplicate antenna check
     antCounts = {}
@@ -508,7 +493,7 @@ def main(args):
             antCounts[cinp['antenna']] = 1
     for ant in antCounts.keys():
         if antCounts[ant] != 1:
-            sys.stderr.write(f"WARNING: Antenna '{ant}' is defined {antCounts[ant]} times")
+            LSL_LOGGER.warning(f"WARNING: Antenna '{ant}' is defined {antCounts[ant]} times")
             
     # Update the file offsets to get things lined up better
     tMax = max([cinp['tstart'] for cinp in corrConfig['inputs']])
@@ -643,8 +628,7 @@ def main(args):
                 fh.write("  MetaData         %s\n" % metaname)
             except KeyError:
                 if cinp['type'] in ('DRX', 'DRX8'):
-                    sys.stderr.write("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(cinp['file']), s+1))
-                    sys.stderr.flush()
+                    LSL_LOGGER.warning("WARNING: No metadata found for '%s', source %i\n" % (os.path.basename(cinp['file']), s+1))
                 pass
             fh.write("  Type             %s\n" % cinp['type'])
             fh.write("  Antenna          %s\n" % cinp['antenna'])

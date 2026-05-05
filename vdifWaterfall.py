@@ -181,7 +181,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             except errors.EOFError:
                 done = True
                 break
@@ -213,7 +213,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.SpecMaster(data, LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,LFFT:]
             
             l = 0
@@ -223,8 +223,8 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
                     l += 1
                     
         else:
-            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.SpecMaster(data[:2,:], LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.SpecMaster(data[2:,:], LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,LFFT:], tempSpec2[:,LFFT:]
             
             for l,p in enumerate(data_products):
@@ -375,7 +375,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         for j in range(framesWork):
             # Read in the next frame and anticipate any problems that could occur
             try:
-                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0, verbose=False)
+                cFrame = vdif.read_frame(fh, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
             except errors.EOFError:
                 done = True
                 break
@@ -407,7 +407,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
         # Calculate the spectra for this block of data and then weight the results by 
         # the total number of frames read.  This is needed to keep the averages correct.
         if clip1 == clip2:
-            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec1 = fxc.StokesMaster(data, antennas, LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
             freq, tempSpec1 = freq[LFFT:], tempSpec1[:,:,LFFT:]
             
             for t in (1,2):
@@ -415,8 +415,8 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                     dataSets['obs%i-%s%i' % (obsID, p, t)][i,:] = tempSpec1[l,t-1,:]
                     
         else:
-            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip1)
-            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=args.window, verbose=args.verbose, sample_rate=srate, clip_level=clip2)
+            freq, tempSpec1 = fxc.StokesMaster(data[:2,:], antennas[:2], LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip1)
+            freq, tempSpec2 = fxc.StokesMaster(data[2:,:], antennas[2:], LFFT=2*LFFT, window=args.window, sample_rate=srate, clip_level=clip2)
             freq, tempSpec1, tempSpec2 = freq[LFFT:], tempSpec1[:,:,LFFT:], tempSpec2[:,:,LFFT:]
             
             for l,p in enumerate(data_products):

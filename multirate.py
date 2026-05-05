@@ -9,7 +9,7 @@ import numpy as np
 from astropy.constants import c as vLight
 from astropy.coordinates import AltAz, SkyCoord
 
-from lsl.common import dp as dp_common
+from lsl.common import ndp as ndp_common
 from lsl.correlator import _core
 from lsl.correlator.fx import pol_to_pols, null_window
 
@@ -39,7 +39,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     
     # Create a reasonable mock setup for computing the delays
     if sample_rate is None:
-        sample_rate = dp_common.fS
+        sample_rate = ndp_common.fS
     freq = np.fft.fftfreq(LFFT, d=1.0/sample_rate)
     freq += float(central_freq)
     freq = np.fft.fftshift(freq)
@@ -82,7 +82,7 @@ def get_optimal_delay_padding(antennaSet1, antennaSet2, LFFT=64, sample_rate=Non
     return -minDelay
 
 
-def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate F engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -113,7 +113,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
         doFFTShift = False
         
     if sample_rate is None:
-        sample_rate = dp_common.fS
+        sample_rate = ndp_common.fS
     freq = np.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
         freq = np.fft.fftshift(freq)
@@ -166,7 +166,7 @@ def fengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=F
     return freq, signalsF1, validF1, delays1
 
 
-def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
+def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, window=null_window, sample_rate=None, central_freq=0.0, pol='XX', gain_correct=False, return_baselines=False, clip_level=0, phase_center='z', delayPadding=40e-6):
     """
     Multi-rate PFB F-engine based on the lsl.correlator.fx.FXMaster() function.
     """
@@ -197,7 +197,7 @@ def pfbengine(signals, antennas, LFFT=64, overlap=1, include_auto=False, verbose
         doFFTShift = False
         
     if sample_rate is None:
-        sample_rate = dp_common.fS
+        sample_rate = ndp_common.fS
     freq = np.fft.fftfreq(lFactor*LFFT, d=1.0/sample_rate) + central_freq
     if doFFTShift:
         freq = np.fft.fftshift(freq)
