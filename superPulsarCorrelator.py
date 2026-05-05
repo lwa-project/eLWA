@@ -29,6 +29,7 @@ from lsl.reader import drx, drx8, vdif, errors
 from lsl.reader.base import FrameTimestamp
 from lsl.reader.buffer import DRXFrameBuffer, DRX8FrameBuffer, VDIFFrameBuffer
 from lsl.reader.base import CI8
+from lsl.logger import LSL_LOGGER, enable_file_logging
 
 from lsl.misc.dedispersion import delay as dispDelay
 
@@ -38,6 +39,10 @@ from utils import *
 
 
 def main(args):
+    # Setup logging
+    if args.logfile is not None:
+        enable_file_logging(args.logfile)
+        
     # Build up the station
     site = stations.lwa1
     ## Updated 2018/3/8 with solutions from the 2018 Feb 28 eLWA
@@ -52,7 +57,7 @@ def main(args):
     try:
         args.fft_length = config['channels']
         args.dump_time = config['inttime']
-        print(f"NOTE: Set FFT length to {args.fft_length} and dump time to {args.dump_time:.3f} s per user defined configuration")
+        LSL_LOGGER.info(f"NOTE: Set FFT length to {args.fft_length} and dump time to {args.dump_time:.3f} s per user defined configuration")
     except (TypeError, KeyError):
         pass
     if args.duration == 0.0:
@@ -71,9 +76,9 @@ def main(args):
         rawPolycos = fh.readlines()
         
     # Antenna report
-    print("Antennas:")
+    LSL_LOGGER.info("Antennas:")
     for ant in antennas:
-        print(f"  Antenna {ant.id}: Stand {ant.stand.id}, Pol. {ant.pol} ({ant.cable.clock_offset*1e6:.3f} us offset)")
+        LSL_LOGGER.info(f"  Antenna {ant.id}: Stand {ant.stand.id}, Pol. {ant.pol} ({ant.cable.clock_offset*1e6:.3f} us offset)")
         
     # Open and align the files
     fh = []
@@ -95,8 +100,8 @@ def main(args):
         antennas[2*i+1].cable.clock_offset -= go
         grossOffsets.append( -go )
         if go != 0:
-            print(f"Correcting time tags for gross offset of {grossOffsets[i]*1e6:.3f} us")
-            print(f"  Antenna clock offsets are now at {antennas[2*i+0].cable.clock_offset*1e6:.3f} us, {antennas[2*i+1].cable.clock_offset*1e6:.3f} us")
+            LSL_LOGGER.info(f"Correcting time tags for gross offset of {grossOffsets[i]*1e6:.3f} us")
+            LSL_LOGGER.info(f"  Antenna clock offsets are now at {antennas[2*i+0].cable.clock_offset*1e6:.3f} us, {antennas[2*i+1].cable.clock_offset*1e6:.3f} us")
             
         if readers[i] is vdif:
             header = vdif.read_guppi_header(fh[i])
@@ -126,8 +131,8 @@ def main(args):
             
         skip = args.skip + foffset
         if skip != 0:
-            print(f"Skipping forward {skip:.3f} s")
-            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
+            LSL_LOGGER.info(f"Skipping forward {skip:.3f} s")
+            LSL_LOGGER.info(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
             
             offset = int(skip*srate[i] / readers[i].DATA_LENGTH)
             fh[i].seek(beampols[i]*readers[i].FRAME_SIZE*offset, 1)
@@ -137,7 +142,7 @@ def main(args):
                 junkFrame = readers[i].read_frame(fh[i])
             fh[i].seek(-readers[i].FRAME_SIZE, 1)
             
-            print(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
+            LSL_LOGGER.info(f"-> {float(junkFrame.time):.6f} ({junkFrame.time.utc_datetime})")
             
         tStart.append( junkFrame.time + grossOffsets[i] )
         
@@ -209,7 +214,7 @@ def main(args):
                     try:
                         junkFrame = readers[i].read_frame(fh[i], central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                     except errors.SyncError:
-                        print(f"Error - VDIF @ {i}")
+                        LSL_LOGGER.warning(f"Error - VDIF @ {i}")
                         fh[i].seek(readers[i].FRAME_SIZE, 1)
                         continue
             else:
@@ -218,7 +223,7 @@ def main(args):
             j += beampols[i]
             
         jTime = j*readers[i].DATA_LENGTH/srate[i]/beampols[i]
-        print(f"Shifted beam {beams[i]} data by {j} frames ({jTime:.4f} s)")
+        LSL_LOGGER.info(f"Shifted beam {beams[i]} data by {j} frames ({jTime:.4f} s)")
         
     # Set integration time
     tRead = 1.0
@@ -266,42 +271,42 @@ def main(args):
         
     # Report
     for i in range(len(filenames)):
-        print(f"Filename: {os.path.basename(filenames[i])}")
-        print(f"  Type/Reader: {readers[i].__name__}")
-        print(f"  Date of First Frame: {beginDates[i]}")
-        print(f"  Sample Rate: {srate[i]} Hz")
-        print(f"  Tuning 1: {cFreqs[i][0]:.3f} Hz")
-        print(f"  Tuning 2: {cFreqs[i][1]:.3f} Hz")
-        print(f"  Bit Depth: {bitDepths[i]}")
-    print("  ===")
-    print("  Phase Center:")
-    print(f"    Name: {refSrc.name}")
-    print(f"    RA: {str(refSrc._ra)}")
-    print(f"    Dec: {str(refSrc._dec)}")
-    print("  ===")
-    print(f"  Data Read Time: {tRead:.3f} s")
-    print(f"  Data Reads in File: {int(tFile/tRead)}")
-    print(" ")
+        LSL_LOGGER.info(f"Filename: {os.path.basename(filenames[i])}")
+        LSL_LOGGER.info(f"  Type/Reader: {readers[i].__name__}")
+        LSL_LOGGER.info(f"  Date of First Frame: {beginDates[i]}")
+        LSL_LOGGER.info(f"  Sample Rate: {srate[i]} Hz")
+        LSL_LOGGER.info(f"  Tuning 1: {cFreqs[i][0]:.3f} Hz")
+        LSL_LOGGER.info(f"  Tuning 2: {cFreqs[i][1]:.3f} Hz")
+        LSL_LOGGER.info(f"  Bit Depth: {bitDepths[i]}")
+    LSL_LOGGER.info("  ===")
+    LSL_LOGGER.info("  Phase Center:")
+    LSL_LOGGER.info(f"    Name: {refSrc.name}")
+    LSL_LOGGER.info(f"    RA: {str(refSrc._ra)}")
+    LSL_LOGGER.info(f"    Dec: {str(refSrc._dec)}")
+    LSL_LOGGER.info("  ===")
+    LSL_LOGGER.info(f"  Data Read Time: {tRead:.3f} s")
+    LSL_LOGGER.info(f"  Data Reads in File: {int(tFile/tRead)}")
+    LSL_LOGGER.info(" ")
     
     nVDIFInputs = sum([1 for reader in readers if reader is vdif])
     nDRXInputs = sum([1 for reader in readers if not reader is vdif])
-    print(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX or DRX8 input streams")
-    print(" ")
+    LSL_LOGGER.info(f"Processing {nVDIFInputs} VDIF and {nDRXInputs} DRX or DRX8 input streams")
+    LSL_LOGGER.info(" ")
     
     nFramesV = int(round(tRead*srate[0]/readers[0].DATA_LENGTH))
     framesPerSecondV = int(srate[0] / readers[0].DATA_LENGTH)
     nFramesB = nFrames
     framesPerSecondB = srate[-1] / readers[-1].DATA_LENGTH
     if nVDIFInputs:
-        print(f"VDIF Frames/s: {framesPerSecondV:.6f}")
-        print(f"VDIF Frames/Integration: {nFramesV}")
+        LSL_LOGGER.info(f"VDIF Frames/s: {framesPerSecondV:.6f}")
+        LSL_LOGGER.info(f"VDIF Frames/Integration: {nFramesV}")
     if nDRXInputs:
-        print(f"DRX Frames/s: {framesPerSecondB:.6f}")
-        print(f"DRX Frames/Integration: {nFramesB}")
+        LSL_LOGGER.info(f"DRX Frames/s: {framesPerSecondB:.6f}")
+        LSL_LOGGER.info(f"DRX Frames/Integration: {nFramesB}")
     if nVDIFInputs*nDRXInputs:
-        print(f"Sample Count Ratio: {1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
-        print(f"Sample Rate Ratio: {srate[0]/srate[-1]:.6f}")
-    print(" ")
+        LSL_LOGGER.info(f"Sample Count Ratio: {1.0*(nFramesV*readers[0].DATA_LENGTH)/(nFramesB*4096):.6f}")
+        LSL_LOGGER.info(f"Sample Rate Ratio: {srate[0]/srate[-1]:.6f}")
+    LSL_LOGGER.info(" ")
     
     vdifLFFT = LFFT * (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = vdifLFFT * srate[-1] / srate[0]
@@ -311,10 +316,10 @@ def main(args):
     vdifLFFT = vdifLFFT // (2 if nVDIFInputs else 1)	# Fix to deal with LWA-only correlations
     drxLFFT = int(drxLFFT)
     if nVDIFInputs:
-        print(f"VDIF Transform Size: {vdifLFFT}")
+        LSL_LOGGER.info(f"VDIF Transform Size: {vdifLFFT}")
     if nDRXInputs:
-        print(f"DRX Transform Size: {drxLFFT}")
-    print(" ")
+        LSL_LOGGER.info(f"DRX Transform Size: {drxLFFT}")
+    LSL_LOGGER.info(" ")
     
     vdifPivot = 1
     if abs(cFreqs[0][0] - cFreqs[-1][1]) < abs(cFreqs[0][0] - cFreqs[-1][0]):
@@ -322,10 +327,10 @@ def main(args):
     if nVDIFInputs == 0 and args.which != 0:
         vdifPivot = args.which
     if nVDIFInputs*nDRXInputs:
-        print(f"VDIF appears to correspond to tuning #{vdifPivot} in DRX")
+        LSL_LOGGER.info(f"VDIF appears to correspond to tuning #{vdifPivot} in DRX")
     elif nDRXInputs:
-        print(f"Correlating DRX tuning #{vdifPivot}")
-    print(" ")
+        LSL_LOGGER.info(f"Correlating DRX tuning #{vdifPivot}")
+    LSL_LOGGER.info(" ")
     
     nChunks = int(tFile/tRead)
     tSub = args.subint_time
@@ -335,9 +340,9 @@ def main(args):
     nDump = int(tDump / tSub)
     tDump = nDump * tSub
     nInt = int((nChunks*tRead) / tDump)
-    print(f"Sub-integration time is: {tSub:.3f} s")
-    print(f"Integration (dump) time is: {tDump:.3f} s")
-    print(" ")
+    LSL_LOGGER.info(f"Sub-integration time is: {tSub:.3f} s")
+    LSL_LOGGER.info(f"Integration (dump) time is: {tDump:.3f} s")
+    LSL_LOGGER.info(" ")
     
     if args.gpu is not None:
         try:
@@ -346,7 +351,7 @@ def main(args):
             xcupy.set_memory_usage_limit(1.5*1024**3)
             multirate.xengine = xcupy.xengine
             multirate.xengine_full = xcupy.xengine_full
-            print(f"Loaded GPU X-engine support on GPU #{args.gpu} with {xcupy.get_memory_usage_limit()/1024.0**3:.2f} GB of device memory")
+            LSL_LOGGER.info(f"Loaded GPU X-engine support on GPU #{args.gpu} with {xcupy.get_memory_usage_limit()/1024.0**3:.2f} GB of device memory")
         except ImportError as e:
             pass
             
@@ -362,13 +367,13 @@ def main(args):
             tSub_scale += 1
             nProfileBins = int(round(pulsarPeriod / (tSub_scale*tSub)))
     profileBins = np.linspace(0, 1-1.0/nProfileBins, nProfileBins)
-    print(f"Pulsar frequency: {refSrc.frequency:.6f} Hz")
-    print(f"Pulsar period: {pulsarPeriod:.6f} s")
-    print(f"Number of profile bins: {nProfileBins}")
-    print(f"Phase coverage per bin: {profileBins[1]-profileBins[0]:.3f}")
+    LSL_LOGGER.info(f"Pulsar frequency: {refSrc.frequency:.6f} Hz")
+    LSL_LOGGER.info(f"Pulsar period: {pulsarPeriod:.6f} s")
+    LSL_LOGGER.info(f"Number of profile bins: {nProfileBins}")
+    LSL_LOGGER.info(f"Phase coverage per bin: {profileBins[1]-profileBins[0]:.3f}")
     if pulsarPeriod >= tDump:
-        print("WARNING:  Pulsar period is longer than the integration time!")
-    print(" ")
+        LSL_LOGGER.info("WARNING:  Pulsar period is longer than the integration time!")
+    LSL_LOGGER.info(" ")
     
     pulsarDM, pulsarDoppler = refSrc.dm, refSrc.doppler
     oFreq = np.fft.fftfreq(drxLFFT, d=1.0/srate[-1]) + cFreqs[-1][vdifPivot-1]
@@ -424,7 +429,7 @@ def main(args):
                             cFrame = readers[j].read_frame_i8(f, central_freq=header['OBSFREQ'], sample_rate=header['OBSBW']*2.0)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
-                            print(f"Error - VDIF @ {i}, {j}")
+                            LSL_LOGGER.warning(f"Error - VDIF @ {i}, {j}")
                             f.seek(readers[j].FRAME_SIZE, 1)
                             continue
                         except errors.EOFError:
@@ -468,7 +473,7 @@ def main(args):
                             cFrame = readers[j].read_frame_ci8(f)
                             buffers[j].append( cFrame )
                         except errors.SyncError:
-                            print(f"Error - {'DRX' if readers[j] is drx else 'DRX8'} @ {i}, {j}")
+                            LSL_LOGGER.warning(f"Error - {'DRX' if readers[j] is drx else 'DRX8'} @ {i}, {j}")
                             continue
                         except errors.EOFError:
                             done = True
@@ -508,13 +513,13 @@ def main(args):
                                 k = beampols[j]*nFramesD
                                 break
                                 
-        print(f"RR - Read finished in {time.time()-wallTime:.3f} s for {tRead:.3f} s of data")
+        LSL_LOGGER.info(f"RR - Read finished in {time.time()-wallTime:.3f} s for {tRead:.3f} s of data")
         
         # Time tag alignment (sample based)
         ## Initial time tags for each stream and the relative start time for each stream
         if args.verbose:
             ### TT = time tag
-            print('TT - Start', tStartB)
+            LSL_LOGGER.info('TT - Start', tStartB)
         tStartMin = min([sec for sec,frac in tStartB])
         tStartRel = [(sec-tStartMin)+frac for sec,frac in tStartB]
         
@@ -523,7 +528,7 @@ def main(args):
         for j in range(nVDIFInputs+nDRXInputs):
             offsets.append( int( round(nsround(max(tStartRel) - tStartRel[j])*srate[j]) ) )
         if args.verbose:
-            print('TT - Offsets', offsets)
+            LSL_LOGGER.info('TT - Offsets', offsets)
             
         ## Roll the data to apply the sample offsets and then trim the ends to get rid 
         ## of the rolled part
@@ -564,12 +569,12 @@ def main(args):
         ## Apply the corrections to the original time tags and report on the sub-sample
         ## residuals
         if args.verbose:
-            print('TT - Adjusted', tStartB)
+            LSL_LOGGER.info('TT - Adjusted', tStartB)
         tStartMinSec  = min([sec  for sec,frac in tStartB])
         tStartMinFrac = min([frac for sec,frac in tStartB])
         tStartRel = [(sec-tStartMinSec)+(frac-tStartMinFrac) for sec,frac in tStartB]
         if args.verbose:
-            print('TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel])
+            LSL_LOGGER.info('TT - Residual', ["%.1f ns" % (r*1e9,) for r in tStartRel])
         for k in range(len(tStartRel)):
             antennas[2*k+0].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
             antennas[2*k+1].cable.clock_offset -= tStartRel[k] - oldStartRel[k]
@@ -660,7 +665,7 @@ def main(args):
                 if i == 0 and j == 0:
                     ## FC = frequency correction
                     tv,tu = best_freq_units(subChanFreqOffset)
-                    print(f"FC - Applying fringe rotation rate of {tv:.3f} {tu} to the DRX data")
+                    LSL_LOGGER.info(f"FC - Applying fringe rotation rate of {tv:.3f} {tu} to the DRX data")
                     
                 freqD += subChanFreqOffset
                 for w in range(feoD.shape[2]):
@@ -723,10 +728,10 @@ def main(args):
                         
                         ## FS = frequency selection
                         tv,tu = best_freq_units(freqV[1]-freqV[0])
-                        print(f"FS - Found {len(goodV)}, {tv:.3f} {tu} overalapping channels")
+                        LSL_LOGGER.info(f"FS - Found {len(goodV)}, {tv:.3f} {tu} overalapping channels")
                         tv,tu = best_freq_units(freqV[goodV[-1]]-freqV[goodV[0]])
-                        print(f"FS - Bandwidth is {tv:.3f} {tu}")
-                        print(f"FS - Channels span {freqV[goodV[0]]/1e6:.3f} MHz to {freqV[goodV[-1]]/1e6:.3f} MHz")
+                        LSL_LOGGER.info(f"FS - Bandwidth is {tv:.3f} {tu}")
+                        LSL_LOGGER.info(f"FS - Channels span {freqV[goodV[0]]/1e6:.3f} MHz to {freqV[goodV[-1]]/1e6:.3f} MHz")
                             
                     except AssertionError:
                         raise RuntimeError(f"Cannot find a common frequency set between the input data: offsets range between {fd.min():.3f} Hz and {fd.max():.3f} Hz, expected {subChanFreqOffset:.3f} Hz")
@@ -826,7 +831,7 @@ def main(args):
             #summary = [None for i in profileBins[:-2]]
             #for bestBin in bestBins:
             #	summary[bestBin] = (len(bestBins[bestBin]), subIntCount[bestBin])
-            #print(summary)
+            #LSL_LOGGER.info(summary)
             
             ### Accumulate
             for bestBin in bestBins:
@@ -882,18 +887,18 @@ def main(args):
                                 vis1YX=visYX[bestBin], vis1YY=visYY[bestBin], 
                                 tStart=np.mean(np.array(subIntTimes[bestBin], dtype=np.float64)), tInt=tDumpAct)
                     anyFilesSaved = True
-                    print("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, np.mean(np.array(subIntTimes[bestBin], dtype=np.float64))))
+                    LSL_LOGGER.info("CD - writing integration %i, bin %i to disk, timestamp is %.3f s" % (fileCount[bestBin], bestBin, np.mean(np.array(subIntTimes[bestBin], dtype=np.float64))))
                     if bestBin == 0:
                         if fileCount[0] == 1:
-                            print("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
-                            print("CD - effective integration time is %.3f s" % tDumpAct)
+                            LSL_LOGGER.info("CD - each integration is %.1f MB on disk" % (os.path.getsize(outfile)/1024.0**2,))
+                            LSL_LOGGER.info("CD - effective integration time is %.3f s" % tDumpAct)
                         if (fileCount[0]-1) % 25 == 0:
-                            print("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),))
+                            LSL_LOGGER.info("CD - average processing time per integration is %.3f s" % ((time.time() - wallStart)/max(fileCount),))
                             etc = (nInt - max(fileCount)) * (time.time() - wallStart)/max(fileCount)
                             eth = int(etc/60.0) // 60
                             etm = int(etc/60.0) % 60
                             ets = etc % 60
-                            print("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
+                            LSL_LOGGER.info("CD - estimated time to completion is %i:%02i:%04.1f" % (eth, etm, ets))
                             
         if done:
             break
@@ -903,8 +908,8 @@ def main(args):
     eth = int(etc/60.0) // 60
     etm = int(etc/60.0) % 60
     ets = etc % 60
-    print("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))
-    print(f"Average time per integration was {etc/max(fileCount):.3f} s")
+    LSL_LOGGER.info("Processing finished after %i:%02i:%04.1f" % (eth, etm, ets))
+    LSL_LOGGER.info(f"Average time per integration was {etc/max(fileCount):.3f} s")
     for f in fh:
         f.close()
 
@@ -937,6 +942,8 @@ if __name__ == "__main__":
                         help='enable the experimental GPU X-engine')
     parser.add_argument('-w', '--which', type=int, default=0, 
                         help='for LWA-only observations, which tuning to use for correlation; 0 = auto-select')
+    parser.add_argument('--logfile', type=str,
+                        help='filename to write logging output to')
     args = parser.parse_args()
     main(args)
     

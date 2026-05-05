@@ -195,7 +195,7 @@ def job(node, socket, configfile, options='-l 256 -t 1 -j', softwareDir=None, re
     elif options.find('-w 2') != -1 or options.find('-w2') != -1:
         outname += 'H'
     logfile = outname+".log"
-    code += run_command(f"{sys.executable} ./{corr_mode} {options} -g {outname} {configfile} > {logfile} 2>&1", node=node, socket=socket, cwd=cwd)
+    code += run_command(f"{sys.executable} ./{corr_mode} {options} -g {outname} --logfile {logfile} {configfile}", node=node, socket=socket, cwd=cwd)
     if code != 0:
         print(f"WARNING: failed to run correlator on {node} - {os.path.basename(configfile)}")
         returnQueue.put(False)
