@@ -10,7 +10,7 @@ import sys
 from lsl import astro
 from lsl.reader import vdif
 from lsl.reader import errors
-from lsl.common.dp import fS
+from lsl.common.ndp import fS
 
 from utils import *
 
