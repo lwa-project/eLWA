@@ -212,7 +212,10 @@ def main(args):
                 else:
                     try:
                         site = metabundle.get_mcs_hostname(filename)
-                        site = site.replace('lwa', 'LWA-').replace('LWA-1', 'LWA1').upper()
+                        site = site.split('-', 1)[0]
+                        if site.startswith('lwa'):
+                            site = site.replace('lwa', 'lwa-').replace('lwa-1', 'lwa1')
+                        site = site.upper()
                     except (RuntimeError, ValueError):
                         site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
