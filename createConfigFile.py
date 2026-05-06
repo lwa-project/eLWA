@@ -216,6 +216,9 @@ def main(args):
                         if site.startswith('lwa'):
                             site = site.replace('lwa', 'lwa-').replace('lwa-1', 'lwa1')
                         site = site.upper()
+                        if site == 'UNKNOWN':
+                            raise RuntimeError
+                            
                     except (RuntimeError, ValueError):
                         site = 'OVRO-LWA'
                 for obsID in fileInfo.keys():
