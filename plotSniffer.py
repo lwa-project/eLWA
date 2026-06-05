@@ -304,9 +304,9 @@ def main(args):
                     
                 best = np.where( amp == amp.max() )
                 if amp.max() > 0:
-                    bsnr = (amp[best]-amp.mean())/amp.std()
-                    bdly = delay[best[0]]*1e6
-                    brat = drate[best[1]]*1e3
+                    bsnr = (amp[best][0,]-amp.mean())/amp.std()
+                    bdly = delay[best[0][0,]*1e6
+                    brat = drate[best[1][0,]*1e3
                     
                     c = axR.scatter(subTime-ref_time, brat, c=bsnr, marker=markers[pol],
                                     cmap='gist_yarg', norm=None, vmin=3, vmax=40)
