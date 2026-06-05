@@ -190,7 +190,7 @@ def processDataBatchLinear(fh, header, antennas, tStart, duration, sample_rate, 
 
             beam,pol = cFrame.id
             aStand = pol
-            if j is 0:
+            if j == 0:
                 cTime = cFrame.time
                 
             try:
@@ -384,7 +384,7 @@ def processDataBatchStokes(fh, header, antennas, tStart, duration, sample_rate, 
                 
             beam,pol = cFrame.id
             aStand = pol
-            if j is 0:
+            if j == 0:
                 cTime = cFrame.time
                 
             try:
@@ -513,7 +513,7 @@ def main(args):
         
         ## If the offset is zero, we are done.  Otherwise, apply the offset
         ## and check the location in the file again/
-        if cOffset is 0:
+        if cOffset == 0:
             break
         fh.seek(cOffset*vdif.FRAME_SIZE, 1)
     
@@ -619,7 +619,7 @@ def main(args):
     # there are no metadata, create a single "observation" that covers the
     # whole file.
     obsList = {}
-    obsList[1] = (datetime.fromtimestamp(t1, tz=timezone.utc), datetime(2222,12,31,23,59,59, tzinfo=timezone.utc), args.duration, srate)
+    obsList[1] = (t1.utc_datetime, datetime(2222,12,31,23,59,59, tzinfo=timezone.utc), args.duration, srate)
     hdfData.fill_minimum(f, 1, beam, srate)
         
     if (not args.stokes):
@@ -640,7 +640,7 @@ def main(args):
         obs = hdfData.get_observation_set(f, o)
         
         ds['obs%i' % o] = obs
-        ds['obs%i-time' % o] = obs.create_dataset('time', (int(round(obsList[o][2]/args.average)),), 'f8')
+        ds['obs%i-time' % o] = obs['time']
         
         for t in (1,2):
             ds['obs%i-freq%i' % (o, t)] = hdfData.get_data_set(f, o, t, 'freq')
